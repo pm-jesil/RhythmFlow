@@ -1,0 +1,143 @@
+name: pmj_music_player
+description: "A modern Flutter music player application with local storage support."
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Core Flutter
+  cupertino_icons: ^1.0.8
+  flutter_screenutil: ^5.9.3
+
+  # State Management & Architecture
+  flutter_bloc: ^9.1.1
+  hydrated_bloc: ^10.1.1
+  provider: ^6.1.5+1
+  get_it: ^8.2.0
+  injectable: ^2.5.1
+
+  # Navigation
+  go_router: ^16.2.0
+
+  # Local Storage & Data
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  path_provider: ^2.1.5
+  shared_preferences: ^2.3.2
+
+  # Audio & Media - Enhanced for Music Player
+  just_audio: ^0.10.4
+  audio_service: ^0.18.18
+  audiotags: ^1.4.5
+  rxdart: ^0.28.0
+  just_audio_background: ^0.0.1-beta.17
+
+  # Network & HTTP
+  dio: ^5.9.0
+  connectivity_plus: ^6.0.5
+
+  # File System & Permissions
+  file_picker: ^10.3.2
+  permission_handler: ^12.0.1
+  device_info_plus: ^11.5.0
+
+  # Serialization & JSON
+  json_annotation: ^4.9.0
+  freezed_annotation: ^2.4.1
+
+  # UI & Animation - Enhanced for Music Player
+  animated_bottom_navigation_bar: ^1.4.0
+  flutter_animate: ^4.5.2
+  lottie: ^3.1.2
+  cached_network_image: ^3.4.1
+  flutter_staggered_grid_view: ^0.7.0
+  shimmer: ^3.0.0
+  flutter_slidable: ^4.0.0
+  pull_to_refresh: ^2.0.0
+  flutter_svg: ^2.0.10+1
+  photo_view: ^0.15.0
+  carousel_slider: ^5.1.1
+  iconify_flutter_plus: ^1.0.4
+
+  # Utilities
+  logger: ^2.6.1
+  dartz: ^0.10.1
+  equatable: ^2.0.7
+  intl: ^0.20.2
+  uuid: ^4.5.1
+  crypto: ^3.0.3
+  package_info_plus: ^8.0.2
+  device_calendar: ^4.1.0
+
+  # Performance & Optimization
+  flutter_cache_manager: ^3.3.1
+  image: ^4.1.7
+
+  # Testing (in main dependencies)
+  bloc_test: ^10.0.0
+  liquid_glass_renderer: ^0.1.1-dev.10
+
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Testing
+  mocktail: ^1.0.4
+  bloc_test: ^10.0.0
+
+  # Linting & Analysis
+  flutter_lints: ^6.0.0
+
+  # Code Generation
+  build_runner: ^2.4.11
+  freezed: ^2.5.7
+  json_serializable: ^6.7.1
+  injectable_generator: ^2.4.1
+  go_router_builder: ^2.3.0
+
+flutter:
+  uses-material-design: true
+
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/PoppinsMedium.ttf
+          weight: 500
+        - asset: assets/fonts/PoppinsLight.ttf
+          weight: 300
+        - asset: assets/fonts/PoppinsSemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/PoppinsRegular.ttf
+          weight: 400
+    - family: Urbanist
+      fonts:
+        - asset: assets/fonts/UrbanistRomanBold.ttf
+          weight: 700
+        - asset: assets/fonts/UrbanistSemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/UrbanistRomanMedium.ttf
+          weight: 500
+        - asset: assets/fonts/UrbanistRomanRegular.ttf
+          weight: 400
+    - family: EduNSWACTCursive
+      fonts:
+        - asset: assets/fonts/EduNSWACTCursive-SemiBold.ttf
+          weight: 700
+        - asset: assets/fonts/EduNSWACTCursive-Bold.ttf
+          weight: 600
+        - asset: assets/fonts/EduNSWACTCursive-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/EduNSWACTCursive-Regular.ttf
+          weight: 400
+    - family: Yu Gothic UI
+      fonts:
+        - asset: assets/fonts/YuGothicUILight.ttf
+          weight: 300

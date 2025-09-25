@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>PMJ Music Player</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>pmj_music_player</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	
+	<!-- Audio Session Configuration -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>background-processing</string>
+		<string>background-fetch</string>
+	</array>
+	
+	<!-- Audio Session Category -->
+	<key>AVAudioSessionCategory</key>
+	<string>playback</string>
+	
+	<!-- Audio Session Mode -->
+	<key>AVAudioSessionMode</key>
+	<string>default</string>
+	
+	<!-- Audio Session Options -->
+	<key>AVAudioSessionOptions</key>
+	<array>
+		<string>allowBluetooth</string>
+		<string>allowBluetoothA2DP</string>
+		<string>allowAirPlay</string>
+		<string>duckOthers</string>
+	</array>
+	
+	<!-- Microphone Usage Description -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs access to microphone for voice recording and audio features.</string>
+	
+	<!-- Camera Usage Description -->
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs access to camera for taking photos and scanning QR codes.</string>
+	
+	<!-- Photo Library Usage Description -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs access to photo library for selecting album artwork and images.</string>
+	
+	<!-- Photo Library Add Usage Description -->
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>This app needs access to save images to your photo library.</string>
+	
+	<!-- Siri Usage Description -->
+	<key>NSSiriUsageDescription</key>
+	<string>This app needs access to Siri for voice commands and integration.</string>
+	
+	<!-- Face ID Usage Description -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>This app uses Face ID for secure authentication and app protection.</string>
+	
+	<!-- Local Network Usage Description -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>This app needs access to local network for device discovery and sharing.</string>
+	
+	<!-- Bonjour Services -->
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_dartobservatory._tcp</string>
+	</array>
+	
+	<!-- App Transport Security -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		<key>NSAllowsArbitraryLoadsInWebContent</key>
+		<true/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	
+	<!-- File Sharing -->
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	
+	<!-- Document Types -->
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Audio Files</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.audio</string>
+				<string>public.mp3</string>
+				<string>public.m4a</string>
+				<string>public.aac</string>
+				<string>public.wav</string>
+				<string>public.flac</string>
+				<string>public.ogg</string>
+				<string>public.wma</string>
+				<string>public.opus</string>
+				<string>public.aiff</string>
+				<string>public.alac</string>
+			</array>
+		</dict>
+	</array>
+	
+	<!-- Imported Type Declarations -->
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>public.audio</string>
+			<key>UTTypeDescription</key>
+			<string>Audio Files</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>mp3</string>
+					<string>m4a</string>
+					<string>aac</string>
+					<string>wav</string>
+					<string>flac</string>
+					<string>ogg</string>
+					<string>wma</string>
+					<string>opus</string>
+					<string>aiff</string>
+					<string>alac</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>audio/mpeg</string>
+					<string>audio/mp4</string>
+					<string>audio/aac</string>
+					<string>audio/wav</string>
+					<string>audio/flac</string>
+					<string>audio/ogg</string>
+					<string>audio/x-ms-wma</string>
+					<string>audio/opus</string>
+					<string>audio/aiff</string>
+					<string>audio/alac</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+	
+	<!-- Exported Type Declarations -->
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.pmj.music_player.playlist</string>
+			<key>UTTypeDescription</key>
+			<string>PMJ Music Player Playlist</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>pmj</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/x-pmj-playlist</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+	
+	<!-- URL Schemes -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.pmj.music_player</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>pmjmusic</string>
+			</array>
+		</dict>
+	</array>
+	
+	<!-- Supported Interface Orientations for iPhone -->
+	<key>UISupportedInterfaceOrientations~iphone</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	
+	<!-- Status Bar Configuration -->
+	<key>UIStatusBarHidden</key>
+	<false/>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<true/>
+	
+	<!-- Privacy Settings -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	
+	<!-- Minimum OS Version -->
+	<key>MinimumOSVersion</key>
+	<string>12.0</string>
+	
+	<!-- Required Device Capabilities -->
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>armv7</string>
+		<string>audio-output</string>
+	</array>
+	
+	<!-- Supported Destinations -->
+	<key>UISupportedDestinations</key>
+	<array>
+		<string>UISupportedDestinationAirPlay</string>
+		<string>UISupportedDestinationCarPlay</string>
+	</array>
+	
+	<!-- CarPlay Configuration -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>background-processing</string>
+		<string>background-fetch</string>
+		<string>external-accessory</string>
+	</array>
+	
+	<!-- External Accessory Protocol -->
+	<key>UISupportedExternalAccessoryProtocols</key>
+	<array>
+		<string>com.apple.mfi.carplay</string>
+	</array>
+</dict>
+</plist>

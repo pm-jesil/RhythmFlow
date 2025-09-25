@@ -1,0 +1,92 @@
+import 'package:logger/logger.dart';
+
+class AppLogger {
+  final String context;
+  final Logger _logger;
+  
+  // Static configuration for log levels
+  static bool _enableTraceLogs = false;
+  static bool _enableDebugLogs = true;
+  static bool _enableInfoLogs = true;
+  static bool _enableWarningLogs = true;
+  static bool _enableErrorLogs = true;
+  static bool _enableFatalLogs = true;
+
+  AppLogger(this.context)
+      : _logger = Logger(
+          printer: PrettyPrinter(
+            methodCount: 0,
+            errorMethodCount: 8,
+            lineLength: 80,
+            colors: true,
+            printEmojis: true,
+            noBoxingByDefault: true,
+          ),
+          filter: ProductionFilter(), // Only show logs in debug mode
+        );
+
+  // Configuration methods
+  static void enableTraceLogs(bool enable) => _enableTraceLogs = enable;
+  static void enableDebugLogs(bool enable) => _enableDebugLogs = enable;
+  static void enableInfoLogs(bool enable) => _enableInfoLogs = enable;
+  static void enableWarningLogs(bool enable) => _enableWarningLogs = enable;
+  static void enableErrorLogs(bool enable) => _enableErrorLogs = enable;
+  static void enableFatalLogs(bool enable) => _enableFatalLogs = enable;
+
+  // Trace logs - 🔍 (for detailed debugging)
+  void t(dynamic message, {dynamic error, StackTrace? stackTrace}) {
+    if (_enableTraceLogs) {
+      _logger.t('$context: $message', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  // Debug logs - 🐛 (for development debugging)
+  void d(dynamic message, {dynamic error, StackTrace? stackTrace}) {
+    if (_enableDebugLogs) {
+      _logger.d('$context: $message', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  // Info logs - ℹ️ (for general information)
+  void i(dynamic message, {dynamic error, StackTrace? stackTrace}) {
+    if (_enableInfoLogs) {
+      _logger.i('$context: $message', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  // Warning logs - ⚠️ (for potential issues)
+  void w(dynamic message, {dynamic error, StackTrace? stackTrace}) {
+    if (_enableWarningLogs) {
+      _logger.w('$context: $message', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  // Error logs - ❌ (for actual errors)
+  void e(dynamic message, {dynamic error, StackTrace? stackTrace}) {
+    if (_enableErrorLogs) {
+      _logger.e('$context: $message', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  // Fatal logs - 💥 (for critical errors)
+  void f(dynamic message, {dynamic error, StackTrace? stackTrace}) {
+    if (_enableFatalLogs) {
+      _logger.f('$context: $message', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  // API logging
+  void apiRequest(String endpoint, {Map<String, dynamic>? params}) {
+    if (_enableDebugLogs) {
+      final paramsStr = params != null ? ' with params: $params' : '';
+      _logger.d('$context: 🌐 API Request - $endpoint$paramsStr');
+    }
+  }
+
+  void apiResponse(String endpoint, {int? statusCode, dynamic response}) {
+    if (_enableDebugLogs) {
+      final statusStr = statusCode != null ? ' (Status: $statusCode)' : '';
+      _logger.d('$context: 🌐 API Response - $endpoint$statusStr');
+    }
+  }
+}
