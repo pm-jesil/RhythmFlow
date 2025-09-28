@@ -12,9 +12,6 @@ _$ArtistImpl _$$ArtistImplFromJson(Map<String, dynamic> json) => _$ArtistImpl(
   bio: json['bio'] as String?,
   image: json['image'] as String?,
   songIds: (json['songIds'] as List<dynamic>).map((e) => e as String).toList(),
-  albumIds: (json['albumIds'] as List<dynamic>?)
-      ?.map((e) => e as String)
-      .toList(),
   createdAt: DateTime.parse(json['createdAt'] as String),
   updatedAt: json['updatedAt'] == null
       ? null
@@ -32,7 +29,6 @@ Map<String, dynamic> _$$ArtistImplToJson(_$ArtistImpl instance) =>
       'bio': instance.bio,
       'image': instance.image,
       'songIds': instance.songIds,
-      'albumIds': instance.albumIds,
       'createdAt': instance.createdAt.toIso8601String(),
       'updatedAt': instance.updatedAt?.toIso8601String(),
       'lastPlayed': instance.lastPlayed?.toIso8601String(),

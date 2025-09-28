@@ -126,6 +126,17 @@ class _SongListItemState extends State<SongListItem>
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<MusicBloc, MusicState>(
+      buildWhen: (previous, current) {
+        // Only rebuild when this specific song's state changes
+        final prevSongId = previous.myPlayerState.currentSongId;
+        final currSongId = current.myPlayerState.currentSongId;
+        final prevIsPlaying = previous.myPlayerState.isPlaying;
+        final currIsPlaying = current.myPlayerState.isPlaying;
+        
+        return prevSongId != currSongId || 
+               prevIsPlaying != currIsPlaying ||
+               (prevSongId == widget.songId) != (currSongId == widget.songId);
+      },
       builder: (context, state) {
         final isCurrentlyPlaying = state.myPlayerState.currentSongId == widget.songId && state.myPlayerState.isPlaying;
         final isCurrentSong = state.myPlayerState.currentSongId == widget.songId;
@@ -160,7 +171,8 @@ class _SongListItemState extends State<SongListItem>
                     // Album Art
                     AlbumArtWidget(
                       albumArt: widget.albumArtPath,
-                      size: 48.w,
+                      width: 48.w,
+                      height: 48.h,
                       borderRadius: 6.r,
                       boxShadow: [
                         BoxShadow(

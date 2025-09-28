@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../core/theme/theme_extension.dart';
+import '../../../core/widgets/custom_tab_view_app_bar.dart';
 import '../../../utils/logger/logger.dart';
 import '../../../utils/models/artist/artist_model.dart';
 import '../../../utils/models/song/song_model.dart';
@@ -20,6 +21,7 @@ class ArtistsScreen extends StatefulWidget {
 class _ArtistsScreenState extends State<ArtistsScreen> {
   final AppLogger _logger = AppLogger('ArtistsScreen');
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   List<Artist> _filteredArtists = [];
   bool _isLoadingMore = false;
   bool _hasTriggeredBackgroundLoad = false;
@@ -29,7 +31,7 @@ class _ArtistsScreenState extends State<ArtistsScreen> {
     super.initState();
     _logger.i('ArtistsScreen initialized');
     _searchController.addListener(_onSearchChanged);
-    
+
     // Reset loading states when screen initializes
     _isLoadingMore = false;
     _hasTriggeredBackgroundLoad = false;
@@ -61,6 +63,7 @@ class _ArtistsScreenState extends State<ArtistsScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -82,110 +85,112 @@ class _ArtistsScreenState extends State<ArtistsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(gradient: context.backgroundGradient),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          title: Text(
-            'Artists',
-            style: TextStyle(
-              color: context.onSurfaceColor,
-              fontWeight: FontWeight.bold,
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(gradient: context.backgroundGradient),
+        child: Column(
+          children: [
+            CustomTabViewAppBar(
+              title: 'Artists',
+              scrollController: _scrollController,
             ),
-          ),
-        ),
-        body: BlocBuilder<MusicBloc, MusicState>(
-          builder: (context, state) {
-            // Update filtered artists when state changes
-            if (_filteredArtists.isEmpty && state.artistList.isNotEmpty) {
-              _filteredArtists = state.artistList;
-            }
-            
-            // Trigger background loading after initial display
-            if (_filteredArtists.isNotEmpty && 
-                !_hasTriggeredBackgroundLoad && 
-                _filteredArtists.length > 15 &&
-                !_isLoadingMore) {
-              _hasTriggeredBackgroundLoad = true;
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) {
-                  AlbumArtistPlaylistHelper.triggerBackgroundLoading(
-                    onLoadMore: _loadMoreArtists,
-                    delay: const Duration(milliseconds: 500),
+            Expanded(
+              child: BlocBuilder<MusicBloc, MusicState>(
+                builder: (context, state) {
+                  // Update filtered artists when state changes
+                  if (_filteredArtists.isEmpty && state.artistList.isNotEmpty) {
+                    _filteredArtists = state.artistList;
+                  }
+
+                  // Trigger background loading after initial display
+                  if (_filteredArtists.isNotEmpty &&
+                      !_hasTriggeredBackgroundLoad &&
+                      _filteredArtists.length > 15 &&
+                      !_isLoadingMore) {
+                    _hasTriggeredBackgroundLoad = true;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        AlbumArtistPlaylistHelper.triggerBackgroundLoading(
+                          onLoadMore: _loadMoreArtists,
+                          delay: const Duration(milliseconds: 500),
+                        );
+                      }
+                    });
+                  }
+
+                  return CustomScrollView(
+                    controller: _scrollController,
+                    slivers: [
+                      // Artists List
+                      if (state.isArtistListLoading)
+                        AlbumArtistPlaylistHelper.buildLoadingState(context)
+                      else if (state.isArtistListError)
+                        AlbumArtistPlaylistHelper.buildErrorState(
+                          context: context,
+                          errorMessage: 'Failed to load artists',
+                          onRetry: () {
+                            context.read<MusicBloc>().add(
+                              const MusicEvent.loadArtists(),
+                            );
+                          },
+                        )
+                      else if (_filteredArtists.isEmpty)
+                        AlbumArtistPlaylistHelper.buildEmptyState(
+                          context: context,
+                          icon: Icons.person_outline_rounded,
+                          message: 'No artists found',
+                        )
+                      else if (AlbumArtistPlaylistHelper.shouldUseLazyLoading(
+                        _filteredArtists,
+                        15,
+                      ))
+                        AlbumArtistPlaylistHelper.buildLazyLoadingMasonryGrid<
+                          Artist
+                        >(
+                          context: context,
+                          allItems: _filteredArtists,
+                          itemBuilder: (context, index) {
+                            final artist = _filteredArtists[index];
+                            return _buildArtistCard(artist, state.allSongs);
+                          },
+                          onLoadMore: _loadMoreArtists,
+                          isLoadingMore: _isLoadingMore,
+                          initialLoadCount: 15,
+                        )
+                      else
+                        AlbumArtistPlaylistHelper.buildMasonryGrid<Artist>(
+                          items: _filteredArtists,
+                          itemBuilder: (context, index) {
+                            final artist = _filteredArtists[index];
+                            return _buildArtistCard(artist, state.allSongs);
+                          },
+                        ),
+
+                      // Bottom padding for navigation
+                      AlbumArtistPlaylistHelper.buildBottomPadding(),
+                    ],
                   );
-                }
-              });
-            }
-
-            return CustomScrollView(
-              slivers: [
-                // Search Bar
-                AlbumArtistPlaylistHelper.buildSearchBar(
-                  controller: _searchController,
-                  hintText: 'Search artists...',
-                  context: context,
-                ),
-
-                // Artists List
-                if (state.isArtistListLoading)
-                  AlbumArtistPlaylistHelper.buildLoadingState(context)
-                else if (state.isArtistListError)
-                  AlbumArtistPlaylistHelper.buildErrorState(
-                    context: context,
-                    errorMessage: 'Failed to load artists',
-                    onRetry: () {
-                      context.read<MusicBloc>().add(
-                        const MusicEvent.loadArtists(),
-                      );
-                    },
-                  )
-                else if (_filteredArtists.isEmpty)
-                  AlbumArtistPlaylistHelper.buildEmptyState(
-                    context: context,
-                    icon: Icons.person_outline_rounded,
-                    message: 'No artists found',
-                  )
-                else if (AlbumArtistPlaylistHelper.shouldUseLazyLoading(_filteredArtists, 15))
-                  AlbumArtistPlaylistHelper.buildLazyLoadingMasonryGrid<Artist>(
-                    context: context,
-                    allItems: _filteredArtists,
-                    itemBuilder: (context, index) {
-                      final artist = _filteredArtists[index];
-                      return _buildArtistCard(artist, state.allSongs);
-                    },
-                    onLoadMore: _loadMoreArtists,
-                    isLoadingMore: _isLoadingMore,
-                    initialLoadCount: 15,
-                  )
-                else
-                  AlbumArtistPlaylistHelper.buildMasonryGrid<Artist>(
-                    items: _filteredArtists,
-                    itemBuilder: (context, index) {
-                      final artist = _filteredArtists[index];
-                      return _buildArtistCard(artist, state.allSongs);
-                    },
-                  ),
-
-                // Bottom padding for navigation
-                AlbumArtistPlaylistHelper.buildBottomPadding(),
-              ],
-            );
-          },
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildArtistCard(Artist artist, List<Song> allSongs) {
-    final artistSongs = AlbumArtistPlaylistHelper.getArtistSongs(artist, allSongs);
+    final artistSongs = AlbumArtistPlaylistHelper.getArtistSongs(
+      artist,
+      allSongs,
+    );
     final songCount = artistSongs.length;
     final hasSongs = songCount > 0;
 
     return AlbumArtistPlaylistHelper.buildCard(
-      onTap: hasSongs ? () => _navigateToArtistDetail(artist, artistSongs) : null,
+      onTap: hasSongs
+          ? () => _navigateToArtistDetail(artist, artistSongs)
+          : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -218,9 +223,7 @@ class _ArtistsScreenState extends State<ArtistsScreen> {
     AlbumArtistPlaylistHelper.playSongs(
       context: context,
       songs: artistSongs,
-      playlistSource: PlaylistSource.artist(
-        artistSongs.first.artists.first,
-      ),
+      playlistSource: PlaylistSource.artist(artistSongs.first.artists.first),
     );
   }
 

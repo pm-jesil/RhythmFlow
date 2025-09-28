@@ -3,6 +3,7 @@ import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:injectable/injectable.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:pmj_music_player/core/constants/app_enums.dart';
 import 'package:pmj_music_player/utils/models/my_playlist/my_playlist_model.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../utils/models/song/song_model.dart';
@@ -18,6 +19,7 @@ import '../../../../utils/services/enhanced_notification_service.dart';
 import '../../../../utils/services/remote_control_service.dart';
 import '../../../../utils/services/song_uniqueness_validator.dart';
 import '../../../../utils/services/play_count_tracking_service.dart';
+import '../../../../utils/services/my_playlist_service.dart';
 import '../../../app_settings/bloc/app_settings_bloc.dart';
 
 part 'music_event.dart';
@@ -68,6 +70,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     on<_LoadArtistsProgressive>(_onLoadArtistsProgressive);
 
     on<_LoadMyPlaylists>(_onLoadMyPlaylists);
+    on<_AddOrUpdateMyPlayList>(_onAddOrUpdateMyPlayList);
 
     // Playback events
     on<_PlayOrPauseSong>(_onPlayOrPauseSong);
@@ -171,6 +174,9 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
       final myPlaylists = (json['myPlaylist'] as List<dynamic>? ?? [])
           .map((e) => MyPlaylist.fromJson(e as Map<String, dynamic>))
           .toList();
+      
+      // Ensure favorites playlist exists when loading from storage
+      final playlistsWithFavorites = MyPlaylistService.ensureFavoritesPlaylist(myPlaylists);
 
       final mp = (json['myPlayerState'] as Map<String, dynamic>? ?? {});
       final myPlayerState = MyPlayerStateModel(
@@ -193,7 +199,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         allSongs: songs,
         albumList: albums,
         artistList: artists,
-        myPlaylist: myPlaylists,
+        myPlaylist: playlistsWithFavorites,
         sortingIndex: (json['sortingIndex'] as int?) ?? 0,
 
         isSongListLoading: false,
@@ -564,15 +570,148 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     _logger.i('Loading my playlists...');
 
     try {
-      // For now, return empty list as playlist functionality is not fully implemented
-      // This can be extended later when playlist management is added
-      final playlists = <MyPlaylist>[];
-      _logger.i('Loaded ${playlists.length} playlists');
-
-      emit(state.copyWith(myPlaylist: playlists));
+      // Check current state and ensure favorites playlist exists
+      List<MyPlaylist> currentPlaylists = List.from(state.myPlaylist);
+      
+      // If the list is empty, add default favorites playlist
+      if (currentPlaylists.isEmpty) {
+        _logger.i('📝 Playlist list is empty, adding default favorites playlist');
+        final defaultFavorites = MyPlaylistService.createDefaultFavoritesPlaylist();
+        currentPlaylists.add(defaultFavorites);
+      } else {
+        // Ensure favorites playlist exists in the current state
+        currentPlaylists = MyPlaylistService.ensureFavoritesPlaylist(currentPlaylists);
+      }
+      
+      _logger.i('✅ Loaded ${currentPlaylists.length} playlists (including favorites)');
+      emit(state.copyWith(myPlaylist: currentPlaylists));
     } catch (e) {
       _logger.e('Error loading playlists: $e');
       // Don't emit error state for playlists as they're optional
+    }
+  }
+
+  Future<void> _onAddOrUpdateMyPlayList(
+    _AddOrUpdateMyPlayList event,
+    Emitter<MusicState> emit,
+  ) async {
+    _logger.i('🎵 Playlist operation: ${event.operation}');
+
+    try {
+      List<MyPlaylist> updatedPlaylists = List.from(state.myPlaylist);
+      MyPlaylist? updatedPlaylist;
+
+      switch (event.operation) {
+        case MyPlaylistOperation.create:
+          _logger.i('📝 Creating new playlist: ${event.name}');
+          updatedPlaylist = MyPlaylistService.createPlaylist(
+            name: event.name!,
+            description: event.description ?? '',
+            songIds: event.songIds ?? [],
+            coverImage: event.coverImage,
+            isPublic: event.isPublic ?? false,
+          );
+          updatedPlaylists.insert(0, updatedPlaylist);
+          break;
+
+        case MyPlaylistOperation.update:
+          _logger.i('📝 Updating playlist: ${event.playlistId}');
+          final existingPlaylist = updatedPlaylists.firstWhere(
+            (p) => p.id == event.playlistId,
+            orElse: () => throw Exception('Playlist not found: ${event.playlistId}'),
+          );
+          updatedPlaylist = MyPlaylistService.updatePlaylist(
+            playlist: existingPlaylist,
+            name: event.name,
+            description: event.description,
+            songIds: event.songIds,
+            coverImage: event.coverImage,
+            isPublic: event.isPublic,
+          );
+          final index = updatedPlaylists.indexWhere((p) => p.id == event.playlistId);
+          if (index != -1) {
+            updatedPlaylists[index] = updatedPlaylist;
+          }
+          break;
+
+        case MyPlaylistOperation.delete:
+          _logger.i('🗑️ Deleting playlist: ${event.playlistId}');
+          if (event.playlistId == 'my_playlist_favorites') {
+            throw Exception('Cannot delete favorites playlist');
+          }
+          updatedPlaylists.removeWhere((p) => p.id == event.playlistId);
+          break;
+
+        case MyPlaylistOperation.addSong:
+          _logger.i('➕ Adding song ${event.songId} to playlist ${event.playlistId}');
+          final playlistToUpdate = updatedPlaylists.firstWhere(
+            (p) => p.id == event.playlistId,
+            orElse: () => throw Exception('Playlist not found: ${event.playlistId}'),
+          );
+          updatedPlaylist = MyPlaylistService.addSongToPlaylist(
+            playlist: playlistToUpdate,
+            songId: event.songId!,
+          );
+          final index = updatedPlaylists.indexWhere((p) => p.id == event.playlistId);
+          if (index != -1) {
+            updatedPlaylists[index] = updatedPlaylist;
+          }
+          break;
+
+        case MyPlaylistOperation.removeSong:
+          _logger.i('➖ Removing song ${event.songId} from playlist ${event.playlistId}');
+          final playlistToRemoveFrom = updatedPlaylists.firstWhere(
+            (p) => p.id == event.playlistId,
+            orElse: () => throw Exception('Playlist not found: ${event.playlistId}'),
+          );
+          updatedPlaylist = MyPlaylistService.removeSongFromPlaylist(
+            playlist: playlistToRemoveFrom,
+            songId: event.songId!,
+          );
+          final index = updatedPlaylists.indexWhere((p) => p.id == event.playlistId);
+          if (index != -1) {
+            updatedPlaylists[index] = updatedPlaylist;
+          }
+          break;
+
+        case MyPlaylistOperation.toggleFavorite:
+          _logger.i('❤️ Toggling song ${event.songId} in favorites');
+          final favoritesPlaylist = MyPlaylistService.getFavoritesPlaylist(updatedPlaylists);
+          if (favoritesPlaylist == null) {
+            throw Exception('Favorites playlist not found');
+          }
+          updatedPlaylist = MyPlaylistService.toggleSongInFavorites(
+            favoritesPlaylist: favoritesPlaylist,
+            songId: event.songId!,
+          );
+          final index = updatedPlaylists.indexWhere((p) => p.id == 'my_playlist_favorites');
+          if (index != -1) {
+            updatedPlaylists[index] = updatedPlaylist;
+          }
+          break;
+
+        case MyPlaylistOperation.updateDuration:
+          _logger.i('⏱️ Updating playlist duration: ${event.playlistId}');
+          final playlistToUpdateDuration = updatedPlaylists.firstWhere(
+            (p) => p.id == event.playlistId,
+            orElse: () => throw Exception('Playlist not found: ${event.playlistId}'),
+          );
+          updatedPlaylist = MyPlaylistService.updatePlaylistDuration(
+            playlist: playlistToUpdateDuration,
+            allSongs: state.allSongs,
+          );
+          final index = updatedPlaylists.indexWhere((p) => p.id == event.playlistId);
+          if (index != -1) {
+            updatedPlaylists[index] = updatedPlaylist;
+          }
+          break;
+      }
+
+      emit(state.copyWith(myPlaylist: updatedPlaylists));
+      _logger.i('✅ Playlist operation completed successfully');
+    } catch (e) {
+      _logger.e('❌ Playlist operation failed: $e');
+      // Don't emit error state for playlist operations as they're optional
     }
   }
 
@@ -1243,17 +1382,43 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
     // Only update if we're not currently updating state to prevent conflicts
     if (!_isUpdatingState) {
-      add(
-        MusicEvent.updateMusicBlocState(
-          newState: state.copyWith(
-            myPlayerState: state.myPlayerState.copyWith(
-              currentSongId: newSong.id,
-              currentPlayList: state.myPlayerState.currentPlayList,
-              isPlaying: true,
+      // Check if this is a different song (skip scenario)
+      if (state.myPlayerState.currentSongId != null && 
+          state.myPlayerState.currentSongId != newSong.id) {
+        
+        _logger.i('🔄 Song skipped - moving previous song to completed');
+        
+        // Move current song to completed and set new song as current
+        final updatedQueue = state.myPlayerState.moveCurrentToCompleted();
+        final finalQueue = updatedQueue.copyWith(
+          currentSongId: newSong.id,
+          previousSongId: state.myPlayerState.currentSongId,
+          isPlaying: true,
+        );
+        
+        _logger.i(
+          '✅ Completed songs: ${state.myPlayerState.completedCount} → ${finalQueue.completedCount} songs',
+        );
+        
+        add(
+          MusicEvent.updateMusicBlocState(
+            newState: state.copyWith(myPlayerState: finalQueue),
+          ),
+        );
+      } else {
+        // Same song or no previous song - just update current song
+        add(
+          MusicEvent.updateMusicBlocState(
+            newState: state.copyWith(
+              myPlayerState: state.myPlayerState.copyWith(
+                currentSongId: newSong.id,
+                currentPlayList: state.myPlayerState.currentPlayList,
+                isPlaying: true,
+              ),
             ),
           ),
-        ),
-      );
+        );
+      }
 
       // Update notification with new song
       _updateNotificationForCurrentSong();
@@ -1728,126 +1893,121 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
   
   /// Setup play count tracking callbacks
   void _setupPlayCountTracking() {
-    PlayCountTrackingService.onSongPlayCountUpdated = _updateSongPlayCount;
-    PlayCountTrackingService.onArtistPlayCountUpdated = _updateArtistPlayCount;
-    PlayCountTrackingService.onAlbumPlayCountUpdated = _updateAlbumPlayCount;
-    PlayCountTrackingService.onPlaylistPlayCountUpdated = _updatePlaylistPlayCount;
-    
+    PlayCountTrackingService.onUpdatePlayCount = _updatePlayCountOnState;
     _logger.i('📊 Play count tracking service initialized');
   }
   
-  /// Update song play count in state
-  void _updateSongPlayCount(Song updatedSong) {
+  /// Comprehensive play count update method - updates song, artists, albums, and playlist in one atomic operation
+  void _updatePlayCountOnState(String songId) {
     try {
-      final updatedSongs = state.allSongs.map((song) {
-        if (song.id == updatedSong.id) {
-          return updatedSong;
+      _logger.i('🎵 Updating play counts for song ID: $songId');
+      
+      final currentState = state;
+      final now = DateTime.now();
+      
+      // Step 1: Find and update the current song
+      final songIndex = currentState.allSongs.indexWhere((song) => song.id == songId);
+      if (songIndex == -1) {
+        _logger.w('⚠️ Song not found with ID: $songId');
+        return;
+      }
+      
+      final currentSong = currentState.allSongs[songIndex];
+      final updatedSongWithCount = currentSong.copyWith(
+        lastPlayed: now,
+        playCount: (currentSong.playCount ?? 0) + 1,
+      );
+      
+      // Create updated allSongs list
+      final updatedAllSongs = List<Song>.from(currentState.allSongs);
+      updatedAllSongs[songIndex] = updatedSongWithCount;
+      
+      // Step 2: Update artists based on song's artist names (case-insensitive)
+      List<Artist> updatedArtistList = List<Artist>.from(currentState.artistList);
+      
+      for (String artistName in currentSong.artists) {
+        final artistIndex = updatedArtistList.indexWhere((artist) => 
+          artist.name.toLowerCase().trim() == artistName.toLowerCase().trim());
+        if (artistIndex != -1) {
+          final currentArtist = updatedArtistList[artistIndex];
+          final updatedArtist = currentArtist.copyWith(
+            lastPlayed: now,
+            playCount: (currentArtist.playCount ?? 0) + 1,
+          );
+          updatedArtistList[artistIndex] = updatedArtist;
+          _logger.d('🎤 Updated artist: "${currentArtist.name}"');
+        } else {
+          _logger.w('⚠️ Artist not found: "$artistName"');
         }
-        return song;
-      }).toList();
+      }
       
+      // Step 3: Update albums based on song's album names (case-insensitive)
+      List<Album> updatedAlbumList = List<Album>.from(currentState.albumList);
+      
+      for (String albumName in currentSong.albums) {
+        final albumIndex = updatedAlbumList.indexWhere((album) => 
+          album.name.toLowerCase().trim() == albumName.toLowerCase().trim());
+        if (albumIndex != -1) {
+          final currentAlbum = updatedAlbumList[albumIndex];
+          final updatedAlbum = currentAlbum.copyWith(
+            lastPlayed: now,
+            playCount: (currentAlbum.playCount ?? 0) + 1,
+          );
+          updatedAlbumList[albumIndex] = updatedAlbum;
+          _logger.d('💿 Updated album: "${currentAlbum.name}"');
+        } else {
+          _logger.w('⚠️ Album not found: "$albumName"');
+        }
+      }
+      
+      // Step 4: Update MyPlaylist if applicable (from tracking service context)
+      List<MyPlaylist> updatedMyPlaylistList = List<MyPlaylist>.from(currentState.myPlaylist);
+      
+      // Check if we have playlist context from the tracking service
+      final trackingStatus = PlayCountTrackingService.getTrackingStatus();
+      final playlistId = trackingStatus['playlistId'] as String?;
+      final playlistSource = trackingStatus['playlistSource'] as String?;
+      
+      if (playlistId != null && playlistSource != null && playlistSource == 'my_playlist') {
+        // Extract actual playlist ID (remove prefix if present)
+        String actualPlaylistId = playlistId;
+        if (playlistId.startsWith('my_playlist_')) {
+          actualPlaylistId = playlistId.substring(12);
+        }
+        
+        final playlistIndex = updatedMyPlaylistList.indexWhere((playlist) => playlist.id == actualPlaylistId);
+        
+        if (playlistIndex != -1) {
+          final currentPlaylist = updatedMyPlaylistList[playlistIndex];
+          final updatedPlaylist = currentPlaylist.copyWith(
+            lastPlayed: now,
+            playCount: (currentPlaylist.playCount ?? 0) + 1,
+          );
+          updatedMyPlaylistList[playlistIndex] = updatedPlaylist;
+          _logger.d('📋 Updated playlist: "${currentPlaylist.name}"');
+        } else {
+          _logger.w('⚠️ Playlist not found: $actualPlaylistId');
+        }
+      }
+      
+      // Step 5: Emit updated state (preserving all other state properties)
       add(MusicEvent.updateMusicBlocState(
-        newState: state.copyWith(allSongs: updatedSongs),
+        newState: currentState.copyWith(
+          allSongs: updatedAllSongs,
+          artistList: updatedArtistList,
+          albumList: updatedAlbumList,
+          myPlaylist: updatedMyPlaylistList,
+        ),
       ));
       
-      _logger.i('📈 Updated song play count: "${updatedSong.title}" → ${updatedSong.playCount}');
+      _logger.i('✅ Play count updated successfully for: "${currentSong.title}"');
+      
     } catch (e) {
-      _logger.e('❌ Error updating song play count: $e');
+      _logger.e('❌ Error updating play count: $e');
     }
   }
   
-  /// Update artist play count in state
-  void _updateArtistPlayCount(Artist updatedArtist) {
-    try {
-      final existingArtistIndex = state.artistList.indexWhere((artist) => artist.id == updatedArtist.id);
-      
-      List<Artist> updatedArtists;
-      if (existingArtistIndex != -1) {
-        // Update existing artist
-        final existingArtist = state.artistList[existingArtistIndex];
-        final incrementedPlayCount = (existingArtist.playCount ?? 0) + 1;
-        
-        updatedArtists = List.from(state.artistList);
-        updatedArtists[existingArtistIndex] = existingArtist.copyWith(
-          playCount: incrementedPlayCount,
-          updatedAt: DateTime.now(),
-        );
-      } else {
-        // Add new artist
-        updatedArtists = [...state.artistList, updatedArtist];
-      }
-      
-      add(MusicEvent.updateMusicBlocState(
-        newState: state.copyWith(artistList: updatedArtists),
-      ));
-      
-      _logger.i('📈 Updated artist play count: "${updatedArtist.name}" → ${updatedArtists.firstWhere((a) => a.id == updatedArtist.id).playCount}');
-    } catch (e) {
-      _logger.e('❌ Error updating artist play count: $e');
-    }
-  }
-  
-  /// Update album play count in state
-  void _updateAlbumPlayCount(Album updatedAlbum) {
-    try {
-      final existingAlbumIndex = state.albumList.indexWhere((album) => album.id == updatedAlbum.id);
-      
-      List<Album> updatedAlbums;
-      if (existingAlbumIndex != -1) {
-        // Update existing album
-        final existingAlbum = state.albumList[existingAlbumIndex];
-        final incrementedPlayCount = (existingAlbum.playCount ?? 0) + 1;
-        
-        updatedAlbums = List.from(state.albumList);
-        updatedAlbums[existingAlbumIndex] = existingAlbum.copyWith(
-          playCount: incrementedPlayCount,
-          updatedAt: DateTime.now(),
-        );
-      } else {
-        // Add new album
-        updatedAlbums = [...state.albumList, updatedAlbum];
-      }
-      
-      add(MusicEvent.updateMusicBlocState(
-        newState: state.copyWith(albumList: updatedAlbums),
-      ));
-      
-      _logger.i('📈 Updated album play count: "${updatedAlbum.name}" → ${updatedAlbums.firstWhere((a) => a.id == updatedAlbum.id).playCount}');
-    } catch (e) {
-      _logger.e('❌ Error updating album play count: $e');
-    }
-  }
-  
-  /// Update playlist play count in state
-  void _updatePlaylistPlayCount(MyPlaylist updatedPlaylist) {
-    try {
-      final existingPlaylistIndex = state.myPlaylist.indexWhere((playlist) => playlist.id == updatedPlaylist.id);
-      
-      List<MyPlaylist> updatedPlaylists;
-      if (existingPlaylistIndex != -1) {
-        // Update existing playlist
-        final existingPlaylist = state.myPlaylist[existingPlaylistIndex];
-        final incrementedPlayCount = (existingPlaylist.playCount ?? 0) + 1;
-        
-        updatedPlaylists = List.from(state.myPlaylist);
-        updatedPlaylists[existingPlaylistIndex] = existingPlaylist.copyWith(
-          playCount: incrementedPlayCount,
-          updatedAt: DateTime.now(),
-        );
-      } else {
-        // Add new playlist
-        updatedPlaylists = [...state.myPlaylist, updatedPlaylist];
-      }
-      
-      add(MusicEvent.updateMusicBlocState(
-        newState: state.copyWith(myPlaylist: updatedPlaylists),
-      ));
-      
-      _logger.i('📈 Updated playlist play count: "${updatedPlaylist.name}" → ${updatedPlaylists.firstWhere((p) => p.id == updatedPlaylist.id).playCount}');
-    } catch (e) {
-      _logger.e('❌ Error updating playlist play count: $e');
-    }
-  }
+
 
   @override
   Future<void> close() {

@@ -1,9 +1,6 @@
 import 'dart:async';
 import '../logger/logger.dart';
 import '../models/song/song_model.dart';
-import '../models/artist/artist_model.dart';
-import '../models/album/album_model.dart';
-import '../models/my_playlist/my_playlist_model.dart';
 import '../models/playlist_source/playlist_source_model.dart';
 
 /// Service to track play counts for songs, artists, albums, and playlists
@@ -19,11 +16,8 @@ class PlayCountTrackingService {
   static String? _currentPlaylistId;
   static PlaylistSource? _currentPlaylistSource;
   
-  // Callbacks for updating models
-  static Function(Song)? onSongPlayCountUpdated;
-  static Function(Artist)? onArtistPlayCountUpdated;
-  static Function(Album)? onAlbumPlayCountUpdated;
-  static Function(MyPlaylist)? onPlaylistPlayCountUpdated;
+  // Callback for updating play counts
+  static Function(String songId)? onUpdatePlayCount;
   
   /// Start tracking a song's play progress
   static void startTracking({
@@ -95,25 +89,11 @@ class PlayCountTrackingService {
     
     _hasTrackedPlay = true;
     _logger.i('📊 Tracking play count for: "${_currentSong!.title}"');
+    _logger.i('🎤 Artists: ${_currentSong!.artists.length} | 💿 Albums: ${_currentSong!.albums.length}');
     
     try {
-      // Update song play count
-      final updatedSong = _currentSong!.copyWith(
-        playCount: (_currentSong!.playCount ?? 0) + 1,
-        lastPlayed: DateTime.now(),
-      );
-      onSongPlayCountUpdated?.call(updatedSong);
-      
-      // Update artist play count
-      _updateArtistPlayCount(_currentSong!);
-      
-      // Update album play count
-      _updateAlbumPlayCount(_currentSong!);
-      
-      // Update playlist play count if playing from a specific playlist
-      if (_currentPlaylistId != null && _currentPlaylistSource != null) {
-        _updatePlaylistPlayCount(_currentPlaylistId!, _currentPlaylistSource!);
-      }
+      // Just pass the song ID to the MusicBloc
+      onUpdatePlayCount?.call(_currentSong!.id);
       
       _logger.i('✅ Play count tracking completed for: "${_currentSong!.title}"');
     } catch (e) {
@@ -121,89 +101,7 @@ class PlayCountTrackingService {
     }
   }
   
-  /// Update artist play count
-  static void _updateArtistPlayCount(Song song) {
-    try {
-      // Update play count for all artists of the song
-      for (final artistName in song.artists) {
-        final artistId = _generateArtistId(artistName);
-        
-        // Create or update artist with incremented play count
-        final updatedArtist = Artist(
-          id: artistId,
-          name: artistName,
-          songIds: [song.id], // This will be updated by the music service
-          createdAt: DateTime.now(),
-          playCount: 1, // This will be incremented by the music service
-        );
-        
-        onArtistPlayCountUpdated?.call(updatedArtist);
-      }
-    } catch (e) {
-      _logger.e('❌ Error updating artist play count: $e');
-    }
-  }
   
-  /// Update album play count
-  static void _updateAlbumPlayCount(Song song) {
-    try {
-      // Update play count for all albums of the song
-      for (final albumName in song.albums) {
-        final albumId = _generateAlbumId(albumName);
-        
-        // Create or update album with incremented play count
-        final updatedAlbum = Album(
-          id: albumId,
-          name: albumName,
-          songIds: [song.id], // This will be updated by the music service
-          createdAt: DateTime.now(),
-          playCount: 1, // This will be incremented by the music service
-        );
-        
-        onAlbumPlayCountUpdated?.call(updatedAlbum);
-      }
-    } catch (e) {
-      _logger.e('❌ Error updating album play count: $e');
-    }
-  }
-  
-  /// Update playlist play count
-  static void _updatePlaylistPlayCount(String playlistId, PlaylistSource playlistSource) {
-    try {
-      if (playlistSource.source == 'my_playlist') {
-        // Extract the actual playlist ID from the formatted ID
-        String actualPlaylistId = playlistId;
-        if (playlistId.startsWith('my_playlist_')) {
-          actualPlaylistId = playlistId.substring(12); // Remove 'my_playlist_' prefix
-        }
-        
-        // For MyPlaylist, we need to update the specific playlist
-        final updatedPlaylist = MyPlaylist(
-          id: actualPlaylistId,
-          name: 'Playlist', // This will be updated by the music service
-          description: 'User playlist',
-          songIds: [], // This will be updated by the music service
-          createdAt: DateTime.now(),
-          playCount: 1, // This will be incremented by the music service
-        );
-        
-        onPlaylistPlayCountUpdated?.call(updatedPlaylist);
-        _logger.i('📋 Updated playlist play count for playlist: $actualPlaylistId');
-      }
-    } catch (e) {
-      _logger.e('❌ Error updating playlist play count: $e');
-    }
-  }
-  
-  /// Generate consistent artist ID
-  static String _generateArtistId(String artistName) {
-    return 'artist_${artistName.hashCode}';
-  }
-  
-  /// Generate consistent album ID
-  static String _generateAlbumId(String albumName) {
-    return 'album_${albumName.hashCode}';
-  }
   
   /// Get current tracking status
   static Map<String, dynamic> getTrackingStatus() {

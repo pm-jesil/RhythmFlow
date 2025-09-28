@@ -25,6 +25,7 @@ mixin _$Song {
   String get title => throw _privateConstructorUsedError;
   List<String> get artists => throw _privateConstructorUsedError;
   List<String> get albums => throw _privateConstructorUsedError;
+  List<String>? get myPlaylistIds => throw _privateConstructorUsedError;
   String get path => throw _privateConstructorUsedError;
   @DurationConverter()
   Duration get duration => throw _privateConstructorUsedError;
@@ -64,6 +65,7 @@ abstract class $SongCopyWith<$Res> {
     String title,
     List<String> artists,
     List<String> albums,
+    List<String>? myPlaylistIds,
     String path,
     @DurationConverter() Duration duration,
     String? albumArt,
@@ -103,6 +105,7 @@ class _$SongCopyWithImpl<$Res, $Val extends Song>
     Object? title = null,
     Object? artists = null,
     Object? albums = null,
+    Object? myPlaylistIds = freezed,
     Object? path = null,
     Object? duration = null,
     Object? albumArt = freezed,
@@ -139,6 +142,10 @@ class _$SongCopyWithImpl<$Res, $Val extends Song>
                 ? _value.albums
                 : albums // ignore: cast_nullable_to_non_nullable
                       as List<String>,
+            myPlaylistIds: freezed == myPlaylistIds
+                ? _value.myPlaylistIds
+                : myPlaylistIds // ignore: cast_nullable_to_non_nullable
+                      as List<String>?,
             path: null == path
                 ? _value.path
                 : path // ignore: cast_nullable_to_non_nullable
@@ -226,6 +233,7 @@ abstract class _$$SongImplCopyWith<$Res> implements $SongCopyWith<$Res> {
     String title,
     List<String> artists,
     List<String> albums,
+    List<String>? myPlaylistIds,
     String path,
     @DurationConverter() Duration duration,
     String? albumArt,
@@ -262,6 +270,7 @@ class __$$SongImplCopyWithImpl<$Res>
     Object? title = null,
     Object? artists = null,
     Object? albums = null,
+    Object? myPlaylistIds = freezed,
     Object? path = null,
     Object? duration = null,
     Object? albumArt = freezed,
@@ -298,6 +307,10 @@ class __$$SongImplCopyWithImpl<$Res>
             ? _value._albums
             : albums // ignore: cast_nullable_to_non_nullable
                   as List<String>,
+        myPlaylistIds: freezed == myPlaylistIds
+            ? _value._myPlaylistIds
+            : myPlaylistIds // ignore: cast_nullable_to_non_nullable
+                  as List<String>?,
         path: null == path
             ? _value.path
             : path // ignore: cast_nullable_to_non_nullable
@@ -379,6 +392,7 @@ class _$SongImpl implements _Song {
     required this.title,
     required final List<String> artists,
     required final List<String> albums,
+    final List<String>? myPlaylistIds,
     required this.path,
     @DurationConverter() required this.duration,
     this.albumArt,
@@ -397,7 +411,8 @@ class _$SongImpl implements _Song {
     this.isFavorite,
     this.albumArtist,
   }) : _artists = artists,
-       _albums = albums;
+       _albums = albums,
+       _myPlaylistIds = myPlaylistIds;
 
   factory _$SongImpl.fromJson(Map<String, dynamic> json) =>
       _$$SongImplFromJson(json);
@@ -420,6 +435,16 @@ class _$SongImpl implements _Song {
     if (_albums is EqualUnmodifiableListView) return _albums;
     // ignore: implicit_dynamic_type
     return EqualUnmodifiableListView(_albums);
+  }
+
+  final List<String>? _myPlaylistIds;
+  @override
+  List<String>? get myPlaylistIds {
+    final value = _myPlaylistIds;
+    if (value == null) return null;
+    if (_myPlaylistIds is EqualUnmodifiableListView) return _myPlaylistIds;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(value);
   }
 
   @override
@@ -461,7 +486,7 @@ class _$SongImpl implements _Song {
 
   @override
   String toString() {
-    return 'Song(id: $id, title: $title, artists: $artists, albums: $albums, path: $path, duration: $duration, albumArt: $albumArt, genre: $genre, year: $year, trackNumber: $trackNumber, discNumber: $discNumber, composer: $composer, lyrics: $lyrics, bitrate: $bitrate, fileSize: $fileSize, dateAdded: $dateAdded, updatedAt: $updatedAt, lastPlayed: $lastPlayed, playCount: $playCount, isFavorite: $isFavorite, albumArtist: $albumArtist)';
+    return 'Song(id: $id, title: $title, artists: $artists, albums: $albums, myPlaylistIds: $myPlaylistIds, path: $path, duration: $duration, albumArt: $albumArt, genre: $genre, year: $year, trackNumber: $trackNumber, discNumber: $discNumber, composer: $composer, lyrics: $lyrics, bitrate: $bitrate, fileSize: $fileSize, dateAdded: $dateAdded, updatedAt: $updatedAt, lastPlayed: $lastPlayed, playCount: $playCount, isFavorite: $isFavorite, albumArtist: $albumArtist)';
   }
 
   @override
@@ -473,6 +498,10 @@ class _$SongImpl implements _Song {
             (identical(other.title, title) || other.title == title) &&
             const DeepCollectionEquality().equals(other._artists, _artists) &&
             const DeepCollectionEquality().equals(other._albums, _albums) &&
+            const DeepCollectionEquality().equals(
+              other._myPlaylistIds,
+              _myPlaylistIds,
+            ) &&
             (identical(other.path, path) || other.path == path) &&
             (identical(other.duration, duration) ||
                 other.duration == duration) &&
@@ -512,6 +541,7 @@ class _$SongImpl implements _Song {
     title,
     const DeepCollectionEquality().hash(_artists),
     const DeepCollectionEquality().hash(_albums),
+    const DeepCollectionEquality().hash(_myPlaylistIds),
     path,
     duration,
     albumArt,
@@ -551,6 +581,7 @@ abstract class _Song implements Song {
     required final String title,
     required final List<String> artists,
     required final List<String> albums,
+    final List<String>? myPlaylistIds,
     required final String path,
     @DurationConverter() required final Duration duration,
     final String? albumArt,
@@ -580,6 +611,8 @@ abstract class _Song implements Song {
   List<String> get artists;
   @override
   List<String> get albums;
+  @override
+  List<String>? get myPlaylistIds;
   @override
   String get path;
   @override

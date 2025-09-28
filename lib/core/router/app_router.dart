@@ -5,6 +5,7 @@ import '../../screens/bottom_tab/bottom_tab.dart';
 import '../../screens/music_player/music_player_screen.dart';
 import '../../screens/music_player/playing_queue_screen.dart';
 import '../../screens/bottom_tab/screens/playlist_detail_screen.dart';
+import '../../screens/app_settings/settings_screen.dart';
 import '../../core/theme/theme_extension.dart';
 import '../../utils/logger/logger.dart';
 
@@ -66,6 +67,15 @@ class AppRouter {
             songCount: extra['songCount'] ?? 0,
             albumCount: extra['albumCount'],
           );
+        },
+      ),
+
+      // Settings screen
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) {
+          _logger.d('Navigate to settings');
+          return const SettingsScreen();
         },
       ),
     ],
@@ -205,5 +215,10 @@ extension NavigationExtension on BuildContext {
 
   void goToRoot() {
     GoRouter.of(this).go('/');
+  }
+
+  void navigateToSettings() {
+    AppLogger('Navigation').d('Navigate to settings');
+    GoRouter.of(this).push('/settings');
   }
 }

@@ -234,7 +234,6 @@ void main() {
               name: 'Test Artist',
               songIds: ['1'],
               createdAt: DateTime.now(),
-              albumIds: ['album1'],
             ),
           ],
           myPlaylist: [

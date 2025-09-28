@@ -25,9 +25,7 @@ mixin _$Artist {
   String get name => throw _privateConstructorUsedError;
   String? get bio => throw _privateConstructorUsedError;
   String? get image => throw _privateConstructorUsedError;
-  List<String> get songIds => throw _privateConstructorUsedError; // normalized
-  List<String>? get albumIds =>
-      throw _privateConstructorUsedError; // link to Album
+  List<String> get songIds => throw _privateConstructorUsedError;
   DateTime get createdAt => throw _privateConstructorUsedError;
   DateTime? get updatedAt => throw _privateConstructorUsedError;
   DateTime? get lastPlayed => throw _privateConstructorUsedError;
@@ -53,7 +51,6 @@ abstract class $ArtistCopyWith<$Res> {
     String? bio,
     String? image,
     List<String> songIds,
-    List<String>? albumIds,
     DateTime createdAt,
     DateTime? updatedAt,
     DateTime? lastPlayed,
@@ -81,7 +78,6 @@ class _$ArtistCopyWithImpl<$Res, $Val extends Artist>
     Object? bio = freezed,
     Object? image = freezed,
     Object? songIds = null,
-    Object? albumIds = freezed,
     Object? createdAt = null,
     Object? updatedAt = freezed,
     Object? lastPlayed = freezed,
@@ -109,10 +105,6 @@ class _$ArtistCopyWithImpl<$Res, $Val extends Artist>
                 ? _value.songIds
                 : songIds // ignore: cast_nullable_to_non_nullable
                       as List<String>,
-            albumIds: freezed == albumIds
-                ? _value.albumIds
-                : albumIds // ignore: cast_nullable_to_non_nullable
-                      as List<String>?,
             createdAt: null == createdAt
                 ? _value.createdAt
                 : createdAt // ignore: cast_nullable_to_non_nullable
@@ -149,7 +141,6 @@ abstract class _$$ArtistImplCopyWith<$Res> implements $ArtistCopyWith<$Res> {
     String? bio,
     String? image,
     List<String> songIds,
-    List<String>? albumIds,
     DateTime createdAt,
     DateTime? updatedAt,
     DateTime? lastPlayed,
@@ -176,7 +167,6 @@ class __$$ArtistImplCopyWithImpl<$Res>
     Object? bio = freezed,
     Object? image = freezed,
     Object? songIds = null,
-    Object? albumIds = freezed,
     Object? createdAt = null,
     Object? updatedAt = freezed,
     Object? lastPlayed = freezed,
@@ -204,10 +194,6 @@ class __$$ArtistImplCopyWithImpl<$Res>
             ? _value._songIds
             : songIds // ignore: cast_nullable_to_non_nullable
                   as List<String>,
-        albumIds: freezed == albumIds
-            ? _value._albumIds
-            : albumIds // ignore: cast_nullable_to_non_nullable
-                  as List<String>?,
         createdAt: null == createdAt
             ? _value.createdAt
             : createdAt // ignore: cast_nullable_to_non_nullable
@@ -238,13 +224,11 @@ class _$ArtistImpl implements _Artist {
     this.bio,
     this.image,
     required final List<String> songIds,
-    final List<String>? albumIds,
     required this.createdAt,
     this.updatedAt,
     this.lastPlayed,
     this.playCount,
-  }) : _songIds = songIds,
-       _albumIds = albumIds;
+  }) : _songIds = songIds;
 
   factory _$ArtistImpl.fromJson(Map<String, dynamic> json) =>
       _$$ArtistImplFromJson(json);
@@ -265,19 +249,6 @@ class _$ArtistImpl implements _Artist {
     return EqualUnmodifiableListView(_songIds);
   }
 
-  // normalized
-  final List<String>? _albumIds;
-  // normalized
-  @override
-  List<String>? get albumIds {
-    final value = _albumIds;
-    if (value == null) return null;
-    if (_albumIds is EqualUnmodifiableListView) return _albumIds;
-    // ignore: implicit_dynamic_type
-    return EqualUnmodifiableListView(value);
-  }
-
-  // link to Album
   @override
   final DateTime createdAt;
   @override
@@ -289,7 +260,7 @@ class _$ArtistImpl implements _Artist {
 
   @override
   String toString() {
-    return 'Artist(id: $id, name: $name, bio: $bio, image: $image, songIds: $songIds, albumIds: $albumIds, createdAt: $createdAt, updatedAt: $updatedAt, lastPlayed: $lastPlayed, playCount: $playCount)';
+    return 'Artist(id: $id, name: $name, bio: $bio, image: $image, songIds: $songIds, createdAt: $createdAt, updatedAt: $updatedAt, lastPlayed: $lastPlayed, playCount: $playCount)';
   }
 
   @override
@@ -302,7 +273,6 @@ class _$ArtistImpl implements _Artist {
             (identical(other.bio, bio) || other.bio == bio) &&
             (identical(other.image, image) || other.image == image) &&
             const DeepCollectionEquality().equals(other._songIds, _songIds) &&
-            const DeepCollectionEquality().equals(other._albumIds, _albumIds) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
             (identical(other.updatedAt, updatedAt) ||
@@ -322,7 +292,6 @@ class _$ArtistImpl implements _Artist {
     bio,
     image,
     const DeepCollectionEquality().hash(_songIds),
-    const DeepCollectionEquality().hash(_albumIds),
     createdAt,
     updatedAt,
     lastPlayed,
@@ -350,7 +319,6 @@ abstract class _Artist implements Artist {
     final String? bio,
     final String? image,
     required final List<String> songIds,
-    final List<String>? albumIds,
     required final DateTime createdAt,
     final DateTime? updatedAt,
     final DateTime? lastPlayed,
@@ -368,9 +336,7 @@ abstract class _Artist implements Artist {
   @override
   String? get image;
   @override
-  List<String> get songIds; // normalized
-  @override
-  List<String>? get albumIds; // link to Album
+  List<String> get songIds;
   @override
   DateTime get createdAt;
   @override

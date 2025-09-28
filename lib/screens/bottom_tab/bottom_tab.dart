@@ -133,13 +133,23 @@ class BottomTabState extends State<BottomTab> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  final List<Widget> _screens = [
-    const ForYouScreen(),
-    const SongListScreen(),
-    const AlbumsScreen(),
-    const ArtistsScreen(),
-    const PlaylistsScreen(),
-  ];
+  // Lazy loading screens for better performance
+  Widget _getScreen(int index) {
+    switch (index) {
+      case 0:
+        return const ForYouScreen();
+      case 1:
+        return const SongListScreen();
+      case 2:
+        return const AlbumsScreen();
+      case 3:
+        return const ArtistsScreen();
+      case 4:
+        return const PlaylistsScreen();
+      default:
+        return const ForYouScreen();
+    }
+  }
 
   void onTabTapped(int index) {
     if (index != _selectedIndex) {
@@ -151,19 +161,22 @@ class BottomTabState extends State<BottomTab> with TickerProviderStateMixin {
         _selectedIndex = index;
       });
 
-      // Quick scale animation for visual feedback (non-blocking)
+      // Optimized animations - start all at once for better performance
       _scaleController.forward().then((_) {
         _scaleController.reverse();
       });
 
-      // Reset and start animations (non-blocking)
+      // Reset and start animations in parallel (non-blocking)
       _iconController.reset();
       _textController.reset();
       _slideController.reset();
 
-      _iconController.forward();
-      _textController.forward();
-      _slideController.forward();
+      // Start all animations simultaneously for faster response
+      Future.wait([
+        _iconController.forward(),
+        _textController.forward(),
+        _slideController.forward(),
+      ]);
     }
   }
 
@@ -172,8 +185,8 @@ class BottomTabState extends State<BottomTab> with TickerProviderStateMixin {
     return Scaffold(
       body: Stack(
         children: [
-          // Main content
-          _screens[_selectedIndex],
+          // Main content with lazy loading
+          _getScreen(_selectedIndex),
 
           // Pop-up Music Player Widget (appears on all screens)
           const PopUpMusicPlayerWidget(),

@@ -14,6 +14,18 @@ abstract class MusicEvent with _$MusicEvent {
 
   const factory MusicEvent.loadMyPlaylists() = _LoadMyPlaylists;
 
+  // Playlist management events
+  const factory MusicEvent.addOrUpdateMyPlayList({
+    required MyPlaylistOperation operation,
+    String? playlistId,
+    String? name,
+    String? description,
+    List<String>? songIds,
+    String? songId,
+    String? coverImage,
+    bool? isPublic,
+  }) = _AddOrUpdateMyPlayList;
+
   // Playback events
   const factory MusicEvent.playOrPauseSong({
     String? songId,

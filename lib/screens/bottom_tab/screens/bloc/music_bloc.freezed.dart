@@ -27,6 +27,17 @@ mixin _$MusicEvent {
     required TResult Function() loadArtistsProgressive,
     required TResult Function() loadMyPlaylists,
     required TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )
+    addOrUpdateMyPlayList,
+    required TResult Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -66,6 +77,17 @@ mixin _$MusicEvent {
     TResult? Function()? loadArtistsProgressive,
     TResult? Function()? loadMyPlaylists,
     TResult? Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
+    TResult? Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -104,6 +126,17 @@ mixin _$MusicEvent {
     TResult Function()? loadArtists,
     TResult Function()? loadArtistsProgressive,
     TResult Function()? loadMyPlaylists,
+    TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
     TResult Function(
       String? songId,
       List<String>? currentPlayList,
@@ -147,6 +180,8 @@ mixin _$MusicEvent {
     required TResult Function(_LoadArtistsProgressive value)
     loadArtistsProgressive,
     required TResult Function(_LoadMyPlaylists value) loadMyPlaylists,
+    required TResult Function(_AddOrUpdateMyPlayList value)
+    addOrUpdateMyPlayList,
     required TResult Function(_PlayOrPauseSong value) playOrPauseSong,
     required TResult Function(_PlayNext value) playNext,
     required TResult Function(_PlayPrevious value) playPrevious,
@@ -168,6 +203,7 @@ mixin _$MusicEvent {
     TResult? Function(_LoadArtists value)? loadArtists,
     TResult? Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult? Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult? Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult? Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult? Function(_PlayNext value)? playNext,
     TResult? Function(_PlayPrevious value)? playPrevious,
@@ -189,6 +225,7 @@ mixin _$MusicEvent {
     TResult Function(_LoadArtists value)? loadArtists,
     TResult Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult Function(_PlayNext value)? playNext,
     TResult Function(_PlayPrevious value)? playPrevious,
@@ -277,6 +314,17 @@ class _$LoadAllSongsImpl implements _LoadAllSongs {
     required TResult Function() loadArtistsProgressive,
     required TResult Function() loadMyPlaylists,
     required TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )
+    addOrUpdateMyPlayList,
+    required TResult Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -320,6 +368,17 @@ class _$LoadAllSongsImpl implements _LoadAllSongs {
     TResult? Function()? loadArtistsProgressive,
     TResult? Function()? loadMyPlaylists,
     TResult? Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
+    TResult? Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -362,6 +421,17 @@ class _$LoadAllSongsImpl implements _LoadAllSongs {
     TResult Function()? loadArtists,
     TResult Function()? loadArtistsProgressive,
     TResult Function()? loadMyPlaylists,
+    TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
     TResult Function(
       String? songId,
       List<String>? currentPlayList,
@@ -412,6 +482,8 @@ class _$LoadAllSongsImpl implements _LoadAllSongs {
     required TResult Function(_LoadArtistsProgressive value)
     loadArtistsProgressive,
     required TResult Function(_LoadMyPlaylists value) loadMyPlaylists,
+    required TResult Function(_AddOrUpdateMyPlayList value)
+    addOrUpdateMyPlayList,
     required TResult Function(_PlayOrPauseSong value) playOrPauseSong,
     required TResult Function(_PlayNext value) playNext,
     required TResult Function(_PlayPrevious value) playPrevious,
@@ -437,6 +509,7 @@ class _$LoadAllSongsImpl implements _LoadAllSongs {
     TResult? Function(_LoadArtists value)? loadArtists,
     TResult? Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult? Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult? Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult? Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult? Function(_PlayNext value)? playNext,
     TResult? Function(_PlayPrevious value)? playPrevious,
@@ -462,6 +535,7 @@ class _$LoadAllSongsImpl implements _LoadAllSongs {
     TResult Function(_LoadArtists value)? loadArtists,
     TResult Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult Function(_PlayNext value)? playNext,
     TResult Function(_PlayPrevious value)? playPrevious,
@@ -538,6 +612,17 @@ class _$LoadAllSongsProgressiveImpl implements _LoadAllSongsProgressive {
     required TResult Function() loadArtistsProgressive,
     required TResult Function() loadMyPlaylists,
     required TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )
+    addOrUpdateMyPlayList,
+    required TResult Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -581,6 +666,17 @@ class _$LoadAllSongsProgressiveImpl implements _LoadAllSongsProgressive {
     TResult? Function()? loadArtistsProgressive,
     TResult? Function()? loadMyPlaylists,
     TResult? Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
+    TResult? Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -623,6 +719,17 @@ class _$LoadAllSongsProgressiveImpl implements _LoadAllSongsProgressive {
     TResult Function()? loadArtists,
     TResult Function()? loadArtistsProgressive,
     TResult Function()? loadMyPlaylists,
+    TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
     TResult Function(
       String? songId,
       List<String>? currentPlayList,
@@ -673,6 +780,8 @@ class _$LoadAllSongsProgressiveImpl implements _LoadAllSongsProgressive {
     required TResult Function(_LoadArtistsProgressive value)
     loadArtistsProgressive,
     required TResult Function(_LoadMyPlaylists value) loadMyPlaylists,
+    required TResult Function(_AddOrUpdateMyPlayList value)
+    addOrUpdateMyPlayList,
     required TResult Function(_PlayOrPauseSong value) playOrPauseSong,
     required TResult Function(_PlayNext value) playNext,
     required TResult Function(_PlayPrevious value) playPrevious,
@@ -698,6 +807,7 @@ class _$LoadAllSongsProgressiveImpl implements _LoadAllSongsProgressive {
     TResult? Function(_LoadArtists value)? loadArtists,
     TResult? Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult? Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult? Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult? Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult? Function(_PlayNext value)? playNext,
     TResult? Function(_PlayPrevious value)? playPrevious,
@@ -723,6 +833,7 @@ class _$LoadAllSongsProgressiveImpl implements _LoadAllSongsProgressive {
     TResult Function(_LoadArtists value)? loadArtists,
     TResult Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult Function(_PlayNext value)? playNext,
     TResult Function(_PlayPrevious value)? playPrevious,
@@ -798,6 +909,17 @@ class _$LoadAlbumsImpl implements _LoadAlbums {
     required TResult Function() loadArtistsProgressive,
     required TResult Function() loadMyPlaylists,
     required TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )
+    addOrUpdateMyPlayList,
+    required TResult Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -841,6 +963,17 @@ class _$LoadAlbumsImpl implements _LoadAlbums {
     TResult? Function()? loadArtistsProgressive,
     TResult? Function()? loadMyPlaylists,
     TResult? Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
+    TResult? Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -883,6 +1016,17 @@ class _$LoadAlbumsImpl implements _LoadAlbums {
     TResult Function()? loadArtists,
     TResult Function()? loadArtistsProgressive,
     TResult Function()? loadMyPlaylists,
+    TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
     TResult Function(
       String? songId,
       List<String>? currentPlayList,
@@ -933,6 +1077,8 @@ class _$LoadAlbumsImpl implements _LoadAlbums {
     required TResult Function(_LoadArtistsProgressive value)
     loadArtistsProgressive,
     required TResult Function(_LoadMyPlaylists value) loadMyPlaylists,
+    required TResult Function(_AddOrUpdateMyPlayList value)
+    addOrUpdateMyPlayList,
     required TResult Function(_PlayOrPauseSong value) playOrPauseSong,
     required TResult Function(_PlayNext value) playNext,
     required TResult Function(_PlayPrevious value) playPrevious,
@@ -958,6 +1104,7 @@ class _$LoadAlbumsImpl implements _LoadAlbums {
     TResult? Function(_LoadArtists value)? loadArtists,
     TResult? Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult? Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult? Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult? Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult? Function(_PlayNext value)? playNext,
     TResult? Function(_PlayPrevious value)? playPrevious,
@@ -983,6 +1130,7 @@ class _$LoadAlbumsImpl implements _LoadAlbums {
     TResult Function(_LoadArtists value)? loadArtists,
     TResult Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult Function(_PlayNext value)? playNext,
     TResult Function(_PlayPrevious value)? playPrevious,
@@ -1059,6 +1207,17 @@ class _$LoadAlbumsProgressiveImpl implements _LoadAlbumsProgressive {
     required TResult Function() loadArtistsProgressive,
     required TResult Function() loadMyPlaylists,
     required TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )
+    addOrUpdateMyPlayList,
+    required TResult Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -1102,6 +1261,17 @@ class _$LoadAlbumsProgressiveImpl implements _LoadAlbumsProgressive {
     TResult? Function()? loadArtistsProgressive,
     TResult? Function()? loadMyPlaylists,
     TResult? Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
+    TResult? Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -1144,6 +1314,17 @@ class _$LoadAlbumsProgressiveImpl implements _LoadAlbumsProgressive {
     TResult Function()? loadArtists,
     TResult Function()? loadArtistsProgressive,
     TResult Function()? loadMyPlaylists,
+    TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
     TResult Function(
       String? songId,
       List<String>? currentPlayList,
@@ -1194,6 +1375,8 @@ class _$LoadAlbumsProgressiveImpl implements _LoadAlbumsProgressive {
     required TResult Function(_LoadArtistsProgressive value)
     loadArtistsProgressive,
     required TResult Function(_LoadMyPlaylists value) loadMyPlaylists,
+    required TResult Function(_AddOrUpdateMyPlayList value)
+    addOrUpdateMyPlayList,
     required TResult Function(_PlayOrPauseSong value) playOrPauseSong,
     required TResult Function(_PlayNext value) playNext,
     required TResult Function(_PlayPrevious value) playPrevious,
@@ -1219,6 +1402,7 @@ class _$LoadAlbumsProgressiveImpl implements _LoadAlbumsProgressive {
     TResult? Function(_LoadArtists value)? loadArtists,
     TResult? Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult? Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult? Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult? Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult? Function(_PlayNext value)? playNext,
     TResult? Function(_PlayPrevious value)? playPrevious,
@@ -1244,6 +1428,7 @@ class _$LoadAlbumsProgressiveImpl implements _LoadAlbumsProgressive {
     TResult Function(_LoadArtists value)? loadArtists,
     TResult Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult Function(_PlayNext value)? playNext,
     TResult Function(_PlayPrevious value)? playPrevious,
@@ -1319,6 +1504,17 @@ class _$LoadArtistsImpl implements _LoadArtists {
     required TResult Function() loadArtistsProgressive,
     required TResult Function() loadMyPlaylists,
     required TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )
+    addOrUpdateMyPlayList,
+    required TResult Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -1362,6 +1558,17 @@ class _$LoadArtistsImpl implements _LoadArtists {
     TResult? Function()? loadArtistsProgressive,
     TResult? Function()? loadMyPlaylists,
     TResult? Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
+    TResult? Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -1404,6 +1611,17 @@ class _$LoadArtistsImpl implements _LoadArtists {
     TResult Function()? loadArtists,
     TResult Function()? loadArtistsProgressive,
     TResult Function()? loadMyPlaylists,
+    TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
     TResult Function(
       String? songId,
       List<String>? currentPlayList,
@@ -1454,6 +1672,8 @@ class _$LoadArtistsImpl implements _LoadArtists {
     required TResult Function(_LoadArtistsProgressive value)
     loadArtistsProgressive,
     required TResult Function(_LoadMyPlaylists value) loadMyPlaylists,
+    required TResult Function(_AddOrUpdateMyPlayList value)
+    addOrUpdateMyPlayList,
     required TResult Function(_PlayOrPauseSong value) playOrPauseSong,
     required TResult Function(_PlayNext value) playNext,
     required TResult Function(_PlayPrevious value) playPrevious,
@@ -1479,6 +1699,7 @@ class _$LoadArtistsImpl implements _LoadArtists {
     TResult? Function(_LoadArtists value)? loadArtists,
     TResult? Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult? Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult? Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult? Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult? Function(_PlayNext value)? playNext,
     TResult? Function(_PlayPrevious value)? playPrevious,
@@ -1504,6 +1725,7 @@ class _$LoadArtistsImpl implements _LoadArtists {
     TResult Function(_LoadArtists value)? loadArtists,
     TResult Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult Function(_PlayNext value)? playNext,
     TResult Function(_PlayPrevious value)? playPrevious,
@@ -1580,6 +1802,17 @@ class _$LoadArtistsProgressiveImpl implements _LoadArtistsProgressive {
     required TResult Function() loadArtistsProgressive,
     required TResult Function() loadMyPlaylists,
     required TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )
+    addOrUpdateMyPlayList,
+    required TResult Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -1623,6 +1856,17 @@ class _$LoadArtistsProgressiveImpl implements _LoadArtistsProgressive {
     TResult? Function()? loadArtistsProgressive,
     TResult? Function()? loadMyPlaylists,
     TResult? Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
+    TResult? Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -1665,6 +1909,17 @@ class _$LoadArtistsProgressiveImpl implements _LoadArtistsProgressive {
     TResult Function()? loadArtists,
     TResult Function()? loadArtistsProgressive,
     TResult Function()? loadMyPlaylists,
+    TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
     TResult Function(
       String? songId,
       List<String>? currentPlayList,
@@ -1715,6 +1970,8 @@ class _$LoadArtistsProgressiveImpl implements _LoadArtistsProgressive {
     required TResult Function(_LoadArtistsProgressive value)
     loadArtistsProgressive,
     required TResult Function(_LoadMyPlaylists value) loadMyPlaylists,
+    required TResult Function(_AddOrUpdateMyPlayList value)
+    addOrUpdateMyPlayList,
     required TResult Function(_PlayOrPauseSong value) playOrPauseSong,
     required TResult Function(_PlayNext value) playNext,
     required TResult Function(_PlayPrevious value) playPrevious,
@@ -1740,6 +1997,7 @@ class _$LoadArtistsProgressiveImpl implements _LoadArtistsProgressive {
     TResult? Function(_LoadArtists value)? loadArtists,
     TResult? Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult? Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult? Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult? Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult? Function(_PlayNext value)? playNext,
     TResult? Function(_PlayPrevious value)? playPrevious,
@@ -1765,6 +2023,7 @@ class _$LoadArtistsProgressiveImpl implements _LoadArtistsProgressive {
     TResult Function(_LoadArtists value)? loadArtists,
     TResult Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult Function(_PlayNext value)? playNext,
     TResult Function(_PlayPrevious value)? playPrevious,
@@ -1840,6 +2099,17 @@ class _$LoadMyPlaylistsImpl implements _LoadMyPlaylists {
     required TResult Function() loadArtistsProgressive,
     required TResult Function() loadMyPlaylists,
     required TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )
+    addOrUpdateMyPlayList,
+    required TResult Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -1883,6 +2153,17 @@ class _$LoadMyPlaylistsImpl implements _LoadMyPlaylists {
     TResult? Function()? loadArtistsProgressive,
     TResult? Function()? loadMyPlaylists,
     TResult? Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
+    TResult? Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -1925,6 +2206,17 @@ class _$LoadMyPlaylistsImpl implements _LoadMyPlaylists {
     TResult Function()? loadArtists,
     TResult Function()? loadArtistsProgressive,
     TResult Function()? loadMyPlaylists,
+    TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
     TResult Function(
       String? songId,
       List<String>? currentPlayList,
@@ -1975,6 +2267,8 @@ class _$LoadMyPlaylistsImpl implements _LoadMyPlaylists {
     required TResult Function(_LoadArtistsProgressive value)
     loadArtistsProgressive,
     required TResult Function(_LoadMyPlaylists value) loadMyPlaylists,
+    required TResult Function(_AddOrUpdateMyPlayList value)
+    addOrUpdateMyPlayList,
     required TResult Function(_PlayOrPauseSong value) playOrPauseSong,
     required TResult Function(_PlayNext value) playNext,
     required TResult Function(_PlayPrevious value) playPrevious,
@@ -2000,6 +2294,7 @@ class _$LoadMyPlaylistsImpl implements _LoadMyPlaylists {
     TResult? Function(_LoadArtists value)? loadArtists,
     TResult? Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult? Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult? Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult? Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult? Function(_PlayNext value)? playNext,
     TResult? Function(_PlayPrevious value)? playPrevious,
@@ -2025,6 +2320,7 @@ class _$LoadMyPlaylistsImpl implements _LoadMyPlaylists {
     TResult Function(_LoadArtists value)? loadArtists,
     TResult Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult Function(_PlayNext value)? playNext,
     TResult Function(_PlayPrevious value)? playPrevious,
@@ -2047,6 +2343,484 @@ class _$LoadMyPlaylistsImpl implements _LoadMyPlaylists {
 
 abstract class _LoadMyPlaylists implements MusicEvent {
   const factory _LoadMyPlaylists() = _$LoadMyPlaylistsImpl;
+}
+
+/// @nodoc
+abstract class _$$AddOrUpdateMyPlayListImplCopyWith<$Res> {
+  factory _$$AddOrUpdateMyPlayListImplCopyWith(
+    _$AddOrUpdateMyPlayListImpl value,
+    $Res Function(_$AddOrUpdateMyPlayListImpl) then,
+  ) = __$$AddOrUpdateMyPlayListImplCopyWithImpl<$Res>;
+  @useResult
+  $Res call({
+    MyPlaylistOperation operation,
+    String? playlistId,
+    String? name,
+    String? description,
+    List<String>? songIds,
+    String? songId,
+    String? coverImage,
+    bool? isPublic,
+  });
+}
+
+/// @nodoc
+class __$$AddOrUpdateMyPlayListImplCopyWithImpl<$Res>
+    extends _$MusicEventCopyWithImpl<$Res, _$AddOrUpdateMyPlayListImpl>
+    implements _$$AddOrUpdateMyPlayListImplCopyWith<$Res> {
+  __$$AddOrUpdateMyPlayListImplCopyWithImpl(
+    _$AddOrUpdateMyPlayListImpl _value,
+    $Res Function(_$AddOrUpdateMyPlayListImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of MusicEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? operation = null,
+    Object? playlistId = freezed,
+    Object? name = freezed,
+    Object? description = freezed,
+    Object? songIds = freezed,
+    Object? songId = freezed,
+    Object? coverImage = freezed,
+    Object? isPublic = freezed,
+  }) {
+    return _then(
+      _$AddOrUpdateMyPlayListImpl(
+        operation: null == operation
+            ? _value.operation
+            : operation // ignore: cast_nullable_to_non_nullable
+                  as MyPlaylistOperation,
+        playlistId: freezed == playlistId
+            ? _value.playlistId
+            : playlistId // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        name: freezed == name
+            ? _value.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        description: freezed == description
+            ? _value.description
+            : description // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        songIds: freezed == songIds
+            ? _value._songIds
+            : songIds // ignore: cast_nullable_to_non_nullable
+                  as List<String>?,
+        songId: freezed == songId
+            ? _value.songId
+            : songId // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        coverImage: freezed == coverImage
+            ? _value.coverImage
+            : coverImage // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        isPublic: freezed == isPublic
+            ? _value.isPublic
+            : isPublic // ignore: cast_nullable_to_non_nullable
+                  as bool?,
+      ),
+    );
+  }
+}
+
+/// @nodoc
+
+class _$AddOrUpdateMyPlayListImpl implements _AddOrUpdateMyPlayList {
+  const _$AddOrUpdateMyPlayListImpl({
+    required this.operation,
+    this.playlistId,
+    this.name,
+    this.description,
+    final List<String>? songIds,
+    this.songId,
+    this.coverImage,
+    this.isPublic,
+  }) : _songIds = songIds;
+
+  @override
+  final MyPlaylistOperation operation;
+  @override
+  final String? playlistId;
+  @override
+  final String? name;
+  @override
+  final String? description;
+  final List<String>? _songIds;
+  @override
+  List<String>? get songIds {
+    final value = _songIds;
+    if (value == null) return null;
+    if (_songIds is EqualUnmodifiableListView) return _songIds;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(value);
+  }
+
+  @override
+  final String? songId;
+  @override
+  final String? coverImage;
+  @override
+  final bool? isPublic;
+
+  @override
+  String toString() {
+    return 'MusicEvent.addOrUpdateMyPlayList(operation: $operation, playlistId: $playlistId, name: $name, description: $description, songIds: $songIds, songId: $songId, coverImage: $coverImage, isPublic: $isPublic)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$AddOrUpdateMyPlayListImpl &&
+            (identical(other.operation, operation) ||
+                other.operation == operation) &&
+            (identical(other.playlistId, playlistId) ||
+                other.playlistId == playlistId) &&
+            (identical(other.name, name) || other.name == name) &&
+            (identical(other.description, description) ||
+                other.description == description) &&
+            const DeepCollectionEquality().equals(other._songIds, _songIds) &&
+            (identical(other.songId, songId) || other.songId == songId) &&
+            (identical(other.coverImage, coverImage) ||
+                other.coverImage == coverImage) &&
+            (identical(other.isPublic, isPublic) ||
+                other.isPublic == isPublic));
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    runtimeType,
+    operation,
+    playlistId,
+    name,
+    description,
+    const DeepCollectionEquality().hash(_songIds),
+    songId,
+    coverImage,
+    isPublic,
+  );
+
+  /// Create a copy of MusicEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$AddOrUpdateMyPlayListImplCopyWith<_$AddOrUpdateMyPlayListImpl>
+  get copyWith =>
+      __$$AddOrUpdateMyPlayListImplCopyWithImpl<_$AddOrUpdateMyPlayListImpl>(
+        this,
+        _$identity,
+      );
+
+  @override
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>({
+    required TResult Function() loadAllSongs,
+    required TResult Function() loadAllSongsProgressive,
+    required TResult Function() loadAlbums,
+    required TResult Function() loadAlbumsProgressive,
+    required TResult Function() loadArtists,
+    required TResult Function() loadArtistsProgressive,
+    required TResult Function() loadMyPlaylists,
+    required TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )
+    addOrUpdateMyPlayList,
+    required TResult Function(
+      String? songId,
+      List<String>? currentPlayList,
+      bool? isForceStop,
+      PlaylistSource? playlistSource,
+    )
+    playOrPauseSong,
+    required TResult Function() playNext,
+    required TResult Function() playPrevious,
+    required TResult Function(
+      bool isShuffle,
+      bool? isAutoStart,
+      List<String> currentPlayList,
+      PlaylistSource? playlistSource,
+    )
+    toggleShuffle,
+    required TResult Function() toggleRepeat,
+    required TResult Function(
+      int sortingIndex,
+      List<String> sortingList,
+      PlaylistSource? playlistSource,
+    )
+    changeSortingOrder,
+    required TResult Function(String filterKeyword) updateFilterKeyword,
+    required TResult Function(String filterType, String? filterValue)
+    setNavigationFilter,
+    required TResult Function(Duration position) seekToPosition,
+    required TResult Function(Duration position) updateLastPosition,
+    required TResult Function(MusicState newState) updateMusicBlocState,
+  }) {
+    return addOrUpdateMyPlayList(
+      operation,
+      playlistId,
+      name,
+      description,
+      songIds,
+      songId,
+      coverImage,
+      isPublic,
+    );
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>({
+    TResult? Function()? loadAllSongs,
+    TResult? Function()? loadAllSongsProgressive,
+    TResult? Function()? loadAlbums,
+    TResult? Function()? loadAlbumsProgressive,
+    TResult? Function()? loadArtists,
+    TResult? Function()? loadArtistsProgressive,
+    TResult? Function()? loadMyPlaylists,
+    TResult? Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
+    TResult? Function(
+      String? songId,
+      List<String>? currentPlayList,
+      bool? isForceStop,
+      PlaylistSource? playlistSource,
+    )?
+    playOrPauseSong,
+    TResult? Function()? playNext,
+    TResult? Function()? playPrevious,
+    TResult? Function(
+      bool isShuffle,
+      bool? isAutoStart,
+      List<String> currentPlayList,
+      PlaylistSource? playlistSource,
+    )?
+    toggleShuffle,
+    TResult? Function()? toggleRepeat,
+    TResult? Function(
+      int sortingIndex,
+      List<String> sortingList,
+      PlaylistSource? playlistSource,
+    )?
+    changeSortingOrder,
+    TResult? Function(String filterKeyword)? updateFilterKeyword,
+    TResult? Function(String filterType, String? filterValue)?
+    setNavigationFilter,
+    TResult? Function(Duration position)? seekToPosition,
+    TResult? Function(Duration position)? updateLastPosition,
+    TResult? Function(MusicState newState)? updateMusicBlocState,
+  }) {
+    return addOrUpdateMyPlayList?.call(
+      operation,
+      playlistId,
+      name,
+      description,
+      songIds,
+      songId,
+      coverImage,
+      isPublic,
+    );
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>({
+    TResult Function()? loadAllSongs,
+    TResult Function()? loadAllSongsProgressive,
+    TResult Function()? loadAlbums,
+    TResult Function()? loadAlbumsProgressive,
+    TResult Function()? loadArtists,
+    TResult Function()? loadArtistsProgressive,
+    TResult Function()? loadMyPlaylists,
+    TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
+    TResult Function(
+      String? songId,
+      List<String>? currentPlayList,
+      bool? isForceStop,
+      PlaylistSource? playlistSource,
+    )?
+    playOrPauseSong,
+    TResult Function()? playNext,
+    TResult Function()? playPrevious,
+    TResult Function(
+      bool isShuffle,
+      bool? isAutoStart,
+      List<String> currentPlayList,
+      PlaylistSource? playlistSource,
+    )?
+    toggleShuffle,
+    TResult Function()? toggleRepeat,
+    TResult Function(
+      int sortingIndex,
+      List<String> sortingList,
+      PlaylistSource? playlistSource,
+    )?
+    changeSortingOrder,
+    TResult Function(String filterKeyword)? updateFilterKeyword,
+    TResult Function(String filterType, String? filterValue)?
+    setNavigationFilter,
+    TResult Function(Duration position)? seekToPosition,
+    TResult Function(Duration position)? updateLastPosition,
+    TResult Function(MusicState newState)? updateMusicBlocState,
+    required TResult orElse(),
+  }) {
+    if (addOrUpdateMyPlayList != null) {
+      return addOrUpdateMyPlayList(
+        operation,
+        playlistId,
+        name,
+        description,
+        songIds,
+        songId,
+        coverImage,
+        isPublic,
+      );
+    }
+    return orElse();
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>({
+    required TResult Function(_LoadAllSongs value) loadAllSongs,
+    required TResult Function(_LoadAllSongsProgressive value)
+    loadAllSongsProgressive,
+    required TResult Function(_LoadAlbums value) loadAlbums,
+    required TResult Function(_LoadAlbumsProgressive value)
+    loadAlbumsProgressive,
+    required TResult Function(_LoadArtists value) loadArtists,
+    required TResult Function(_LoadArtistsProgressive value)
+    loadArtistsProgressive,
+    required TResult Function(_LoadMyPlaylists value) loadMyPlaylists,
+    required TResult Function(_AddOrUpdateMyPlayList value)
+    addOrUpdateMyPlayList,
+    required TResult Function(_PlayOrPauseSong value) playOrPauseSong,
+    required TResult Function(_PlayNext value) playNext,
+    required TResult Function(_PlayPrevious value) playPrevious,
+    required TResult Function(_ToggleShuffle value) toggleShuffle,
+    required TResult Function(_ToggleRepeat value) toggleRepeat,
+    required TResult Function(_ChangeSortingOrder value) changeSortingOrder,
+    required TResult Function(_UpdateFilterKeyword value) updateFilterKeyword,
+    required TResult Function(_SetNavigationFilter value) setNavigationFilter,
+    required TResult Function(_SeekToPosition value) seekToPosition,
+    required TResult Function(_UpdateLastPosition value) updateLastPosition,
+    required TResult Function(_UpdateMusicBlocState value) updateMusicBlocState,
+  }) {
+    return addOrUpdateMyPlayList(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>({
+    TResult? Function(_LoadAllSongs value)? loadAllSongs,
+    TResult? Function(_LoadAllSongsProgressive value)? loadAllSongsProgressive,
+    TResult? Function(_LoadAlbums value)? loadAlbums,
+    TResult? Function(_LoadAlbumsProgressive value)? loadAlbumsProgressive,
+    TResult? Function(_LoadArtists value)? loadArtists,
+    TResult? Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
+    TResult? Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult? Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
+    TResult? Function(_PlayOrPauseSong value)? playOrPauseSong,
+    TResult? Function(_PlayNext value)? playNext,
+    TResult? Function(_PlayPrevious value)? playPrevious,
+    TResult? Function(_ToggleShuffle value)? toggleShuffle,
+    TResult? Function(_ToggleRepeat value)? toggleRepeat,
+    TResult? Function(_ChangeSortingOrder value)? changeSortingOrder,
+    TResult? Function(_UpdateFilterKeyword value)? updateFilterKeyword,
+    TResult? Function(_SetNavigationFilter value)? setNavigationFilter,
+    TResult? Function(_SeekToPosition value)? seekToPosition,
+    TResult? Function(_UpdateLastPosition value)? updateLastPosition,
+    TResult? Function(_UpdateMusicBlocState value)? updateMusicBlocState,
+  }) {
+    return addOrUpdateMyPlayList?.call(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>({
+    TResult Function(_LoadAllSongs value)? loadAllSongs,
+    TResult Function(_LoadAllSongsProgressive value)? loadAllSongsProgressive,
+    TResult Function(_LoadAlbums value)? loadAlbums,
+    TResult Function(_LoadAlbumsProgressive value)? loadAlbumsProgressive,
+    TResult Function(_LoadArtists value)? loadArtists,
+    TResult Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
+    TResult Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
+    TResult Function(_PlayOrPauseSong value)? playOrPauseSong,
+    TResult Function(_PlayNext value)? playNext,
+    TResult Function(_PlayPrevious value)? playPrevious,
+    TResult Function(_ToggleShuffle value)? toggleShuffle,
+    TResult Function(_ToggleRepeat value)? toggleRepeat,
+    TResult Function(_ChangeSortingOrder value)? changeSortingOrder,
+    TResult Function(_UpdateFilterKeyword value)? updateFilterKeyword,
+    TResult Function(_SetNavigationFilter value)? setNavigationFilter,
+    TResult Function(_SeekToPosition value)? seekToPosition,
+    TResult Function(_UpdateLastPosition value)? updateLastPosition,
+    TResult Function(_UpdateMusicBlocState value)? updateMusicBlocState,
+    required TResult orElse(),
+  }) {
+    if (addOrUpdateMyPlayList != null) {
+      return addOrUpdateMyPlayList(this);
+    }
+    return orElse();
+  }
+}
+
+abstract class _AddOrUpdateMyPlayList implements MusicEvent {
+  const factory _AddOrUpdateMyPlayList({
+    required final MyPlaylistOperation operation,
+    final String? playlistId,
+    final String? name,
+    final String? description,
+    final List<String>? songIds,
+    final String? songId,
+    final String? coverImage,
+    final bool? isPublic,
+  }) = _$AddOrUpdateMyPlayListImpl;
+
+  MyPlaylistOperation get operation;
+  String? get playlistId;
+  String? get name;
+  String? get description;
+  List<String>? get songIds;
+  String? get songId;
+  String? get coverImage;
+  bool? get isPublic;
+
+  /// Create a copy of MusicEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$AddOrUpdateMyPlayListImplCopyWith<_$AddOrUpdateMyPlayListImpl>
+  get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
@@ -2201,6 +2975,17 @@ class _$PlayOrPauseSongImpl implements _PlayOrPauseSong {
     required TResult Function() loadArtistsProgressive,
     required TResult Function() loadMyPlaylists,
     required TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )
+    addOrUpdateMyPlayList,
+    required TResult Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -2249,6 +3034,17 @@ class _$PlayOrPauseSongImpl implements _PlayOrPauseSong {
     TResult? Function()? loadArtistsProgressive,
     TResult? Function()? loadMyPlaylists,
     TResult? Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
+    TResult? Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -2296,6 +3092,17 @@ class _$PlayOrPauseSongImpl implements _PlayOrPauseSong {
     TResult Function()? loadArtists,
     TResult Function()? loadArtistsProgressive,
     TResult Function()? loadMyPlaylists,
+    TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
     TResult Function(
       String? songId,
       List<String>? currentPlayList,
@@ -2351,6 +3158,8 @@ class _$PlayOrPauseSongImpl implements _PlayOrPauseSong {
     required TResult Function(_LoadArtistsProgressive value)
     loadArtistsProgressive,
     required TResult Function(_LoadMyPlaylists value) loadMyPlaylists,
+    required TResult Function(_AddOrUpdateMyPlayList value)
+    addOrUpdateMyPlayList,
     required TResult Function(_PlayOrPauseSong value) playOrPauseSong,
     required TResult Function(_PlayNext value) playNext,
     required TResult Function(_PlayPrevious value) playPrevious,
@@ -2376,6 +3185,7 @@ class _$PlayOrPauseSongImpl implements _PlayOrPauseSong {
     TResult? Function(_LoadArtists value)? loadArtists,
     TResult? Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult? Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult? Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult? Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult? Function(_PlayNext value)? playNext,
     TResult? Function(_PlayPrevious value)? playPrevious,
@@ -2401,6 +3211,7 @@ class _$PlayOrPauseSongImpl implements _PlayOrPauseSong {
     TResult Function(_LoadArtists value)? loadArtists,
     TResult Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult Function(_PlayNext value)? playNext,
     TResult Function(_PlayPrevious value)? playPrevious,
@@ -2492,6 +3303,17 @@ class _$PlayNextImpl implements _PlayNext {
     required TResult Function() loadArtistsProgressive,
     required TResult Function() loadMyPlaylists,
     required TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )
+    addOrUpdateMyPlayList,
+    required TResult Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -2535,6 +3357,17 @@ class _$PlayNextImpl implements _PlayNext {
     TResult? Function()? loadArtistsProgressive,
     TResult? Function()? loadMyPlaylists,
     TResult? Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
+    TResult? Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -2577,6 +3410,17 @@ class _$PlayNextImpl implements _PlayNext {
     TResult Function()? loadArtists,
     TResult Function()? loadArtistsProgressive,
     TResult Function()? loadMyPlaylists,
+    TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
     TResult Function(
       String? songId,
       List<String>? currentPlayList,
@@ -2627,6 +3471,8 @@ class _$PlayNextImpl implements _PlayNext {
     required TResult Function(_LoadArtistsProgressive value)
     loadArtistsProgressive,
     required TResult Function(_LoadMyPlaylists value) loadMyPlaylists,
+    required TResult Function(_AddOrUpdateMyPlayList value)
+    addOrUpdateMyPlayList,
     required TResult Function(_PlayOrPauseSong value) playOrPauseSong,
     required TResult Function(_PlayNext value) playNext,
     required TResult Function(_PlayPrevious value) playPrevious,
@@ -2652,6 +3498,7 @@ class _$PlayNextImpl implements _PlayNext {
     TResult? Function(_LoadArtists value)? loadArtists,
     TResult? Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult? Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult? Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult? Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult? Function(_PlayNext value)? playNext,
     TResult? Function(_PlayPrevious value)? playPrevious,
@@ -2677,6 +3524,7 @@ class _$PlayNextImpl implements _PlayNext {
     TResult Function(_LoadArtists value)? loadArtists,
     TResult Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult Function(_PlayNext value)? playNext,
     TResult Function(_PlayPrevious value)? playPrevious,
@@ -2752,6 +3600,17 @@ class _$PlayPreviousImpl implements _PlayPrevious {
     required TResult Function() loadArtistsProgressive,
     required TResult Function() loadMyPlaylists,
     required TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )
+    addOrUpdateMyPlayList,
+    required TResult Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -2795,6 +3654,17 @@ class _$PlayPreviousImpl implements _PlayPrevious {
     TResult? Function()? loadArtistsProgressive,
     TResult? Function()? loadMyPlaylists,
     TResult? Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
+    TResult? Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -2837,6 +3707,17 @@ class _$PlayPreviousImpl implements _PlayPrevious {
     TResult Function()? loadArtists,
     TResult Function()? loadArtistsProgressive,
     TResult Function()? loadMyPlaylists,
+    TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
     TResult Function(
       String? songId,
       List<String>? currentPlayList,
@@ -2887,6 +3768,8 @@ class _$PlayPreviousImpl implements _PlayPrevious {
     required TResult Function(_LoadArtistsProgressive value)
     loadArtistsProgressive,
     required TResult Function(_LoadMyPlaylists value) loadMyPlaylists,
+    required TResult Function(_AddOrUpdateMyPlayList value)
+    addOrUpdateMyPlayList,
     required TResult Function(_PlayOrPauseSong value) playOrPauseSong,
     required TResult Function(_PlayNext value) playNext,
     required TResult Function(_PlayPrevious value) playPrevious,
@@ -2912,6 +3795,7 @@ class _$PlayPreviousImpl implements _PlayPrevious {
     TResult? Function(_LoadArtists value)? loadArtists,
     TResult? Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult? Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult? Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult? Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult? Function(_PlayNext value)? playNext,
     TResult? Function(_PlayPrevious value)? playPrevious,
@@ -2937,6 +3821,7 @@ class _$PlayPreviousImpl implements _PlayPrevious {
     TResult Function(_LoadArtists value)? loadArtists,
     TResult Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult Function(_PlayNext value)? playNext,
     TResult Function(_PlayPrevious value)? playPrevious,
@@ -3109,6 +3994,17 @@ class _$ToggleShuffleImpl implements _ToggleShuffle {
     required TResult Function() loadArtistsProgressive,
     required TResult Function() loadMyPlaylists,
     required TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )
+    addOrUpdateMyPlayList,
+    required TResult Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -3157,6 +4053,17 @@ class _$ToggleShuffleImpl implements _ToggleShuffle {
     TResult? Function()? loadArtistsProgressive,
     TResult? Function()? loadMyPlaylists,
     TResult? Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
+    TResult? Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -3204,6 +4111,17 @@ class _$ToggleShuffleImpl implements _ToggleShuffle {
     TResult Function()? loadArtists,
     TResult Function()? loadArtistsProgressive,
     TResult Function()? loadMyPlaylists,
+    TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
     TResult Function(
       String? songId,
       List<String>? currentPlayList,
@@ -3259,6 +4177,8 @@ class _$ToggleShuffleImpl implements _ToggleShuffle {
     required TResult Function(_LoadArtistsProgressive value)
     loadArtistsProgressive,
     required TResult Function(_LoadMyPlaylists value) loadMyPlaylists,
+    required TResult Function(_AddOrUpdateMyPlayList value)
+    addOrUpdateMyPlayList,
     required TResult Function(_PlayOrPauseSong value) playOrPauseSong,
     required TResult Function(_PlayNext value) playNext,
     required TResult Function(_PlayPrevious value) playPrevious,
@@ -3284,6 +4204,7 @@ class _$ToggleShuffleImpl implements _ToggleShuffle {
     TResult? Function(_LoadArtists value)? loadArtists,
     TResult? Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult? Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult? Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult? Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult? Function(_PlayNext value)? playNext,
     TResult? Function(_PlayPrevious value)? playPrevious,
@@ -3309,6 +4230,7 @@ class _$ToggleShuffleImpl implements _ToggleShuffle {
     TResult Function(_LoadArtists value)? loadArtists,
     TResult Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult Function(_PlayNext value)? playNext,
     TResult Function(_PlayPrevious value)? playPrevious,
@@ -3400,6 +4322,17 @@ class _$ToggleRepeatImpl implements _ToggleRepeat {
     required TResult Function() loadArtistsProgressive,
     required TResult Function() loadMyPlaylists,
     required TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )
+    addOrUpdateMyPlayList,
+    required TResult Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -3443,6 +4376,17 @@ class _$ToggleRepeatImpl implements _ToggleRepeat {
     TResult? Function()? loadArtistsProgressive,
     TResult? Function()? loadMyPlaylists,
     TResult? Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
+    TResult? Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -3485,6 +4429,17 @@ class _$ToggleRepeatImpl implements _ToggleRepeat {
     TResult Function()? loadArtists,
     TResult Function()? loadArtistsProgressive,
     TResult Function()? loadMyPlaylists,
+    TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
     TResult Function(
       String? songId,
       List<String>? currentPlayList,
@@ -3535,6 +4490,8 @@ class _$ToggleRepeatImpl implements _ToggleRepeat {
     required TResult Function(_LoadArtistsProgressive value)
     loadArtistsProgressive,
     required TResult Function(_LoadMyPlaylists value) loadMyPlaylists,
+    required TResult Function(_AddOrUpdateMyPlayList value)
+    addOrUpdateMyPlayList,
     required TResult Function(_PlayOrPauseSong value) playOrPauseSong,
     required TResult Function(_PlayNext value) playNext,
     required TResult Function(_PlayPrevious value) playPrevious,
@@ -3560,6 +4517,7 @@ class _$ToggleRepeatImpl implements _ToggleRepeat {
     TResult? Function(_LoadArtists value)? loadArtists,
     TResult? Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult? Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult? Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult? Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult? Function(_PlayNext value)? playNext,
     TResult? Function(_PlayPrevious value)? playPrevious,
@@ -3585,6 +4543,7 @@ class _$ToggleRepeatImpl implements _ToggleRepeat {
     TResult Function(_LoadArtists value)? loadArtists,
     TResult Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult Function(_PlayNext value)? playNext,
     TResult Function(_PlayPrevious value)? playPrevious,
@@ -3748,6 +4707,17 @@ class _$ChangeSortingOrderImpl implements _ChangeSortingOrder {
     required TResult Function() loadArtistsProgressive,
     required TResult Function() loadMyPlaylists,
     required TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )
+    addOrUpdateMyPlayList,
+    required TResult Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -3791,6 +4761,17 @@ class _$ChangeSortingOrderImpl implements _ChangeSortingOrder {
     TResult? Function()? loadArtistsProgressive,
     TResult? Function()? loadMyPlaylists,
     TResult? Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
+    TResult? Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -3833,6 +4814,17 @@ class _$ChangeSortingOrderImpl implements _ChangeSortingOrder {
     TResult Function()? loadArtists,
     TResult Function()? loadArtistsProgressive,
     TResult Function()? loadMyPlaylists,
+    TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
     TResult Function(
       String? songId,
       List<String>? currentPlayList,
@@ -3883,6 +4875,8 @@ class _$ChangeSortingOrderImpl implements _ChangeSortingOrder {
     required TResult Function(_LoadArtistsProgressive value)
     loadArtistsProgressive,
     required TResult Function(_LoadMyPlaylists value) loadMyPlaylists,
+    required TResult Function(_AddOrUpdateMyPlayList value)
+    addOrUpdateMyPlayList,
     required TResult Function(_PlayOrPauseSong value) playOrPauseSong,
     required TResult Function(_PlayNext value) playNext,
     required TResult Function(_PlayPrevious value) playPrevious,
@@ -3908,6 +4902,7 @@ class _$ChangeSortingOrderImpl implements _ChangeSortingOrder {
     TResult? Function(_LoadArtists value)? loadArtists,
     TResult? Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult? Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult? Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult? Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult? Function(_PlayNext value)? playNext,
     TResult? Function(_PlayPrevious value)? playPrevious,
@@ -3933,6 +4928,7 @@ class _$ChangeSortingOrderImpl implements _ChangeSortingOrder {
     TResult Function(_LoadArtists value)? loadArtists,
     TResult Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult Function(_PlayNext value)? playNext,
     TResult Function(_PlayPrevious value)? playPrevious,
@@ -4053,6 +5049,17 @@ class _$UpdateFilterKeywordImpl implements _UpdateFilterKeyword {
     required TResult Function() loadArtistsProgressive,
     required TResult Function() loadMyPlaylists,
     required TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )
+    addOrUpdateMyPlayList,
+    required TResult Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -4096,6 +5103,17 @@ class _$UpdateFilterKeywordImpl implements _UpdateFilterKeyword {
     TResult? Function()? loadArtistsProgressive,
     TResult? Function()? loadMyPlaylists,
     TResult? Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
+    TResult? Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -4138,6 +5156,17 @@ class _$UpdateFilterKeywordImpl implements _UpdateFilterKeyword {
     TResult Function()? loadArtists,
     TResult Function()? loadArtistsProgressive,
     TResult Function()? loadMyPlaylists,
+    TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
     TResult Function(
       String? songId,
       List<String>? currentPlayList,
@@ -4188,6 +5217,8 @@ class _$UpdateFilterKeywordImpl implements _UpdateFilterKeyword {
     required TResult Function(_LoadArtistsProgressive value)
     loadArtistsProgressive,
     required TResult Function(_LoadMyPlaylists value) loadMyPlaylists,
+    required TResult Function(_AddOrUpdateMyPlayList value)
+    addOrUpdateMyPlayList,
     required TResult Function(_PlayOrPauseSong value) playOrPauseSong,
     required TResult Function(_PlayNext value) playNext,
     required TResult Function(_PlayPrevious value) playPrevious,
@@ -4213,6 +5244,7 @@ class _$UpdateFilterKeywordImpl implements _UpdateFilterKeyword {
     TResult? Function(_LoadArtists value)? loadArtists,
     TResult? Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult? Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult? Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult? Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult? Function(_PlayNext value)? playNext,
     TResult? Function(_PlayPrevious value)? playPrevious,
@@ -4238,6 +5270,7 @@ class _$UpdateFilterKeywordImpl implements _UpdateFilterKeyword {
     TResult Function(_LoadArtists value)? loadArtists,
     TResult Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult Function(_PlayNext value)? playNext,
     TResult Function(_PlayPrevious value)? playPrevious,
@@ -4361,6 +5394,17 @@ class _$SetNavigationFilterImpl implements _SetNavigationFilter {
     required TResult Function() loadArtistsProgressive,
     required TResult Function() loadMyPlaylists,
     required TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )
+    addOrUpdateMyPlayList,
+    required TResult Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -4404,6 +5448,17 @@ class _$SetNavigationFilterImpl implements _SetNavigationFilter {
     TResult? Function()? loadArtistsProgressive,
     TResult? Function()? loadMyPlaylists,
     TResult? Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
+    TResult? Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -4446,6 +5501,17 @@ class _$SetNavigationFilterImpl implements _SetNavigationFilter {
     TResult Function()? loadArtists,
     TResult Function()? loadArtistsProgressive,
     TResult Function()? loadMyPlaylists,
+    TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
     TResult Function(
       String? songId,
       List<String>? currentPlayList,
@@ -4496,6 +5562,8 @@ class _$SetNavigationFilterImpl implements _SetNavigationFilter {
     required TResult Function(_LoadArtistsProgressive value)
     loadArtistsProgressive,
     required TResult Function(_LoadMyPlaylists value) loadMyPlaylists,
+    required TResult Function(_AddOrUpdateMyPlayList value)
+    addOrUpdateMyPlayList,
     required TResult Function(_PlayOrPauseSong value) playOrPauseSong,
     required TResult Function(_PlayNext value) playNext,
     required TResult Function(_PlayPrevious value) playPrevious,
@@ -4521,6 +5589,7 @@ class _$SetNavigationFilterImpl implements _SetNavigationFilter {
     TResult? Function(_LoadArtists value)? loadArtists,
     TResult? Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult? Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult? Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult? Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult? Function(_PlayNext value)? playNext,
     TResult? Function(_PlayPrevious value)? playPrevious,
@@ -4546,6 +5615,7 @@ class _$SetNavigationFilterImpl implements _SetNavigationFilter {
     TResult Function(_LoadArtists value)? loadArtists,
     TResult Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult Function(_PlayNext value)? playNext,
     TResult Function(_PlayPrevious value)? playPrevious,
@@ -4664,6 +5734,17 @@ class _$SeekToPositionImpl implements _SeekToPosition {
     required TResult Function() loadArtistsProgressive,
     required TResult Function() loadMyPlaylists,
     required TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )
+    addOrUpdateMyPlayList,
+    required TResult Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -4707,6 +5788,17 @@ class _$SeekToPositionImpl implements _SeekToPosition {
     TResult? Function()? loadArtistsProgressive,
     TResult? Function()? loadMyPlaylists,
     TResult? Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
+    TResult? Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -4749,6 +5841,17 @@ class _$SeekToPositionImpl implements _SeekToPosition {
     TResult Function()? loadArtists,
     TResult Function()? loadArtistsProgressive,
     TResult Function()? loadMyPlaylists,
+    TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
     TResult Function(
       String? songId,
       List<String>? currentPlayList,
@@ -4799,6 +5902,8 @@ class _$SeekToPositionImpl implements _SeekToPosition {
     required TResult Function(_LoadArtistsProgressive value)
     loadArtistsProgressive,
     required TResult Function(_LoadMyPlaylists value) loadMyPlaylists,
+    required TResult Function(_AddOrUpdateMyPlayList value)
+    addOrUpdateMyPlayList,
     required TResult Function(_PlayOrPauseSong value) playOrPauseSong,
     required TResult Function(_PlayNext value) playNext,
     required TResult Function(_PlayPrevious value) playPrevious,
@@ -4824,6 +5929,7 @@ class _$SeekToPositionImpl implements _SeekToPosition {
     TResult? Function(_LoadArtists value)? loadArtists,
     TResult? Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult? Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult? Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult? Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult? Function(_PlayNext value)? playNext,
     TResult? Function(_PlayPrevious value)? playPrevious,
@@ -4849,6 +5955,7 @@ class _$SeekToPositionImpl implements _SeekToPosition {
     TResult Function(_LoadArtists value)? loadArtists,
     TResult Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult Function(_PlayNext value)? playNext,
     TResult Function(_PlayPrevious value)? playPrevious,
@@ -4964,6 +6071,17 @@ class _$UpdateLastPositionImpl implements _UpdateLastPosition {
     required TResult Function() loadArtistsProgressive,
     required TResult Function() loadMyPlaylists,
     required TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )
+    addOrUpdateMyPlayList,
+    required TResult Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -5007,6 +6125,17 @@ class _$UpdateLastPositionImpl implements _UpdateLastPosition {
     TResult? Function()? loadArtistsProgressive,
     TResult? Function()? loadMyPlaylists,
     TResult? Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
+    TResult? Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -5049,6 +6178,17 @@ class _$UpdateLastPositionImpl implements _UpdateLastPosition {
     TResult Function()? loadArtists,
     TResult Function()? loadArtistsProgressive,
     TResult Function()? loadMyPlaylists,
+    TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
     TResult Function(
       String? songId,
       List<String>? currentPlayList,
@@ -5099,6 +6239,8 @@ class _$UpdateLastPositionImpl implements _UpdateLastPosition {
     required TResult Function(_LoadArtistsProgressive value)
     loadArtistsProgressive,
     required TResult Function(_LoadMyPlaylists value) loadMyPlaylists,
+    required TResult Function(_AddOrUpdateMyPlayList value)
+    addOrUpdateMyPlayList,
     required TResult Function(_PlayOrPauseSong value) playOrPauseSong,
     required TResult Function(_PlayNext value) playNext,
     required TResult Function(_PlayPrevious value) playPrevious,
@@ -5124,6 +6266,7 @@ class _$UpdateLastPositionImpl implements _UpdateLastPosition {
     TResult? Function(_LoadArtists value)? loadArtists,
     TResult? Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult? Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult? Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult? Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult? Function(_PlayNext value)? playNext,
     TResult? Function(_PlayPrevious value)? playPrevious,
@@ -5149,6 +6292,7 @@ class _$UpdateLastPositionImpl implements _UpdateLastPosition {
     TResult Function(_LoadArtists value)? loadArtists,
     TResult Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult Function(_PlayNext value)? playNext,
     TResult Function(_PlayPrevious value)? playPrevious,
@@ -5277,6 +6421,17 @@ class _$UpdateMusicBlocStateImpl implements _UpdateMusicBlocState {
     required TResult Function() loadArtistsProgressive,
     required TResult Function() loadMyPlaylists,
     required TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )
+    addOrUpdateMyPlayList,
+    required TResult Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -5320,6 +6475,17 @@ class _$UpdateMusicBlocStateImpl implements _UpdateMusicBlocState {
     TResult? Function()? loadArtistsProgressive,
     TResult? Function()? loadMyPlaylists,
     TResult? Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
+    TResult? Function(
       String? songId,
       List<String>? currentPlayList,
       bool? isForceStop,
@@ -5362,6 +6528,17 @@ class _$UpdateMusicBlocStateImpl implements _UpdateMusicBlocState {
     TResult Function()? loadArtists,
     TResult Function()? loadArtistsProgressive,
     TResult Function()? loadMyPlaylists,
+    TResult Function(
+      MyPlaylistOperation operation,
+      String? playlistId,
+      String? name,
+      String? description,
+      List<String>? songIds,
+      String? songId,
+      String? coverImage,
+      bool? isPublic,
+    )?
+    addOrUpdateMyPlayList,
     TResult Function(
       String? songId,
       List<String>? currentPlayList,
@@ -5412,6 +6589,8 @@ class _$UpdateMusicBlocStateImpl implements _UpdateMusicBlocState {
     required TResult Function(_LoadArtistsProgressive value)
     loadArtistsProgressive,
     required TResult Function(_LoadMyPlaylists value) loadMyPlaylists,
+    required TResult Function(_AddOrUpdateMyPlayList value)
+    addOrUpdateMyPlayList,
     required TResult Function(_PlayOrPauseSong value) playOrPauseSong,
     required TResult Function(_PlayNext value) playNext,
     required TResult Function(_PlayPrevious value) playPrevious,
@@ -5437,6 +6616,7 @@ class _$UpdateMusicBlocStateImpl implements _UpdateMusicBlocState {
     TResult? Function(_LoadArtists value)? loadArtists,
     TResult? Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult? Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult? Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult? Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult? Function(_PlayNext value)? playNext,
     TResult? Function(_PlayPrevious value)? playPrevious,
@@ -5462,6 +6642,7 @@ class _$UpdateMusicBlocStateImpl implements _UpdateMusicBlocState {
     TResult Function(_LoadArtists value)? loadArtists,
     TResult Function(_LoadArtistsProgressive value)? loadArtistsProgressive,
     TResult Function(_LoadMyPlaylists value)? loadMyPlaylists,
+    TResult Function(_AddOrUpdateMyPlayList value)? addOrUpdateMyPlayList,
     TResult Function(_PlayOrPauseSong value)? playOrPauseSong,
     TResult Function(_PlayNext value)? playNext,
     TResult Function(_PlayPrevious value)? playPrevious,

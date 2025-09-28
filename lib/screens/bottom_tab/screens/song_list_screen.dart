@@ -6,10 +6,9 @@ import '../../../utils/logger/logger.dart';
 import '../../../utils/models/song/song_model.dart';
 import '../../../core/theme/theme_extension.dart';
 import '../../../utils/models/playlist_source/playlist_source_model.dart';
-import '../../../core/widgets/theme_toggle_button.dart';
+import '../../../core/widgets/custom_tab_view_app_bar.dart';
 import '../../../core/router/app_router.dart';
 import 'bloc/music_bloc.dart';
-import '../widgets/glass_card.dart';
 import '../widgets/song_list_item.dart';
 import '../widgets/song_list_widget.dart';
 
@@ -23,6 +22,7 @@ class SongListScreen extends StatefulWidget {
 class _SongListScreenState extends State<SongListScreen> {
   final AppLogger _logger = AppLogger('SongListScreen');
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   List<Song> _filteredSongs = [];
   String? _immediatelySelectedSongId;
 
@@ -36,11 +36,10 @@ class _SongListScreenState extends State<SongListScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Update selected song when dependencies change (e.g., navigating back from music player)
+    // Only update if we haven't initialized yet or song actually changed
     final musicState = context.read<MusicBloc>().state;
     final newSongId = musicState.myPlayerState.currentSongId;
     
-    // Update if the song ID has actually changed (including clearing to null)
     if (newSongId != _immediatelySelectedSongId) {
       _logger.i(
         '🔄 Updating selected song ID on dependency change: $newSongId (was: $_immediatelySelectedSongId)',
@@ -61,6 +60,7 @@ class _SongListScreenState extends State<SongListScreen> {
       );
     }
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -77,21 +77,24 @@ class _SongListScreenState extends State<SongListScreen> {
     List<Song> newFilteredSongs;
     if (query.isEmpty) {
       newFilteredSongs = currentSongs;
-      // Removed verbose filtered songs logging
     } else {
+      // Optimized filtering with early returns
       newFilteredSongs = currentSongs.where((song) {
-        return song.title.toLowerCase().contains(query) ||
-            song.artists.join(', ').toLowerCase().contains(query) ||
-            song.albums.join(', ').toLowerCase().contains(query);
+        final title = song.title.toLowerCase();
+        if (title.contains(query)) return true;
+        
+        final artists = song.artists.join(', ').toLowerCase();
+        if (artists.contains(query)) return true;
+        
+        final albums = song.albums.join(', ').toLowerCase();
+        return albums.contains(query);
       }).toList();
-      // Removed verbose filtered songs logging
     }
 
     // Only update if the filtered songs have actually changed
     if (_filteredSongs.length != newFilteredSongs.length ||
         !_areSongListsEqual(_filteredSongs, newFilteredSongs)) {
       _filteredSongs = newFilteredSongs;
-      // Removed verbose filtered songs update logging
     }
   }
 
@@ -104,9 +107,16 @@ class _SongListScreenState extends State<SongListScreen> {
       _logger.i(
         '🔄 Updating selected song ID from bloc state: $newSongId (was: $_immediatelySelectedSongId)',
       );
-      // Use setState to trigger UI rebuild for selection changes
-      setState(() {
-        _immediatelySelectedSongId = newSongId;
+      // Update the state variable directly without setState during build
+      _immediatelySelectedSongId = newSongId;
+      
+      // Schedule setState for the next frame to avoid build-time setState
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            // State is already updated, this just triggers rebuild
+          });
+        }
       });
     }
   }
@@ -140,128 +150,124 @@ class _SongListScreenState extends State<SongListScreen> {
   @override
   Widget build(BuildContext context) {
     return BlocListener<MusicBloc, MusicState>(
+      listenWhen: (previous, current) {
+        // Only listen when song ID actually changes
+        return previous.myPlayerState.currentSongId != current.myPlayerState.currentSongId;
+      },
       listener: (context, musicState) {
         // Handle state changes that require UI updates
         final newSongId = musicState.myPlayerState.currentSongId;
         
-        // Update if the song ID has actually changed (including clearing to null)
-        if (newSongId != _immediatelySelectedSongId) {
-          _logger.i(
-            '🔄 BlocListener: Updating selected song ID: $newSongId (was: $_immediatelySelectedSongId)',
-          );
-          // Use setState to trigger UI rebuild for selection changes
-          setState(() {
-            _immediatelySelectedSongId = newSongId;
-          });
-        }
+        _logger.i(
+          '🔄 BlocListener: Updating selected song ID: $newSongId (was: $_immediatelySelectedSongId)',
+        );
+        // Use setState to trigger UI rebuild for selection changes
+        setState(() {
+          _immediatelySelectedSongId = newSongId;
+        });
       },
       child: BlocBuilder<MusicBloc, MusicState>(
+        buildWhen: (previous, current) {
+          // Only rebuild when songs list or loading state changes
+          return previous.allSongs.length != current.allSongs.length ||
+                 previous.isSongListLoading != current.isSongListLoading ||
+                 previous.isSongListError != current.isSongListError;
+        },
         builder: (context, musicState) {
           // Update filtered songs when music state changes (including sorting)
           _updateFilteredSongs(musicState);
           // Update selected song ID without setState during build
           _updateSelectedSongFromBloc(musicState);
 
-          return Container(
-            decoration: BoxDecoration(gradient: context.backgroundGradient),
-            child: Scaffold(
-              backgroundColor: Colors.transparent,
-              appBar: AppBar(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                title: Text(
-                  'Songs',
-                  style: TextStyle(
-                    color: context.onSurfaceColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20.sp,
-                  ),
-                ),
-                actions: [
-                  IconButton(
-                    onPressed: _showSortingMenu,
-                    icon: Icon(
-                      Icons.sort, 
-                      color: context.onSurfaceColor,
-                      size: 20.sp,
-                    ),
-                  ),
-                  const ThemeToggleButton(),
-                ],
-              ),
-              body: Stack(
+          return Scaffold(
+            body: Container(
+              decoration: BoxDecoration(gradient: context.backgroundGradient),
+              child: Column(
                 children: [
-                  _buildContent(musicState),
-                  // Floating shuffle button
-                  BlocBuilder<MusicBloc, MusicState>(
-                    builder: (context, state) {
-                      final showMiniPlayer = state.myPlayerState.currentSongId != null;
-                      // Position above pop-up music player when visible, otherwise above bottom tab
-                      final bottomPosition = showMiniPlayer 
-                          ? MediaQuery.of(context).padding.bottom + 16.h + 60.h + 16.h + 70.h + 16.h // Above pop-up music player
-                          : MediaQuery.of(context).padding.bottom + 16.h + 60.h + 16.h; // Above bottom tab
+                  CustomTabViewAppBar(
+                    title: 'Songs',
+                    showSortButton: true,
+                    onSortPressed: _showSortingMenu,
+                    scrollController: _scrollController,
+                  ),
+                  SizedBox(height: 20.h),
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        _buildContent(musicState),
+                        // Floating shuffle button
+                        BlocBuilder<MusicBloc, MusicState>(
+                          builder: (context, state) {
+                            final showMiniPlayer = state.myPlayerState.currentSongId != null;
+                            // Position above pop-up music player when visible, otherwise above bottom tab
+                            final bottomPosition = showMiniPlayer 
+                                ? MediaQuery.of(context).padding.bottom + 16.h + 60.h + 16.h + 70.h + 16.h // Above pop-up music player
+                                : MediaQuery.of(context).padding.bottom + 16.h + 60.h + 16.h; // Above bottom tab
 
-                      return Positioned(
-                        bottom: bottomPosition,
-                        right: 16.w,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: context.primaryGradient,
-                            borderRadius: BorderRadius.circular(28.r),
-                            boxShadow: [
-                              BoxShadow(
-                                color: context.primaryStart.withValues(
-                                  alpha: 0.4,
-                                ),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(28.r),
-                              onTap: () {
-                                if (_filteredSongs.isNotEmpty) {
-                                  // Enable shuffle and play random song
-                                  final randomSong =
-                                      _filteredSongs[DateTime.now()
-                                              .millisecondsSinceEpoch %
-                                          _filteredSongs.length];
-        context.read<MusicBloc>().add(
-          MusicEvent.toggleShuffle(
-            isShuffle: true,
-            isAutoStart: true,
-            currentPlayList: _filteredSongs.map((song) => song.id).toList(),
-            playlistSource: PlaylistSource.allSongs(),
-          ),
-        );
-                                  context.read<MusicBloc>().add(
-                                    MusicEvent.playOrPauseSong(
-                                      songId: randomSong.id,
-                                      currentPlayList: _filteredSongs.map((song) => song.id).toList(),
-                                    ),
-                                  );
-                                }
-                              },
+                            return Positioned(
+                              bottom: bottomPosition,
+                              right: 16.w,
                               child: Container(
-                                width: 56.w,
-                                height: 56.w,
                                 decoration: BoxDecoration(
+                                  gradient: context.primaryGradient,
                                   borderRadius: BorderRadius.circular(28.r),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: context.primaryStart.withValues(
+                                        alpha: 0.4,
+                                      ),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
                                 ),
-                                child: Icon(
-                                  Icons.shuffle,
-                                  color: Colors.white,
-                                  size: 24.sp,
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(28.r),
+                                    onTap: () {
+                                      if (_filteredSongs.isNotEmpty) {
+                                        // Enable shuffle and play random song
+                                        final randomSong =
+                                            _filteredSongs[DateTime.now()
+                                                    .millisecondsSinceEpoch %
+                                                _filteredSongs.length];
+            context.read<MusicBloc>().add(
+              MusicEvent.toggleShuffle(
+                isShuffle: true,
+                isAutoStart: true,
+                currentPlayList: _filteredSongs.map((song) => song.id).toList(),
+                playlistSource: PlaylistSource.allSongs(),
+              ),
+            );
+                                        context.read<MusicBloc>().add(
+                                          MusicEvent.playOrPauseSong(
+                                            songId: randomSong.id,
+                                            currentPlayList: _filteredSongs.map((song) => song.id).toList(),
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    child: Container(
+                                      width: 56.w,
+                                      height: 56.w,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(28.r),
+                                      ),
+                                      child: Icon(
+                                        Icons.shuffle,
+                                        color: Colors.white,
+                                        size: 24.sp,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
+                            );
+                          },
                         ),
-                      );
-                    },
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -348,100 +354,94 @@ class _SongListScreenState extends State<SongListScreen> {
       return _buildEmptyState();
     }
 
-    return Column(
-      children: [
+    return CustomScrollView(
+      controller: _scrollController,
+      slivers: [
         // Search Bar
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: GlassCard(
-            child: TextField(
-              controller: _searchController,
-              style: TextStyle(color: context.onSurfaceColor),
-              decoration: InputDecoration(
-                hintText: 'Search songs, artists, or albums...',
-                hintStyle: TextStyle(
-                  color: context.onSurfaceColor.withValues(alpha: 0.6),
-                ),
-                prefixIcon: Icon(
-                  Icons.search,
-                  color: context.onSurfaceColor.withValues(alpha: 0.6),
-                ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-              ),
+        // AlbumArtistPlaylistHelper.buildSearchBar(
+        //   controller: _searchController,
+        //   hintText: 'Search songs, artists, or albums...',
+        //   context: context,
+        // ),
+
+        // Songs List - Optimized with better performance
+        SliverPadding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final song = _filteredSongs[index];
+                return Padding(
+                  padding: EdgeInsets.only(bottom: 8.h),
+                  child: SongListItem(
+                    key: ValueKey(song.id), // Use song ID as key for better performance
+                    songTitle: song.title,
+                    artistName: song.artists.join(', '),
+                    albumName: song.albums.join(', '),
+                    duration: song.duration,
+                    albumArtPath: song.albumArt,
+                    songId: song.id,
+                    isImmediatelySelected: _immediatelySelectedSongId == song.id,
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+
+                      // Immediate visual feedback
+                      setState(() {
+                        _immediatelySelectedSongId = song.id;
+                      });
+
+                      _logger.i(
+                        'Play/Pause Song - ID: ${song.id}, Title: ${song.title}, Artist: ${song.artists.join(', ')}, Album: ${song.albums.join(', ')}',
+                      );
+
+                      // Toggle play/pause for the current song
+                      context.read<MusicBloc>().add(
+                        MusicEvent.playOrPauseSong(
+                          songId: song.id,
+                          currentPlayList: _filteredSongs.map((song) => song.id).toList(),
+                        ),
+                      );
+                    },
+                    onOpenMusicPlayer: () {
+                      _logger.i(
+                        'Open Music Player - ID: ${song.id}, Title: ${song.title}',
+                      );
+
+                      // Immediately update selected song for instant feedback
+                      setState(() {
+                        _immediatelySelectedSongId = song.id;
+                      });
+
+                      _logger.d("🎵 Tapping song: ${song.title} | Current: ${musicState.myPlayerState.currentSongId}");
+
+                      // Always use playOrPauseSong - it handles all cases internally
+                      // Pass allSongs to maintain proper order in currentPlayList
+                      context.read<MusicBloc>().add(
+                        MusicEvent.playOrPauseSong(
+                          songId: song.id,
+                          currentPlayList: _filteredSongs.map((song) => song.id).toList(),
+                          playlistSource: PlaylistSource.allSongs(), // Indicate this is from all songs screen
+                        ),
+                      );
+
+                      // Navigate to music player screen
+                      context.navigateToPlaySong('');
+                    },
+                  ),
+                );
+              },
+              childCount: _filteredSongs.length,
+              // Performance optimizations
+              addAutomaticKeepAlives: false, // Don't keep items alive when scrolled away
+              addRepaintBoundaries: true, // Add repaint boundaries for better performance
+              addSemanticIndexes: false, // Disable semantic indexes for better performance
             ),
           ),
         ),
 
-        // Songs List
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: _filteredSongs.length,
-            itemBuilder: (context, index) {
-              final song = _filteredSongs[index];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: SongListItem(
-                  songTitle: song.title,
-                  artistName: song.artists.join(', '),
-                  albumName: song.albums.join(', '),
-                  duration: song.duration,
-                  albumArtPath: song.albumArt,
-                  songId: song.id,
-                  isImmediatelySelected: _immediatelySelectedSongId == song.id,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-
-                    // Immediate visual feedback
-                    setState(() {
-                      _immediatelySelectedSongId = song.id;
-                    });
-
-                    _logger.i(
-                      'Play/Pause Song - ID: ${song.id}, Title: ${song.title}, Artist: ${song.artists.join(', ')}, Album: ${song.albums.join(', ')}',
-                    );
-
-                    // Toggle play/pause for the current song
-                    context.read<MusicBloc>().add(
-                      MusicEvent.playOrPauseSong(
-                        songId: song.id,
-                        currentPlayList: _filteredSongs.map((song) => song.id).toList(),
-                      ),
-                    );
-                  },
-                  onOpenMusicPlayer: () {
-                    _logger.i(
-                      'Open Music Player - ID: ${song.id}, Title: ${song.title}',
-                    );
-
-                    // Immediately update selected song for instant feedback
-                    setState(() {
-                      _immediatelySelectedSongId = song.id;
-                    });
-
-                    _logger.d("🎵 Tapping song: ${song.title} | Current: ${musicState.myPlayerState.currentSongId}");
-
-                    // Always use playOrPauseSong - it handles all cases internally
-                    // Pass allSongs to maintain proper order in currentPlayList
-                    context.read<MusicBloc>().add(
-                      MusicEvent.playOrPauseSong(
-                        songId: song.id,
-                        currentPlayList: _filteredSongs.map((song) => song.id).toList(),
-                        playlistSource: PlaylistSource.allSongs(), // Indicate this is from all songs screen
-                      ),
-                    );
-
-                    // Navigate to music player screen
-                    context.navigateToPlaySong('');
-                  },
-                ),
-              );
-            },
-          ),
+        // Bottom padding for navigation
+        SliverToBoxAdapter(
+          child: SizedBox(height: 100.h),
         ),
       ],
     );

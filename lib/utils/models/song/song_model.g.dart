@@ -11,6 +11,9 @@ _$SongImpl _$$SongImplFromJson(Map<String, dynamic> json) => _$SongImpl(
   title: json['title'] as String,
   artists: (json['artists'] as List<dynamic>).map((e) => e as String).toList(),
   albums: (json['albums'] as List<dynamic>).map((e) => e as String).toList(),
+  myPlaylistIds: (json['myPlaylistIds'] as List<dynamic>?)
+      ?.map((e) => e as String)
+      .toList(),
   path: json['path'] as String,
   duration: const DurationConverter().fromJson(
     (json['duration'] as num).toInt(),
@@ -44,6 +47,7 @@ Map<String, dynamic> _$$SongImplToJson(_$SongImpl instance) =>
       'title': instance.title,
       'artists': instance.artists,
       'albums': instance.albums,
+      'myPlaylistIds': instance.myPlaylistIds,
       'path': instance.path,
       'duration': const DurationConverter().toJson(instance.duration),
       'albumArt': instance.albumArt,

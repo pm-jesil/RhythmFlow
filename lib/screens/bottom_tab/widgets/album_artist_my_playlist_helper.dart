@@ -11,7 +11,6 @@ import '../../../utils/models/album/album_model.dart';
 import '../../../utils/models/my_playlist/my_playlist_model.dart';
 import '../../../utils/models/song/song_model.dart';
 import '../screens/bloc/music_bloc.dart';
-import '../widgets/glass_card.dart';
 import '../../widgets/album_art_widget.dart';
 import '../../../core/widgets/custom_3d_card.dart';
 
@@ -41,14 +40,26 @@ class AlbumArtistPlaylistHelper {
     return SliverToBoxAdapter(
       child: Padding(
         padding: EdgeInsets.all(16.w),
-        child: GlassCard(
+        child: Custom3DCard(
+          enableAnimation: true,
+          animationDelay: 0,
+          animationDuration: const Duration(milliseconds: 300),
+          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+          borderRadius: 12.r,
+          backgroundColor: context.cardColor,
           child: TextField(
             controller: controller,
-            style: TextStyle(color: context.onSurfaceColor),
+            style: TextStyle(
+              color: context.onSurfaceColor,
+              fontSize: 14.sp,
+              fontFamily: 'Poppins',
+            ),
             decoration: InputDecoration(
               hintText: hintText,
               hintStyle: TextStyle(
                 color: context.onSurfaceVariantColor,
+                fontSize: 14.sp,
+                fontFamily: 'Poppins',
               ),
               prefixIcon: Icon(
                 Icons.search_rounded,
@@ -57,7 +68,7 @@ class AlbumArtistPlaylistHelper {
               ),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
-                horizontal: 16.w,
+                horizontal: 8.w,
                 vertical: 12.h,
               ),
             ),
@@ -77,9 +88,7 @@ class AlbumArtistPlaylistHelper {
             opacity: 1.0,
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
-            child: CircularProgressIndicator(
-              color: context.primaryStart,
-            ),
+            child: CircularProgressIndicator(color: context.primaryStart),
           ),
         ),
       ),
@@ -116,10 +125,7 @@ class AlbumArtistPlaylistHelper {
                   ),
                 ),
                 SizedBox(height: 16.h),
-                ElevatedButton(
-                  onPressed: onRetry,
-                  child: Text('Retry'),
-                ),
+                ElevatedButton(onPressed: onRetry, child: Text('Retry')),
               ],
             ),
           ),
@@ -145,11 +151,7 @@ class AlbumArtistPlaylistHelper {
             curve: Curves.easeInOut,
             child: Column(
               children: [
-                Icon(
-                  icon,
-                  color: context.onSurfaceVariantColor,
-                  size: 48.sp,
-                ),
+                Icon(icon, color: context.onSurfaceVariantColor, size: 48.sp),
                 SizedBox(height: 16.h),
                 Text(
                   message,
@@ -184,9 +186,9 @@ class AlbumArtistPlaylistHelper {
     required Widget Function(BuildContext context, int index) itemBuilder,
     int initialLoadCount = 15,
   }) {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16.w),
+    return SliverPadding(
+      padding: EdgeInsets.only(left: 16.w, right: 16.w, top: 0.h),
+      sliver: SliverToBoxAdapter(
         child: AnimatedOpacity(
           opacity: 1.0,
           duration: const Duration(milliseconds: 300),
@@ -231,9 +233,9 @@ class AlbumArtistPlaylistHelper {
     final hasMoreItems = allItems.length > initialLoadCount;
     final showAllItems = !hasMoreItems || !isLoadingMore;
 
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16.w),
+    return SliverPadding(
+      padding: EdgeInsets.only(left: 16.w, right: 16.w, top: 0.h),
+      sliver: SliverToBoxAdapter(
         child: AnimatedOpacity(
           opacity: 1.0,
           duration: const Duration(milliseconds: 300),
@@ -250,10 +252,11 @@ class AlbumArtistPlaylistHelper {
                 physics: const NeverScrollableScrollPhysics(),
                 itemBuilder: (context, index) {
                   // Additional safety check for index bounds
-                  if (index >= (showAllItems ? allItems.length : itemsToShow.length)) {
+                  if (index >=
+                      (showAllItems ? allItems.length : itemsToShow.length)) {
                     return const SizedBox.shrink();
                   }
-                  
+
                   return AnimatedOpacity(
                     opacity: 1.0,
                     duration: Duration(milliseconds: 300 + (index * 50)),
@@ -386,9 +389,7 @@ class AlbumArtistPlaylistHelper {
                         color: context.primaryStart.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8.r),
                         border: Border.all(
-                          color: context.primaryStart.withValues(
-                            alpha: 0.3,
-                          ),
+                          color: context.primaryStart.withValues(alpha: 0.3),
                           width: 0.5.w,
                         ),
                       ),
@@ -423,9 +424,7 @@ class AlbumArtistPlaylistHelper {
               Text(
                 subtitle,
                 style: TextStyle(
-                  color: context.onSurfaceVariantColor.withValues(
-                    alpha: 0.7,
-                  ),
+                  color: context.onSurfaceVariantColor.withValues(alpha: 0.7),
                   fontSize: 8.sp,
                   fontFamily: 'Poppins',
                 ),
@@ -476,18 +475,21 @@ class AlbumArtistPlaylistHelper {
       curve: Curves.easeInOut,
       child: AlbumArtWidget(
         albumArt: albumArt,
-        size: double.infinity,
+        width: double.infinity,
+        height: double.infinity,
         borderRadius: borderRadius,
         isNetworkImage: isNetworkImage,
         defaultIcon: defaultIcon,
         defaultIconSize: defaultIconSize,
-        boxShadow: boxShadow ?? [
-          BoxShadow(
-            color: context.primaryStart.withValues(alpha: 0.3),
-            blurRadius: 8.r,
-            offset: Offset(0, 4.h),
-          ),
-        ],
+        boxShadow:
+            boxShadow ??
+            [
+              BoxShadow(
+                color: context.primaryStart.withValues(alpha: 0.3),
+                blurRadius: 8.r,
+                offset: Offset(0, 4.h),
+              ),
+            ],
       ),
     );
   }
@@ -587,11 +589,7 @@ class AlbumArtistPlaylistHelper {
     bool isNetworkImage = false;
 
     if (artistImage == null || artistImage.isEmpty) {
-      final random =
-          DateTime.now().millisecondsSinceEpoch % (artistSongs.length + 1);
-      if (artistSongs.isNotEmpty && random < artistSongs.length) {
-        artistImage = artistSongs[random].albumArt;
-      }
+      artistImage = artistSongs.first.albumArt;
     }
 
     // Determine if it's a network image based on the URL
@@ -626,11 +624,7 @@ class AlbumArtistPlaylistHelper {
     bool isNetworkImage = false;
 
     if (albumArt == null || albumArt.isEmpty) {
-      final random =
-          DateTime.now().millisecondsSinceEpoch % (albumSongs.length + 1);
-      if (albumSongs.isNotEmpty && random < albumSongs.length) {
-        albumArt = albumSongs[random].albumArt;
-      }
+      albumArt = albumSongs.isNotEmpty ? albumSongs.first.albumArt : null;
     }
 
     // Determine if it's a network image based on the URL
@@ -671,26 +665,37 @@ class AlbumArtistPlaylistHelper {
     required MyPlaylist playlist,
     required List<Song> playlistSongs,
   }) {
-    final hasSongs = playlistSongs.isNotEmpty;
-    
+    String? albumArt = playlist.coverImage;
+    bool isNetworkImage = false;
+
+    if (albumArt == null || albumArt.isEmpty) {
+      albumArt = playlistSongs.isNotEmpty ? playlistSongs.first.albumArt : null;
+    }
+
+    // Determine if it's a network image based on the URL
+    if (albumArt != null && albumArt.isNotEmpty) {
+      isNetworkImage =
+          albumArt.startsWith('http://') || albumArt.startsWith('https://');
+    }
+
     return AnimatedOpacity(
       opacity: 1.0,
       duration: const Duration(milliseconds: 600),
       curve: Curves.easeInOut,
       child: buildAlbumArt(
         context: context,
-        albumArt: hasSongs ? playlistSongs.first.albumArt : null,
+        albumArt: albumArt,
         defaultIcon: Icons.queue_music_rounded,
         defaultIconSize: 28.0,
         borderRadius: 8.r,
-        isNetworkImage: true,
+        isNetworkImage: isNetworkImage,
       ),
     );
   }
 
   /// Builds bottom padding for navigation
   static Widget buildBottomPadding() {
-    return SliverToBoxAdapter(child: SizedBox(height: 100.h));
+    return SliverToBoxAdapter(child: SizedBox(height: 150.h));
   }
 
   /// Helper method to trigger background loading after initial display

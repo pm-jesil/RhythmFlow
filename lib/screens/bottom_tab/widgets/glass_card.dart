@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import '../../../core/theme/theme_extension.dart';
 
 class GlassCard extends StatelessWidget {
   final Widget child;
@@ -18,22 +20,39 @@ class GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = context.isDark;
+    
     return Container(
-      padding: padding ?? const EdgeInsets.all(20),
+      padding: padding ?? EdgeInsets.all(20.w),
       decoration: BoxDecoration(
-        color: backgroundColor ?? Colors.white.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(borderRadius ?? 20),
+        color: backgroundColor ?? 
+          (isDark 
+            ? Colors.white.withValues(alpha: 0.1)
+            : Colors.white.withValues(alpha: 0.8)),
+        borderRadius: BorderRadius.circular(borderRadius ?? 20.r),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.2),
-          width: 1,
+          color: isDark 
+            ? Colors.white.withValues(alpha: 0.2)
+            : Colors.black.withValues(alpha: 0.1),
+          width: 1.w,
         ),
         boxShadow: boxShadow ?? [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
+            color: isDark 
+              ? Colors.black.withValues(alpha: 0.3)
+              : Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10.r,
             spreadRadius: 0,
-            offset: const Offset(0, 4),
+            offset: Offset(0, 4.h),
           ),
+          if (isDark) ...[
+            BoxShadow(
+              color: Colors.white.withValues(alpha: 0.05),
+              blurRadius: 20.r,
+              spreadRadius: 0,
+              offset: Offset(0, 2.h),
+            ),
+          ],
         ],
       ),
       child: child,

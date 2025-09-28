@@ -6,7 +6,8 @@ import 'package:pmj_music_player/core/theme/theme_extension.dart';
 
 class AlbumArtWidget extends StatefulWidget {
   final String? albumArt;
-  final double size;
+  final double? width;
+  final double? height;
   final double borderRadius;
   final List<BoxShadow>? boxShadow;
   final IconData defaultIcon;
@@ -16,7 +17,8 @@ class AlbumArtWidget extends StatefulWidget {
   const AlbumArtWidget({
     super.key,
     this.albumArt,
-    required this.size,
+    this.width,
+    this.height,
     required this.borderRadius,
     this.boxShadow,
     this.defaultIcon = Icons.music_note,
@@ -91,12 +93,13 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
 
   Widget _buildDefaultAlbumArt() {
     return Container(
-      width: widget.size,
-      height: widget.size,
+      width: widget.width,
+      height: widget.height,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(widget.borderRadius),
         gradient: context.primaryGradient,
-        boxShadow: widget.boxShadow ??
+        boxShadow:
+            widget.boxShadow ??
             [
               BoxShadow(
                 color: context.isDark
@@ -117,12 +120,13 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
 
   Widget _buildLoadingWidget() {
     return Container(
-      width: widget.size,
-      height: widget.size,
+      width: widget.width,
+      height: widget.height,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(widget.borderRadius),
         color: context.surfaceColor.withValues(alpha: 0.1),
-        boxShadow: widget.boxShadow ??
+        boxShadow:
+            widget.boxShadow ??
             [
               BoxShadow(
                 color: context.isDark
@@ -148,12 +152,13 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
 
   Widget _buildErrorWidget() {
     return Container(
-      width: widget.size,
-      height: widget.size,
+      width: widget.width,
+      height: widget.height,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(widget.borderRadius),
         color: context.error.withValues(alpha: 0.1),
-        boxShadow: widget.boxShadow ??
+        boxShadow:
+            widget.boxShadow ??
             [
               BoxShadow(
                 color: context.isDark
@@ -174,11 +179,12 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
 
   Widget _buildImageWidget() {
     return Container(
-      width: widget.size,
-      height: widget.size,
+      width: widget.width,
+      height: widget.height,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(widget.borderRadius),
-        boxShadow: widget.boxShadow ??
+        boxShadow:
+            widget.boxShadow ??
             [
               BoxShadow(
                 color: context.isDark

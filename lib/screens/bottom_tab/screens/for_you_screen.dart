@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:pmj_music_player/core/constants/app_constants.dart';
+import 'package:pmj_music_player/screens/bottom_tab/widgets/album_artist_my_playlist_helper.dart';
 import '../../../core/theme/theme_extension.dart';
 import '../../../core/widgets/custom_3d_card.dart';
+import '../../../core/widgets/custom_tab_view_app_bar.dart';
+import '../../../core/router/app_router.dart';
 import '../../../utils/logger/logger.dart';
 import '../../../utils/models/song/song_model.dart';
 import '../../../utils/models/artist/artist_model.dart';
@@ -32,7 +36,6 @@ class _ForYouScreenState extends State<ForYouScreen> {
   static const double _iconSize = 20.0;
   // Animation delays
   static const int _statsDelay = 0;
-  static const int _mostPlayedDelay = 0;
   static const int _recentlyAddedDelay = 1;
   static const int _topArtistsDelay = 2;
   static const int _topAlbumsDelay = 3;
@@ -45,7 +48,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
   // Additional spacing
   static const double _largeSpacing = 24.0;
   static const double _extraLargeSpacing = 30.0;
-  static const double _statCardHeight = 130.0;
+  static const double _statCardHeight = 135.0;
 
   @override
   void initState() {
@@ -250,19 +253,17 @@ class _ForYouScreenState extends State<ForYouScreen> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(gradient: context.backgroundGradient),
+      decoration: BoxDecoration(
+        gradient: context.backgroundGradient,
+        color: Colors.transparent,
+      ),
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          title: Text(
-            'For You',
-            style: TextStyle(
-              color: context.onSurfaceColor,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+        appBar: CustomTabViewAppBar(
+          title: 'For You',
+          showSearchButton: false,
+          showSettingsButton: true,
+            onSettingsPressed: () => context.navigateToSettings(),
         ),
         body: BlocBuilder<MusicBloc, MusicState>(
           builder: (context, state) {
@@ -281,8 +282,8 @@ class _ForYouScreenState extends State<ForYouScreen> {
                       _buildAnimatedQuickStats(state),
                       SizedBox(height: _largeSpacing.h),
 
-                      // Most Played Songs
-                      _buildMostPlayedSongs(state),
+                      // Quilted Grid Layout
+                      _buildQuiltedGrid(state),
                       SizedBox(height: _largeSpacing.h),
 
                       // Recently Added
@@ -388,7 +389,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
             color: context.accentTeal,
             onTap: () => _navigateToSongsTab(),
             animationDelay: 1,
-            height: 150.h,
+            height: 155.h,
             iconSize: 28,
             fontSize: 22,
           ),
@@ -412,44 +413,218 @@ class _ForYouScreenState extends State<ForYouScreen> {
     return _buildQuickStats(state);
   }
 
-  Widget _buildMostPlayedSongs(MusicState state) {
+  Widget _buildQuiltedGrid(MusicState state) {
     final mostPlayedSongs = _getMostPlayedSongs(state.allSongs);
 
     if (mostPlayedSongs.isEmpty) {
       return _buildEmptyStateCard(
-        'Most Played',
-        'Start playing songs to see your most played tracks here!',
-        Icons.trending_up_rounded,
-        _mostPlayedDelay,
+        'My Suggestions',
+        'Start playing songs to see personalized suggestions here!',
+        Icons.lightbulb_outline_rounded,
+        0,
       );
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader(
-          'Most Played',
-          mostPlayedSongs.length,
-          () => _navigateToMostPlayed(),
-        ),
         SizedBox(height: _itemSpacing.h),
-        ...mostPlayedSongs
-            .take(_maxSongsPerSection)
-            .toList()
-            .asMap()
-            .entries
-            .map((entry) {
-              final index = entry.key;
-              final song = entry.value;
-              return Column(
-                children: [
-                  _buildSongItem(song, rank: index + 1),
-                  if (index < _maxSongsPerSection - 1)
-                    SizedBox(height: _itemSpacing.h),
-                ],
-              );
-            }),
+        SizedBox(
+          height: 280.h, // Fixed height for the quilted grid
+          child: GridView.custom(
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverQuiltedGridDelegate(
+              crossAxisCount: 4,
+              mainAxisSpacing: 4.w,
+              crossAxisSpacing: 4.w,
+              repeatPattern: QuiltedGridRepeatPattern.inverted,
+              pattern: [
+                QuiltedGridTile(
+                  2,
+                  2,
+                ), // Top-Left (Dark Blue-Green) - "My Suggestions"
+                QuiltedGridTile(1, 1), // Top-Middle (Orange)
+                QuiltedGridTile(1, 1), // Top-Right (Teal)
+                QuiltedGridTile(1, 2), // Middle-Right (Light Orange)
+                QuiltedGridTile(1, 2), // Middle-Left (Red-Orange)
+                QuiltedGridTile(1, 1), // Bottom-Right small 1
+                QuiltedGridTile(1, 1), // Bottom-Right small 2
+                QuiltedGridTile(1, 1), // Bottom-Right small 3
+                QuiltedGridTile(1, 1), // Bottom-Right small 4
+                QuiltedGridTile(1, 1), // Bottom-Left (Yellow)
+                QuiltedGridTile(1, 1), // Bottom-Middle (Dark Blue-Green)
+              ],
+            ),
+            childrenDelegate: SliverChildBuilderDelegate(
+              (context, index) {
+                if (index == 0) {
+                  // First card - "My Suggestions" text (large tile)
+                  return _buildMySuggestionsCard();
+                } else if (index >= 1 && index <= 4) {
+                  // Top row small tiles and middle-right tile (indices 1-4)
+                  final songIndex = index - 1;
+                  if (songIndex < mostPlayedSongs.length) {
+                    return _buildAlbumArtCard(mostPlayedSongs[songIndex]);
+                  }
+                  return _buildEmptyAlbumCard();
+                } else if (index >= 5 && index <= 8) {
+                  // Bottom-right 4 small containers (indices 5-8)
+                  final songIndex = index - 1;
+                  if (songIndex < mostPlayedSongs.length) {
+                    return _buildAlbumArtCard(mostPlayedSongs[songIndex]);
+                  }
+                  return _buildEmptyAlbumCard();
+                } else {
+                  // Bottom-left and bottom-middle tiles (indices 9-10)
+                  final songIndex = index - 1;
+                  if (songIndex < mostPlayedSongs.length) {
+                    return _buildAlbumArtCard(mostPlayedSongs[songIndex]);
+                  }
+                  return _buildEmptyAlbumCard();
+                }
+              },
+              childCount: 7, // 1 for "My Suggestions" + 10 for album art tiles
+            ),
+          ),
+        ),
       ],
+    );
+  }
+
+  Widget _buildMySuggestionsCard() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: context.isDark
+              ? [
+                  context.primaryStart.withValues(alpha: 0.8),
+                  context.primaryEnd.withValues(alpha: 0.9),
+                ]
+              : [
+                  context.primaryStart.withValues(alpha: 0.6),
+                  context.primaryEnd.withValues(alpha: 0.7),
+                ],
+        ),
+        borderRadius: BorderRadius.circular(8.r),
+        border: Border.all(
+          color: context.primaryStart.withValues(alpha: 0.3),
+          width: 1.w,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: context.isDark
+                ? Colors.black.withValues(alpha: 0.4)
+                : context.primaryStart.withValues(alpha: 0.2),
+            offset: Offset(0, 4.h),
+            blurRadius: 8.r,
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(12.w),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.lightbulb_outline_rounded,
+              color: context.isDark ? Colors.white : Colors.white,
+              size: 24.sp,
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              'My',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'Poppins',
+                height: 1.2,
+                shadows: [
+                  Shadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    offset: Offset(0, 1.h),
+                    blurRadius: 2.r,
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              'Suggestions',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'Poppins',
+                height: 1.2,
+                shadows: [
+                  Shadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    offset: Offset(0, 1.h),
+                    blurRadius: 2.r,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAlbumArtCard(Song song, {double? borderRadius}) {
+    return GestureDetector(
+      onTap: () => _playSong(song),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(borderRadius ?? 8.r),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              offset: Offset(0, 2.h),
+              blurRadius: 4.r,
+              spreadRadius: 0,
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(borderRadius ?? 8.r),
+          child: AlbumArtWidget(
+            albumArt: song.albumArt,
+            borderRadius: borderRadius ?? 8.r,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyAlbumCard() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            context.onSurfaceVariantColor.withValues(alpha: 0.1),
+            context.onSurfaceVariantColor.withValues(alpha: 0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(8.r),
+        border: Border.all(
+          color: context.onSurfaceVariantColor.withValues(alpha: 0.2),
+          width: 1.w,
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          Icons.music_note,
+          color: context.onSurfaceVariantColor.withValues(alpha: 0.5),
+          size: 20.sp,
+        ),
+      ),
     );
   }
 
@@ -519,7 +694,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
           final artist = entry.value;
           return Column(
             children: [
-              _buildArtistItemWithPlayCount(artist, index + 1),
+              _buildArtistItemWithPlayCount(artist),
               if (index < _maxArtistsPerSection - 1)
                 SizedBox(height: _itemSpacing.h),
             ],
@@ -557,7 +732,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
           final album = entry.value;
           return Column(
             children: [
-              _buildAlbumItemWithPlayCount(album, index + 1),
+              _buildAlbumItemWithPlayCount(album),
               if (index < _maxAlbumsPerSection - 1)
                 SizedBox(height: _itemSpacing.h),
             ],
@@ -580,6 +755,10 @@ class _ForYouScreenState extends State<ForYouScreen> {
     double? borderRadius,
     bool isNetworkImage = false,
   }) {
+    if (albumArt != null && albumArt.isNotEmpty) {
+      isNetworkImage =
+          albumArt.startsWith('http://') || albumArt.startsWith('https://');
+    }
     return Custom3DCard(
       enableAnimation: true,
       animationDelay: animationDelay ?? _recentlyAddedDelay,
@@ -597,7 +776,8 @@ class _ForYouScreenState extends State<ForYouScreen> {
           ],
           AlbumArtWidget(
             albumArt: albumArt,
-            size: _albumArtSize.w,
+            width: _albumArtSize.w,
+            height: _albumArtSize.h,
             borderRadius: (borderRadius ?? 8).r,
             isNetworkImage: isNetworkImage,
             defaultIcon: Icons.music_note_rounded,
@@ -674,20 +854,17 @@ class _ForYouScreenState extends State<ForYouScreen> {
     );
   }
 
-  Widget _buildArtistItemWithPlayCount(Artist artist, int rank) {
-    // Get artist image with fallback to random song image
+  Widget _buildArtistItemWithPlayCount(Artist artist) {
+    // Get artist image with fallback to first song album art
     String? artistImage = artist.image;
     if (artistImage == null || artistImage.isEmpty) {
-      final artistSongs = context
-          .read<MusicBloc>()
-          .state
-          .allSongs
-          .where((song) => artist.songIds.contains(song.id))
-          .toList();
-      final random =
-          DateTime.now().millisecondsSinceEpoch % (artistSongs.length + 1);
-      if (artistSongs.isNotEmpty && random < artistSongs.length) {
-        artistImage = artistSongs[random].albumArt;
+      final artistSongs = AlbumArtistPlaylistHelper.getArtistSongs(
+        artist,
+        context.read<MusicBloc>().state.allSongs,
+      );
+      // Use first song's album art as fallback
+      if (artistSongs.isNotEmpty) {
+        artistImage = artistSongs.first.albumArt;
       }
     }
 
@@ -697,7 +874,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
       albumArt: artistImage,
       onTap: () => _navigateToArtist(artist.name),
       actionIcon: Icons.arrow_forward_ios_rounded,
-      rank: rank,
+      rank: null,
       playCount: artist.playCount,
       animationDelay: _topArtistsDelay,
       borderRadius: 24,
@@ -705,28 +882,17 @@ class _ForYouScreenState extends State<ForYouScreen> {
     );
   }
 
-  Widget _buildAlbumItemWithPlayCount(Album album, int rank) {
-    final albumSongs = context
-        .read<MusicBloc>()
-        .state
-        .allSongs
-        .where((song) => song.albums.contains(album.name))
-        .toList();
-    final firstSong = albumSongs.isNotEmpty ? albumSongs.first : null;
-
-    // Get album art with fallback to random song image
-    String? albumArt = firstSong?.albumArt ?? album.coverImage;
+  Widget _buildAlbumItemWithPlayCount(Album album) {
+    // Get album art with fallback to first song album art
+    String? albumArt = album.coverImage;
     if (albumArt == null || albumArt.isEmpty) {
-      final albumSongs = context
-          .read<MusicBloc>()
-          .state
-          .allSongs
-          .where((song) => song.albums.contains(album.name))
-          .toList();
-      final random =
-          DateTime.now().millisecondsSinceEpoch % (albumSongs.length + 1);
-      if (albumSongs.isNotEmpty && random < albumSongs.length) {
-        albumArt = albumSongs[random].albumArt;
+      final albumSongs = AlbumArtistPlaylistHelper.getAlbumSongs(
+        album,
+        context.read<MusicBloc>().state.allSongs,
+      );
+      // Use first song's album art as fallback
+      if (albumSongs.isNotEmpty) {
+        albumArt = albumSongs.first.albumArt;
       }
     }
 
@@ -736,7 +902,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
       albumArt: albumArt,
       onTap: () => _navigateToAlbum(album.name),
       actionIcon: Icons.arrow_forward_ios_rounded,
-      rank: rank,
+      rank: null,
       playCount: album.playCount,
       animationDelay: _topAlbumsDelay,
       borderRadius: 8,
@@ -810,12 +976,6 @@ class _ForYouScreenState extends State<ForYouScreen> {
     _logger.i('Navigate to album: $albumName');
     // Navigate to albums tab and filter by album
     _navigateToTabWithFilter(2, 'album', albumName); // Albums tab is index 2
-  }
-
-  void _navigateToMostPlayed() {
-    _logger.i('Navigate to most played songs');
-    // Navigate to songs tab and filter by most played
-    _navigateToTabWithFilter(1, 'most_played', null); // Songs tab is index 1
   }
 
   void _navigateToRecentlyAdded() {

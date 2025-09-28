@@ -100,7 +100,6 @@ class TestHelpers {
       songIds: songIds ?? ['song1', 'song2', 'song3'],
       createdAt: createdAt ?? DateTime(2023, 1, 1),
       updatedAt: updatedAt,
-      albumIds: albumIds ?? ['album1', 'album2', 'album3'],
     );
   }
 

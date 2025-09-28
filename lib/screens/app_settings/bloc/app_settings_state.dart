@@ -6,7 +6,13 @@ class AppSettingsState with _$AppSettingsState {
     required Map<String, List<String>> whiteListFolder,
     required List<String> supportedAudioFormats,
     required DateTime? lastUpdateMusicLibrary,
-
+    required bool isDarkMode,
+    required bool followSystemTheme,
+    required int sleepTimerMinutes,
+    required bool isSleepTimerEnabled,
+    required bool autoPlayNext,
+    required bool showNotifications,
+    required double playbackSpeed,
   }) = _Initial;
 
   factory AppSettingsState.initial() => AppSettingsState(
@@ -38,5 +44,12 @@ class AppSettingsState with _$AppSettingsState {
     ],
 
     lastUpdateMusicLibrary: null,
+    isDarkMode: false,
+    followSystemTheme: true,
+    sleepTimerMinutes: 30,
+    isSleepTimerEnabled: false,
+    autoPlayNext: true,
+    showNotifications: true,
+    playbackSpeed: 1.0,
   );
 }

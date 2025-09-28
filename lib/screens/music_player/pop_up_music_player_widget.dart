@@ -296,7 +296,8 @@ class _PopUpMusicPlayerWidgetState extends State<PopUpMusicPlayerWidget>
                                               // Album art with better error handling
                                               AlbumArtWidget(
                                                 albumArt: currentSong.albumArt,
-                                                size: 50.w,
+                                                width: 50.w,
+                                                height: 50.h,
                                                 borderRadius: 12.r,
                                                 defaultIconSize: 15.r,
                                               ),

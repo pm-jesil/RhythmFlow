@@ -10,8 +10,7 @@ class Artist with _$Artist {
     required String name,
     String? bio,
     String? image,
-    required List<String> songIds, // normalized
-    List<String>? albumIds, // link to Album
+    required List<String> songIds,
     required DateTime createdAt,
     DateTime? updatedAt,
     DateTime? lastPlayed,

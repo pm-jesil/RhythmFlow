@@ -21,6 +21,7 @@ class Song with _$Song {
     required String title,
     required List<String> artists,
     required List<String> albums,
+    List<String>? myPlaylistIds,
     required String path,
     @DurationConverter() required Duration duration,
     String? albumArt,
@@ -45,18 +46,21 @@ class Song with _$Song {
 
 extension SongExtension on Song {
   String get displayTitle => title.isNotEmpty ? title : 'Unknown Title';
-  String get displayArtist => primaryArtist.isNotEmpty ? primaryArtist : 'Unknown Artist';
-  String get displayAlbum => primaryAlbum.isNotEmpty ? primaryAlbum : 'Unknown Album';
-  
+  String get displayArtist =>
+      primaryArtist.isNotEmpty ? primaryArtist : 'Unknown Artist';
+  String get displayAlbum =>
+      primaryAlbum.isNotEmpty ? primaryAlbum : 'Unknown Album';
+
   /// Get the primary (first) artist from the list
-  String get primaryArtist => artists.isNotEmpty ? artists.first : 'Unknown Artist';
-  
+  String get primaryArtist =>
+      artists.isNotEmpty ? artists.first : 'Unknown Artist';
+
   /// Get the primary (first) album from the list
   String get primaryAlbum => albums.isNotEmpty ? albums.first : 'Unknown Album';
-  
+
   /// Get all artists as a formatted string
   String get allArtists => artists.join(', ');
-  
+
   /// Get all albums as a formatted string
   String get allAlbums => albums.join(', ');
 
@@ -74,7 +78,8 @@ extension SongExtension on Song {
   bool get hasAlbumArt => albumArt != null && albumArt!.isNotEmpty;
 
   String get searchableText =>
-      '${title.toLowerCase()} ${allArtists.toLowerCase()} ${allAlbums.toLowerCase()} ${genre?.toLowerCase() ?? ''}'.trim();
+      '${title.toLowerCase()} ${allArtists.toLowerCase()} ${allAlbums.toLowerCase()} ${genre?.toLowerCase() ?? ''}'
+          .trim();
 
   String get formattedFileSize {
     if (fileSize == null) return '';

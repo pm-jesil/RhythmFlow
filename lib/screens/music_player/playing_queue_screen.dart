@@ -37,11 +37,7 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
           ),
           title: Row(
             children: [
-              Icon(
-                Icons.queue_music,
-                color: context.primaryStart,
-                size: 20.sp,
-              ),
+              Icon(Icons.queue_music, color: context.primaryStart, size: 20.sp),
               SizedBox(width: 8.w),
               Text(
                 'Playing Queue',
@@ -122,7 +118,7 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
     // Get songs from current playlist in the same order (excluding completed songs)
     final queueSongs = <Song>[];
     Song? currentSong;
-    
+
     for (final songId in currentPlayList) {
       // Skip completed songs - they won't be shown in the queue
       if (!completedSongs.contains(songId)) {
@@ -131,7 +127,9 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
           if (songId == currentSongId) {
             currentSong = song;
           }
-          queueSongs.add(song); // Add all songs (including current) to maintain order
+          queueSongs.add(
+            song,
+          ); // Add all songs (including current) to maintain order
         } catch (e) {
           _logger.w('Song not found in allSongs: $songId');
         }
@@ -222,11 +220,16 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
                   padding: EdgeInsets.symmetric(horizontal: 16.w),
                   itemCount: queueSongs.length - 1, // Exclude current song
                   onReorder: (oldIndex, newIndex) {
-                    _reorderQueueSongs(state, oldIndex + 1, newIndex + 1); // +1 because current song is at index 0
+                    _reorderQueueSongs(
+                      state,
+                      oldIndex + 1,
+                      newIndex + 1,
+                    ); // +1 because current song is at index 0
                   },
                   itemBuilder: (context, index) {
-                    final song = queueSongs[index + 1]; // Skip current song (index 0)
-                    
+                    final song =
+                        queueSongs[index + 1]; // Skip current song (index 0)
+
                     return _buildQueueSongTile(
                       key: ValueKey(song.id),
                       song: song,
@@ -264,7 +267,7 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
           borderRadius: BorderRadius.circular(12.r),
           onTap: () {
             _logger.d("🎵 Tapping current playing song: ${song.title}");
-            
+
             // Play the selected song
             context.read<MusicBloc>().add(
               MusicEvent.playOrPauseSong(
@@ -291,17 +294,18 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
                     size: 16.sp,
                   ),
                 ),
-                
+
                 SizedBox(width: 12.w),
-                
+
                 // Album Art
                 AlbumArtWidget(
                   albumArt: song.albumArt,
-                  size: 56.w,
+                  width: 56.w,
+                  height: 56.h,
                   borderRadius: 8.r,
                   boxShadow: [
                     BoxShadow(
-                      color: context.isDark 
+                      color: context.isDark
                           ? Colors.black.withValues(alpha: 0.4)
                           : Colors.black.withValues(alpha: 0.2),
                       blurRadius: 8.r,
@@ -311,9 +315,9 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
                   defaultIcon: Icons.play_arrow,
                   defaultIconSize: 24.0,
                 ),
-                
+
                 SizedBox(width: 16.w),
-                
+
                 // Song Info
                 Expanded(
                   child: Column(
@@ -354,7 +358,7 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
                     ],
                   ),
                 ),
-                
+
                 // Duration
                 Text(
                   _formatDuration(song.duration),
@@ -383,12 +387,12 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
       key: key,
       margin: EdgeInsets.only(bottom: 8.h),
       decoration: BoxDecoration(
-        color: isCurrentSong 
+        color: isCurrentSong
             ? context.primaryStart.withValues(alpha: 0.1)
             : context.cardColor.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(10.r),
         border: Border.all(
-          color: isCurrentSong 
+          color: isCurrentSong
               ? context.primaryStart.withValues(alpha: 0.3)
               : context.onSurfaceColor.withValues(alpha: 0.1),
         ),
@@ -399,13 +403,15 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
           borderRadius: BorderRadius.circular(10.r),
           onTap: () {
             _logger.d("🎵 Tapping song in queue: ${song.title}");
-            
+
             // Play the selected song
             context.read<MusicBloc>().add(
               MusicEvent.playOrPauseSong(
                 songId: song.id,
                 currentPlayList: state.myPlayerState.currentPlayList,
-                playlistSource: _getPlaylistSourceFromPlaylistId(state.myPlayerState.playlistId),
+                playlistSource: _getPlaylistSourceFromPlaylistId(
+                  state.myPlayerState.playlistId,
+                ),
               ),
             );
           },
@@ -436,29 +442,30 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
                   )
                 else
                   SizedBox(width: 32.w),
-                
+
                 // Album Art
                 AlbumArtWidget(
                   albumArt: song.albumArt,
-                  size: 48.w,
+                  width: 48.w,
+                  height: 48.h,
                   borderRadius: 6.r,
                   boxShadow: [
                     BoxShadow(
-                      color: context.isDark 
+                      color: context.isDark
                           ? Colors.black.withValues(alpha: 0.4)
                           : Colors.black.withValues(alpha: 0.2),
                       blurRadius: 6.r,
                       offset: Offset(0, 1.h),
                     ),
                   ],
-                  defaultIcon: isCurrentSong 
+                  defaultIcon: isCurrentSong
                       ? Icons.play_arrow
                       : Icons.music_note,
                   defaultIconSize: 20.0,
                 ),
-                
+
                 SizedBox(width: 12.w),
-                
+
                 // Song Info
                 Expanded(
                   child: Column(
@@ -467,11 +474,11 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
                       Text(
                         song.title,
                         style: TextStyle(
-                          color: isCurrentSong 
+                          color: isCurrentSong
                               ? context.primaryStart
                               : context.onSurfaceColor,
                           fontSize: 14.sp,
-                          fontWeight: isCurrentSong 
+                          fontWeight: isCurrentSong
                               ? FontWeight.w600
                               : FontWeight.w500,
                           fontFamily: 'Poppins',
@@ -483,7 +490,7 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
                       Text(
                         song.primaryArtist,
                         style: TextStyle(
-                          color: isCurrentSong 
+                          color: isCurrentSong
                               ? context.primaryStart.withValues(alpha: 0.8)
                               : context.onSurfaceVariantColor,
                           fontSize: 12.sp,
@@ -495,35 +502,28 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
                     ],
                   ),
                 ),
-                
+
                 // Duration
                 Text(
                   _formatDuration(song.duration),
                   style: TextStyle(
-                    color: isCurrentSong 
+                    color: isCurrentSong
                         ? context.primaryStart
                         : context.onSurfaceVariantColor,
                     fontSize: 12.sp,
                     fontFamily: 'Poppins',
                   ),
                 ),
-                
+
                 SizedBox(width: 8.w),
-                
+
                 // Remove from Queue Button
                 IconButton(
                   onPressed: () {
                     _removeSongFromQueue(context, song, state);
                   },
-                  icon: Icon(
-                    Icons.close,
-                    color: Colors.red,
-                    size: 20.sp,
-                  ),
-                  constraints: BoxConstraints(
-                    minWidth: 32.w,
-                    minHeight: 32.h,
-                  ),
+                  icon: Icon(Icons.close, color: Colors.red, size: 20.sp),
+                  constraints: BoxConstraints(minWidth: 32.w, minHeight: 32.h),
                   padding: EdgeInsets.zero,
                 ),
               ],
@@ -566,11 +566,7 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
               },
             ),
             ListTile(
-              leading: Icon(
-                Icons.clear_all,
-                color: Colors.red,
-                size: 24.sp,
-              ),
+              leading: Icon(Icons.clear_all, color: Colors.red, size: 24.sp),
               title: Text(
                 'Clear Queue',
                 style: TextStyle(
@@ -592,81 +588,93 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
 
   void _reorderQueueSongs(MusicState state, int oldIndex, int newIndex) {
     _logger.d("🔄 Reordering queue: $oldIndex → $newIndex");
-    
-    final currentPlayList = List<String>.from(state.myPlayerState.currentPlayList);
+
+    final currentPlayList = List<String>.from(
+      state.myPlayerState.currentPlayList,
+    );
     final completedSongs = state.myPlayerState.completedSongs;
-    
+
     // Get all non-completed songs in their current order
-    final activeSongIds = currentPlayList.where((id) => !completedSongs.contains(id)).toList();
-    
+    final activeSongIds = currentPlayList
+        .where((id) => !completedSongs.contains(id))
+        .toList();
+
     if (oldIndex < activeSongIds.length && newIndex < activeSongIds.length) {
       // Adjust newIndex for ReorderableListView behavior
       if (newIndex > oldIndex) {
         newIndex -= 1;
       }
-      
+
       // Reorder the active songs (excluding completed)
       final item = activeSongIds.removeAt(oldIndex);
       activeSongIds.insert(newIndex, item);
-      
+
       // Rebuild the full playlist maintaining the order of active songs
       final newPlayList = <String>[];
-      
+
       // Add active songs in their new order
       newPlayList.addAll(activeSongIds);
-      
+
       // Add completed songs at the end (they won't be visible in the queue)
       for (final songId in currentPlayList) {
         if (completedSongs.contains(songId)) {
           newPlayList.add(songId);
         }
       }
-      
+
       // Update the player state
-      final updatedQueue = state.myPlayerState.copyWith(currentPlayList: newPlayList);
+      final updatedQueue = state.myPlayerState.copyWith(
+        currentPlayList: newPlayList,
+      );
       context.read<MusicBloc>().add(
         MusicEvent.updateMusicBlocState(
           newState: state.copyWith(myPlayerState: updatedQueue),
         ),
       );
-      
+
       _logger.d("✅ Queue reordered: $activeSongIds");
     }
   }
 
   void _removeSongFromQueue(BuildContext context, Song song, MusicState state) {
     _logger.d("🗑️ Removing song from queue: ${song.title}");
-    
+
     // Add song to completed songs and remove from current playlist
-    final currentPlayList = List<String>.from(state.myPlayerState.currentPlayList);
-    final completedSongs = List<String>.from(state.myPlayerState.completedSongs);
-    
+    final currentPlayList = List<String>.from(
+      state.myPlayerState.currentPlayList,
+    );
+    final completedSongs = List<String>.from(
+      state.myPlayerState.completedSongs,
+    );
+
     // Remove from current playlist
     currentPlayList.remove(song.id);
-    
+
     // Add to completed songs (avoid duplication)
     if (!completedSongs.contains(song.id)) {
       completedSongs.add(song.id);
     }
-    
+
     // Update the player state
     final updatedQueue = state.myPlayerState.copyWith(
       currentPlayList: currentPlayList,
       completedSongs: completedSongs,
     );
-    
+
     context.read<MusicBloc>().add(
       MusicEvent.updateMusicBlocState(
         newState: state.copyWith(myPlayerState: updatedQueue),
       ),
     );
-    
-    _logger.d("✅ Song removed from queue and added to completed: ${song.title}");
+
+    _logger.d(
+      "✅ Song removed from queue and added to completed: ${song.title}",
+    );
   }
 
   PlaylistSource? _getPlaylistSourceFromPlaylistId(String? playlistId) {
     if (playlistId == null) return null;
-    
+
     if (playlistId == 'all_songs') {
       return PlaylistSource.allSongs();
     } else if (playlistId.startsWith('album_')) {
@@ -676,10 +684,12 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
       final artistId = playlistId.substring(7); // Remove 'artist_' prefix
       return PlaylistSource.artist(artistId);
     } else if (playlistId.startsWith('my_playlist_')) {
-      final myPlaylistId = playlistId.substring(12); // Remove 'my_playlist_' prefix
+      final myPlaylistId = playlistId.substring(
+        12,
+      ); // Remove 'my_playlist_' prefix
       return PlaylistSource.myPlaylist(myPlaylistId);
     }
-    
+
     return null;
   }
 
@@ -742,5 +752,4 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
     final seconds = duration.inSeconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
-
 }

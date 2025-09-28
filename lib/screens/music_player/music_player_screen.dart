@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:pmj_music_player/core/constants/app_enums.dart';
 import 'dart:ui';
 import 'dart:async';
 
@@ -14,6 +15,7 @@ import 'package:pmj_music_player/utils/services/audio_service.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:get_it/get_it.dart';
 import 'widgets/album_art_widget_music_palyer_screen.dart';
+import 'widgets/playlist_selection_popup.dart';
 
 // Main Music Player Screen (now just a placeholder since we use modal)
 class MusicPlayerScreen extends StatelessWidget {
@@ -500,7 +502,7 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                               onTap: () {
                                                 HapticFeedback.mediumImpact();
                                                 _logger.i(
-                                              '🎵 Play/Pause button tapped | Current state: isPlaying=${state.myPlayerState.isPlaying} | currentSongId=${state.myPlayerState.currentSongId}',
+                                                  '🎵 Play/Pause button tapped | Current state: isPlaying=${state.myPlayerState.isPlaying} | currentSongId=${state.myPlayerState.currentSongId}',
                                                 );
 
                                                 // Log current progress state before action
@@ -526,7 +528,9 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                                     songId: songId,
                                                     currentPlayList: context
                                                         .read<MusicBloc>()
-                                                        .state.myPlayerState.currentPlayList,
+                                                        .state
+                                                        .myPlayerState
+                                                        .currentPlayList,
                                                   ),
                                                 );
 
@@ -586,11 +590,15 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                                       milliseconds: 150,
                                                     ), // Fast icon transition
                                                     child: Icon(
-                                                      state.myPlayerState.isPlaying
+                                                      state
+                                                              .myPlayerState
+                                                              .isPlaying
                                                           ? Icons.pause
                                                           : Icons.play_arrow,
                                                       key: ValueKey(
-                                                        state.myPlayerState.isPlaying,
+                                                        state
+                                                            .myPlayerState
+                                                            .isPlaying,
                                                       ), // Ensure proper animation
                                                       color: Colors.white,
                                                       size: 32.sp,
@@ -621,17 +629,60 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                               onPressed: () {
                                                 context.read<MusicBloc>().add(
                                                   MusicEvent.toggleShuffle(
-                                                    isShuffle: !state.myPlayerState.isShuffle,
+                                                    isShuffle: !state
+                                                        .myPlayerState
+                                                        .isShuffle,
                                                     currentPlayList: context
                                                         .read<MusicBloc>()
-                                                        .state.myPlayerState.currentPlayList,
+                                                        .state
+                                                        .myPlayerState
+                                                        .currentPlayList,
                                                   ),
                                                 );
                                               },
-                                              isActive: state.myPlayerState.isShuffle,
+                                              isActive:
+                                                  state.myPlayerState.isShuffle,
                                               size: 37.w,
                                             ),
                                           ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  SizedBox(height: 10.h),
+                                  SizedBox(
+                                    height: 40.h,
+                                    width: double.infinity,
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceEvenly,
+                                      children: [
+                                        // Favorite Button
+                                        _buildSecondaryControlButton(
+                                          icon: Icons.favorite_border,
+                                          activeIcon: Icons.favorite,
+                                          onPressed: () {
+                                            _toggleFavorite(
+                                              context,
+                                              currentSong,
+                                            );
+                                          },
+                                          isActive: _isFavorite(currentSong),
+                                          size: 40.w,
+                                        ),
+
+                                        SizedBox(width: 20.w),
+
+                                        // Create Playlist Button
+                                        _buildSecondaryControlButton(
+                                          icon: Icons.playlist_add,
+                                          onPressed: () {
+                                            _showCreatePlaylistDialog(
+                                              context,
+                                              currentSong,
+                                            );
+                                          },
+                                          size: 40.w,
                                         ),
                                       ],
                                     ),
@@ -1041,5 +1092,125 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
     // Removed verbose slider logging - only log when there are issues
 
     return clampedValue;
+  }
+
+  /// Build secondary control button for favorite and create playlist
+  Widget _buildSecondaryControlButton({
+    required IconData icon,
+    IconData? activeIcon,
+    required VoidCallback onPressed,
+    bool isActive = false,
+    double size = 40,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onPressed();
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          gradient: isActive
+              ? LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    context.primaryStart.withValues(alpha: 0.2),
+                    context.primaryEnd.withValues(alpha: 0.15),
+                  ],
+                )
+              : LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    context.onSurfaceColor.withValues(alpha: 0.1),
+                    context.onSurfaceColor.withValues(alpha: 0.05),
+                  ],
+                ),
+          borderRadius: BorderRadius.circular((size / 2).r),
+          border: Border.all(
+            color: isActive
+                ? context.primaryStart.withValues(alpha: 0.5)
+                : context.onSurfaceColor.withValues(alpha: 0.2),
+            width: 1.w,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isActive
+                  ? context.primaryStart.withValues(alpha: 0.15)
+                  : context.isDark
+                  ? Colors.black.withValues(alpha: 0.15)
+                  : Colors.black.withValues(alpha: 0.05),
+              blurRadius: 4.r,
+              offset: Offset(0, 1.h),
+            ),
+          ],
+        ),
+        child: Center(
+          child: Icon(
+            isActive && activeIcon != null ? activeIcon : icon,
+            color: isActive
+                ? context.primaryStart
+                : context.onSurfaceColor.withValues(alpha: 0.8),
+            size: (size * 0.5).sp,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Check if song is favorite
+  bool _isFavorite(Song song) {
+    // Check if song is in favorites playlist
+    final favoritesPlaylist = context
+        .read<MusicBloc>()
+        .state
+        .myPlaylist
+        .where((playlist) => playlist.id == 'my_playlist_favorites')
+        .firstOrNull;
+
+    return favoritesPlaylist?.songIds.contains(song.id) ?? false;
+  }
+
+  /// Toggle favorite status for a song
+  void _toggleFavorite(BuildContext context, Song song) {
+    HapticFeedback.lightImpact();
+    _logger.i('❤️ Toggle favorite for song: ${song.title}');
+
+    // Use the new playlist event to toggle favorite
+    context.read<MusicBloc>().add(
+      MusicEvent.addOrUpdateMyPlayList(
+        operation: MyPlaylistOperation.toggleFavorite,
+        songId: song.id,
+      ),
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _isFavorite(song) ? 'Removed from favorites' : 'Added to favorites',
+          style: TextStyle(color: Colors.white, fontFamily: 'Poppins'),
+        ),
+        backgroundColor: context.primaryStart,
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+      ),
+    );
+  }
+
+  /// Show comprehensive playlist selection popup
+  void _showCreatePlaylistDialog(BuildContext context, Song song) {
+    HapticFeedback.lightImpact();
+    _logger.i('📝 Show playlist selection popup for song: ${song.title}');
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => PlaylistSelectionPopup(song: song),
+    );
   }
 }

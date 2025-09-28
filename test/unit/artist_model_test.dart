@@ -11,7 +11,6 @@ void main() {
         name: 'Test Artist',
         songIds: ['song1', 'song2', 'song3'],
         createdAt: DateTime(2023, 1, 1),
-        albumIds: ['album1', 'album2', 'album3'],
       );
     });
 
@@ -21,7 +20,6 @@ void main() {
         expect(testArtist.name, equals('Test Artist'));
         expect(testArtist.songIds, equals(['song1', 'song2', 'song3']));
         expect(testArtist.songCount, equals(3));
-        expect(testArtist.albumIds, equals(['album1', 'album2', 'album3']));
       });
 
       test('should create artist with minimal properties', () {
@@ -36,7 +34,6 @@ void main() {
         expect(minimalArtist.name, equals('Minimal Artist'));
         expect(minimalArtist.songIds, equals(['song1']));
         expect(minimalArtist.songCount, equals(1));
-        expect(minimalArtist.albumIds, isNull);
       });
     });
 
@@ -52,19 +49,16 @@ void main() {
         
         // Other properties should remain the same
         expect(updatedArtist.id, equals(testArtist.id));
-        expect(updatedArtist.albumIds, equals(testArtist.albumIds));
       });
 
       test('should create copy with all properties updated', () {
         final fullyUpdatedArtist = testArtist.copyWith(
           name: 'Fully Updated Artist',
           songIds: ['song1', 'song2', 'song3', 'song4', 'song5'],
-          albumIds: ['album1', 'album2', 'album3', 'album4', 'album5'],
         );
 
         expect(fullyUpdatedArtist.name, equals('Fully Updated Artist'));
         expect(fullyUpdatedArtist.songCount, equals(5));
-        expect(fullyUpdatedArtist.albumIds, equals(['album1', 'album2', 'album3', 'album4', 'album5']));
         
         // ID should remain the same
         expect(fullyUpdatedArtist.id, equals(testArtist.id));
@@ -78,7 +72,6 @@ void main() {
           name: 'Test Artist',
           songIds: ['song1', 'song2', 'song3'],
           createdAt: DateTime(2023, 1, 1),
-          albumIds: ['album1', 'album2', 'album3'],
         );
 
         expect(testArtist, equals(identicalArtist));
@@ -117,7 +110,6 @@ void main() {
         expect(artist.name, equals('JSON Artist'));
         expect(artist.songIds, equals(['json1', 'json2']));
         expect(artist.songCount, equals(2));
-        expect(artist.albumIds, equals(['album1', 'album2']));
       });
 
       test('fromJson should handle missing properties with defaults', () {
@@ -134,7 +126,6 @@ void main() {
         expect(artist.name, equals('Minimal JSON Artist'));
         expect(artist.songIds, isEmpty);
         expect(artist.songCount, equals(0));
-        expect(artist.albumIds, isNull);
       });
     });
 
@@ -151,21 +142,16 @@ void main() {
       test('should handle zero counts', () {
         final zeroCountArtist = testArtist.copyWith(
           songIds: [],
-          albumIds: [],
         );
         expect(zeroCountArtist.songCount, equals(0));
-        expect(zeroCountArtist.albumIds, equals([]));
       });
 
       test('should handle large counts', () {
         final largeSongIds = List.generate(9999, (index) => 'song$index');
-        final largeAlbumIds = List.generate(999, (index) => 'album$index');
         final largeCountArtist = testArtist.copyWith(
           songIds: largeSongIds,
-          albumIds: largeAlbumIds,
         );
         expect(largeCountArtist.songCount, equals(9999));
-        expect(largeCountArtist.albumIds, equals(largeAlbumIds));
       });
 
       test('should handle empty strings', () {
@@ -210,8 +196,6 @@ void main() {
       });
 
       test('should handle null album list gracefully', () {
-        final nullAlbumArtist = testArtist.copyWith(albumIds: null);
-        expect(nullAlbumArtist.albumIds, isNull);
       });
     });
   });

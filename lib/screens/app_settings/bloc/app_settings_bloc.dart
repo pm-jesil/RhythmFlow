@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:injectable/injectable.dart';
+import '../../../core/theme/app_theme.dart';
 
 part 'app_settings_event.dart';
 part 'app_settings_state.dart';
@@ -14,6 +15,20 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
     on<_UpdateLastMusicLibraryUpdate>(_onUpdateLastMusicLibraryUpdate);
     on<_ResetToDefaults>(_onResetToDefaults);
     on<_UpdateAppSettingsState>(_onUpdateAppSettingsState);
+    on<_UpdateTheme>(_onUpdateTheme);
+    on<_UpdateSleepTimer>(_onUpdateSleepTimer);
+    on<_UpdatePlaybackSettings>(_onUpdatePlaybackSettings);
+    
+    // Initialize theme sync
+    _initializeThemeSync();
+  }
+  
+  void _initializeThemeSync() {
+    // Sync current settings with AppTheme
+    AppTheme.updateTheme(
+      isDarkMode: state.isDarkMode,
+      isFollowingSystem: state.followSystemTheme,
+    );
   }
 
   @override
@@ -65,6 +80,34 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
     emit(event.newState);
   }
 
+  void _onUpdateTheme(_UpdateTheme event, Emitter<AppSettingsState> emit) {
+    emit(state.copyWith(
+      isDarkMode: event.isDarkMode,
+      followSystemTheme: event.followSystemTheme,
+    ));
+    
+    // Sync with main app's theme system
+    AppTheme.updateTheme(
+      isDarkMode: event.isDarkMode,
+      isFollowingSystem: event.followSystemTheme,
+    );
+  }
+
+  void _onUpdateSleepTimer(_UpdateSleepTimer event, Emitter<AppSettingsState> emit) {
+    emit(state.copyWith(
+      sleepTimerMinutes: event.minutes,
+      isSleepTimerEnabled: event.isEnabled,
+    ));
+  }
+
+  void _onUpdatePlaybackSettings(_UpdatePlaybackSettings event, Emitter<AppSettingsState> emit) {
+    emit(state.copyWith(
+      autoPlayNext: event.autoPlayNext,
+      showNotifications: event.showNotifications,
+      playbackSpeed: event.playbackSpeed,
+    ));
+  }
+
   @override
   Map<String, dynamic>? toJson(AppSettingsState state) {
     try {
@@ -72,6 +115,13 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
         'whiteListFolder': state.whiteListFolder,
         'supportedAudioFormats': state.supportedAudioFormats,
         'lastUpdateMusicLibrary': state.lastUpdateMusicLibrary?.toIso8601String(),
+        'isDarkMode': state.isDarkMode,
+        'followSystemTheme': state.followSystemTheme,
+        'sleepTimerMinutes': state.sleepTimerMinutes,
+        'isSleepTimerEnabled': state.isSleepTimerEnabled,
+        'autoPlayNext': state.autoPlayNext,
+        'showNotifications': state.showNotifications,
+        'playbackSpeed': state.playbackSpeed,
       };
     } catch (_) {
       return null; // skip persisting on serialization errors
@@ -100,6 +150,13 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
         lastUpdateMusicLibrary: json['lastUpdateMusicLibrary'] != null
             ? DateTime.parse(json['lastUpdateMusicLibrary'])
             : null,
+        isDarkMode: json['isDarkMode'] ?? false,
+        followSystemTheme: json['followSystemTheme'] ?? true,
+        sleepTimerMinutes: json['sleepTimerMinutes'] ?? 30,
+        isSleepTimerEnabled: json['isSleepTimerEnabled'] ?? false,
+        autoPlayNext: json['autoPlayNext'] ?? true,
+        showNotifications: json['showNotifications'] ?? true,
+        playbackSpeed: (json['playbackSpeed'] ?? 1.0).toDouble(),
       );
     } catch (e) {
       return null;

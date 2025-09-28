@@ -26,6 +26,15 @@ mixin _$AppSettingsEvent {
     required TResult Function(DateTime timestamp) updateLastMusicLibraryUpdate,
     required TResult Function() resetToDefaults,
     required TResult Function(AppSettingsState newState) updateAppSettingsState,
+    required TResult Function(bool isDarkMode, bool followSystemTheme)
+    updateTheme,
+    required TResult Function(int minutes, bool isEnabled) updateSleepTimer,
+    required TResult Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )
+    updatePlaybackSettings,
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult? whenOrNull<TResult extends Object?>({
@@ -36,6 +45,14 @@ mixin _$AppSettingsEvent {
     TResult? Function(DateTime timestamp)? updateLastMusicLibraryUpdate,
     TResult? Function()? resetToDefaults,
     TResult? Function(AppSettingsState newState)? updateAppSettingsState,
+    TResult? Function(bool isDarkMode, bool followSystemTheme)? updateTheme,
+    TResult? Function(int minutes, bool isEnabled)? updateSleepTimer,
+    TResult? Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )?
+    updatePlaybackSettings,
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult maybeWhen<TResult extends Object?>({
@@ -45,6 +62,14 @@ mixin _$AppSettingsEvent {
     TResult Function(DateTime timestamp)? updateLastMusicLibraryUpdate,
     TResult Function()? resetToDefaults,
     TResult Function(AppSettingsState newState)? updateAppSettingsState,
+    TResult Function(bool isDarkMode, bool followSystemTheme)? updateTheme,
+    TResult Function(int minutes, bool isEnabled)? updateSleepTimer,
+    TResult Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )?
+    updatePlaybackSettings,
     required TResult orElse(),
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
@@ -58,6 +83,10 @@ mixin _$AppSettingsEvent {
     required TResult Function(_ResetToDefaults value) resetToDefaults,
     required TResult Function(_UpdateAppSettingsState value)
     updateAppSettingsState,
+    required TResult Function(_UpdateTheme value) updateTheme,
+    required TResult Function(_UpdateSleepTimer value) updateSleepTimer,
+    required TResult Function(_UpdatePlaybackSettings value)
+    updatePlaybackSettings,
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult? mapOrNull<TResult extends Object?>({
@@ -68,6 +97,9 @@ mixin _$AppSettingsEvent {
     updateLastMusicLibraryUpdate,
     TResult? Function(_ResetToDefaults value)? resetToDefaults,
     TResult? Function(_UpdateAppSettingsState value)? updateAppSettingsState,
+    TResult? Function(_UpdateTheme value)? updateTheme,
+    TResult? Function(_UpdateSleepTimer value)? updateSleepTimer,
+    TResult? Function(_UpdatePlaybackSettings value)? updatePlaybackSettings,
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult maybeMap<TResult extends Object?>({
@@ -78,6 +110,9 @@ mixin _$AppSettingsEvent {
     updateLastMusicLibraryUpdate,
     TResult Function(_ResetToDefaults value)? resetToDefaults,
     TResult Function(_UpdateAppSettingsState value)? updateAppSettingsState,
+    TResult Function(_UpdateTheme value)? updateTheme,
+    TResult Function(_UpdateSleepTimer value)? updateSleepTimer,
+    TResult Function(_UpdatePlaybackSettings value)? updatePlaybackSettings,
     required TResult orElse(),
   }) => throw _privateConstructorUsedError;
 }
@@ -210,6 +245,15 @@ class _$UpdateWhiteListFolderImpl implements _UpdateWhiteListFolder {
     required TResult Function(DateTime timestamp) updateLastMusicLibraryUpdate,
     required TResult Function() resetToDefaults,
     required TResult Function(AppSettingsState newState) updateAppSettingsState,
+    required TResult Function(bool isDarkMode, bool followSystemTheme)
+    updateTheme,
+    required TResult Function(int minutes, bool isEnabled) updateSleepTimer,
+    required TResult Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )
+    updatePlaybackSettings,
   }) {
     return updateWhiteListFolder(platform, folder, isRemove);
   }
@@ -224,6 +268,14 @@ class _$UpdateWhiteListFolderImpl implements _UpdateWhiteListFolder {
     TResult? Function(DateTime timestamp)? updateLastMusicLibraryUpdate,
     TResult? Function()? resetToDefaults,
     TResult? Function(AppSettingsState newState)? updateAppSettingsState,
+    TResult? Function(bool isDarkMode, bool followSystemTheme)? updateTheme,
+    TResult? Function(int minutes, bool isEnabled)? updateSleepTimer,
+    TResult? Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )?
+    updatePlaybackSettings,
   }) {
     return updateWhiteListFolder?.call(platform, folder, isRemove);
   }
@@ -237,6 +289,14 @@ class _$UpdateWhiteListFolderImpl implements _UpdateWhiteListFolder {
     TResult Function(DateTime timestamp)? updateLastMusicLibraryUpdate,
     TResult Function()? resetToDefaults,
     TResult Function(AppSettingsState newState)? updateAppSettingsState,
+    TResult Function(bool isDarkMode, bool followSystemTheme)? updateTheme,
+    TResult Function(int minutes, bool isEnabled)? updateSleepTimer,
+    TResult Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )?
+    updatePlaybackSettings,
     required TResult orElse(),
   }) {
     if (updateWhiteListFolder != null) {
@@ -257,6 +317,10 @@ class _$UpdateWhiteListFolderImpl implements _UpdateWhiteListFolder {
     required TResult Function(_ResetToDefaults value) resetToDefaults,
     required TResult Function(_UpdateAppSettingsState value)
     updateAppSettingsState,
+    required TResult Function(_UpdateTheme value) updateTheme,
+    required TResult Function(_UpdateSleepTimer value) updateSleepTimer,
+    required TResult Function(_UpdatePlaybackSettings value)
+    updatePlaybackSettings,
   }) {
     return updateWhiteListFolder(this);
   }
@@ -271,6 +335,9 @@ class _$UpdateWhiteListFolderImpl implements _UpdateWhiteListFolder {
     updateLastMusicLibraryUpdate,
     TResult? Function(_ResetToDefaults value)? resetToDefaults,
     TResult? Function(_UpdateAppSettingsState value)? updateAppSettingsState,
+    TResult? Function(_UpdateTheme value)? updateTheme,
+    TResult? Function(_UpdateSleepTimer value)? updateSleepTimer,
+    TResult? Function(_UpdatePlaybackSettings value)? updatePlaybackSettings,
   }) {
     return updateWhiteListFolder?.call(this);
   }
@@ -285,6 +352,9 @@ class _$UpdateWhiteListFolderImpl implements _UpdateWhiteListFolder {
     updateLastMusicLibraryUpdate,
     TResult Function(_ResetToDefaults value)? resetToDefaults,
     TResult Function(_UpdateAppSettingsState value)? updateAppSettingsState,
+    TResult Function(_UpdateTheme value)? updateTheme,
+    TResult Function(_UpdateSleepTimer value)? updateSleepTimer,
+    TResult Function(_UpdatePlaybackSettings value)? updatePlaybackSettings,
     required TResult orElse(),
   }) {
     if (updateWhiteListFolder != null) {
@@ -406,6 +476,15 @@ class _$UpdateSupportedAudioFormatsImpl
     required TResult Function(DateTime timestamp) updateLastMusicLibraryUpdate,
     required TResult Function() resetToDefaults,
     required TResult Function(AppSettingsState newState) updateAppSettingsState,
+    required TResult Function(bool isDarkMode, bool followSystemTheme)
+    updateTheme,
+    required TResult Function(int minutes, bool isEnabled) updateSleepTimer,
+    required TResult Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )
+    updatePlaybackSettings,
   }) {
     return updateSupportedAudioFormats(format, isRemove);
   }
@@ -420,6 +499,14 @@ class _$UpdateSupportedAudioFormatsImpl
     TResult? Function(DateTime timestamp)? updateLastMusicLibraryUpdate,
     TResult? Function()? resetToDefaults,
     TResult? Function(AppSettingsState newState)? updateAppSettingsState,
+    TResult? Function(bool isDarkMode, bool followSystemTheme)? updateTheme,
+    TResult? Function(int minutes, bool isEnabled)? updateSleepTimer,
+    TResult? Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )?
+    updatePlaybackSettings,
   }) {
     return updateSupportedAudioFormats?.call(format, isRemove);
   }
@@ -433,6 +520,14 @@ class _$UpdateSupportedAudioFormatsImpl
     TResult Function(DateTime timestamp)? updateLastMusicLibraryUpdate,
     TResult Function()? resetToDefaults,
     TResult Function(AppSettingsState newState)? updateAppSettingsState,
+    TResult Function(bool isDarkMode, bool followSystemTheme)? updateTheme,
+    TResult Function(int minutes, bool isEnabled)? updateSleepTimer,
+    TResult Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )?
+    updatePlaybackSettings,
     required TResult orElse(),
   }) {
     if (updateSupportedAudioFormats != null) {
@@ -453,6 +548,10 @@ class _$UpdateSupportedAudioFormatsImpl
     required TResult Function(_ResetToDefaults value) resetToDefaults,
     required TResult Function(_UpdateAppSettingsState value)
     updateAppSettingsState,
+    required TResult Function(_UpdateTheme value) updateTheme,
+    required TResult Function(_UpdateSleepTimer value) updateSleepTimer,
+    required TResult Function(_UpdatePlaybackSettings value)
+    updatePlaybackSettings,
   }) {
     return updateSupportedAudioFormats(this);
   }
@@ -467,6 +566,9 @@ class _$UpdateSupportedAudioFormatsImpl
     updateLastMusicLibraryUpdate,
     TResult? Function(_ResetToDefaults value)? resetToDefaults,
     TResult? Function(_UpdateAppSettingsState value)? updateAppSettingsState,
+    TResult? Function(_UpdateTheme value)? updateTheme,
+    TResult? Function(_UpdateSleepTimer value)? updateSleepTimer,
+    TResult? Function(_UpdatePlaybackSettings value)? updatePlaybackSettings,
   }) {
     return updateSupportedAudioFormats?.call(this);
   }
@@ -481,6 +583,9 @@ class _$UpdateSupportedAudioFormatsImpl
     updateLastMusicLibraryUpdate,
     TResult Function(_ResetToDefaults value)? resetToDefaults,
     TResult Function(_UpdateAppSettingsState value)? updateAppSettingsState,
+    TResult Function(_UpdateTheme value)? updateTheme,
+    TResult Function(_UpdateSleepTimer value)? updateSleepTimer,
+    TResult Function(_UpdatePlaybackSettings value)? updatePlaybackSettings,
     required TResult orElse(),
   }) {
     if (updateSupportedAudioFormats != null) {
@@ -591,6 +696,15 @@ class _$UpdateLastMusicLibraryUpdateImpl
     required TResult Function(DateTime timestamp) updateLastMusicLibraryUpdate,
     required TResult Function() resetToDefaults,
     required TResult Function(AppSettingsState newState) updateAppSettingsState,
+    required TResult Function(bool isDarkMode, bool followSystemTheme)
+    updateTheme,
+    required TResult Function(int minutes, bool isEnabled) updateSleepTimer,
+    required TResult Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )
+    updatePlaybackSettings,
   }) {
     return updateLastMusicLibraryUpdate(timestamp);
   }
@@ -605,6 +719,14 @@ class _$UpdateLastMusicLibraryUpdateImpl
     TResult? Function(DateTime timestamp)? updateLastMusicLibraryUpdate,
     TResult? Function()? resetToDefaults,
     TResult? Function(AppSettingsState newState)? updateAppSettingsState,
+    TResult? Function(bool isDarkMode, bool followSystemTheme)? updateTheme,
+    TResult? Function(int minutes, bool isEnabled)? updateSleepTimer,
+    TResult? Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )?
+    updatePlaybackSettings,
   }) {
     return updateLastMusicLibraryUpdate?.call(timestamp);
   }
@@ -618,6 +740,14 @@ class _$UpdateLastMusicLibraryUpdateImpl
     TResult Function(DateTime timestamp)? updateLastMusicLibraryUpdate,
     TResult Function()? resetToDefaults,
     TResult Function(AppSettingsState newState)? updateAppSettingsState,
+    TResult Function(bool isDarkMode, bool followSystemTheme)? updateTheme,
+    TResult Function(int minutes, bool isEnabled)? updateSleepTimer,
+    TResult Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )?
+    updatePlaybackSettings,
     required TResult orElse(),
   }) {
     if (updateLastMusicLibraryUpdate != null) {
@@ -638,6 +768,10 @@ class _$UpdateLastMusicLibraryUpdateImpl
     required TResult Function(_ResetToDefaults value) resetToDefaults,
     required TResult Function(_UpdateAppSettingsState value)
     updateAppSettingsState,
+    required TResult Function(_UpdateTheme value) updateTheme,
+    required TResult Function(_UpdateSleepTimer value) updateSleepTimer,
+    required TResult Function(_UpdatePlaybackSettings value)
+    updatePlaybackSettings,
   }) {
     return updateLastMusicLibraryUpdate(this);
   }
@@ -652,6 +786,9 @@ class _$UpdateLastMusicLibraryUpdateImpl
     updateLastMusicLibraryUpdate,
     TResult? Function(_ResetToDefaults value)? resetToDefaults,
     TResult? Function(_UpdateAppSettingsState value)? updateAppSettingsState,
+    TResult? Function(_UpdateTheme value)? updateTheme,
+    TResult? Function(_UpdateSleepTimer value)? updateSleepTimer,
+    TResult? Function(_UpdatePlaybackSettings value)? updatePlaybackSettings,
   }) {
     return updateLastMusicLibraryUpdate?.call(this);
   }
@@ -666,6 +803,9 @@ class _$UpdateLastMusicLibraryUpdateImpl
     updateLastMusicLibraryUpdate,
     TResult Function(_ResetToDefaults value)? resetToDefaults,
     TResult Function(_UpdateAppSettingsState value)? updateAppSettingsState,
+    TResult Function(_UpdateTheme value)? updateTheme,
+    TResult Function(_UpdateSleepTimer value)? updateSleepTimer,
+    TResult Function(_UpdatePlaybackSettings value)? updatePlaybackSettings,
     required TResult orElse(),
   }) {
     if (updateLastMusicLibraryUpdate != null) {
@@ -741,6 +881,15 @@ class _$ResetToDefaultsImpl implements _ResetToDefaults {
     required TResult Function(DateTime timestamp) updateLastMusicLibraryUpdate,
     required TResult Function() resetToDefaults,
     required TResult Function(AppSettingsState newState) updateAppSettingsState,
+    required TResult Function(bool isDarkMode, bool followSystemTheme)
+    updateTheme,
+    required TResult Function(int minutes, bool isEnabled) updateSleepTimer,
+    required TResult Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )
+    updatePlaybackSettings,
   }) {
     return resetToDefaults();
   }
@@ -755,6 +904,14 @@ class _$ResetToDefaultsImpl implements _ResetToDefaults {
     TResult? Function(DateTime timestamp)? updateLastMusicLibraryUpdate,
     TResult? Function()? resetToDefaults,
     TResult? Function(AppSettingsState newState)? updateAppSettingsState,
+    TResult? Function(bool isDarkMode, bool followSystemTheme)? updateTheme,
+    TResult? Function(int minutes, bool isEnabled)? updateSleepTimer,
+    TResult? Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )?
+    updatePlaybackSettings,
   }) {
     return resetToDefaults?.call();
   }
@@ -768,6 +925,14 @@ class _$ResetToDefaultsImpl implements _ResetToDefaults {
     TResult Function(DateTime timestamp)? updateLastMusicLibraryUpdate,
     TResult Function()? resetToDefaults,
     TResult Function(AppSettingsState newState)? updateAppSettingsState,
+    TResult Function(bool isDarkMode, bool followSystemTheme)? updateTheme,
+    TResult Function(int minutes, bool isEnabled)? updateSleepTimer,
+    TResult Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )?
+    updatePlaybackSettings,
     required TResult orElse(),
   }) {
     if (resetToDefaults != null) {
@@ -788,6 +953,10 @@ class _$ResetToDefaultsImpl implements _ResetToDefaults {
     required TResult Function(_ResetToDefaults value) resetToDefaults,
     required TResult Function(_UpdateAppSettingsState value)
     updateAppSettingsState,
+    required TResult Function(_UpdateTheme value) updateTheme,
+    required TResult Function(_UpdateSleepTimer value) updateSleepTimer,
+    required TResult Function(_UpdatePlaybackSettings value)
+    updatePlaybackSettings,
   }) {
     return resetToDefaults(this);
   }
@@ -802,6 +971,9 @@ class _$ResetToDefaultsImpl implements _ResetToDefaults {
     updateLastMusicLibraryUpdate,
     TResult? Function(_ResetToDefaults value)? resetToDefaults,
     TResult? Function(_UpdateAppSettingsState value)? updateAppSettingsState,
+    TResult? Function(_UpdateTheme value)? updateTheme,
+    TResult? Function(_UpdateSleepTimer value)? updateSleepTimer,
+    TResult? Function(_UpdatePlaybackSettings value)? updatePlaybackSettings,
   }) {
     return resetToDefaults?.call(this);
   }
@@ -816,6 +988,9 @@ class _$ResetToDefaultsImpl implements _ResetToDefaults {
     updateLastMusicLibraryUpdate,
     TResult Function(_ResetToDefaults value)? resetToDefaults,
     TResult Function(_UpdateAppSettingsState value)? updateAppSettingsState,
+    TResult Function(_UpdateTheme value)? updateTheme,
+    TResult Function(_UpdateSleepTimer value)? updateSleepTimer,
+    TResult Function(_UpdatePlaybackSettings value)? updatePlaybackSettings,
     required TResult orElse(),
   }) {
     if (resetToDefaults != null) {
@@ -923,6 +1098,15 @@ class _$UpdateAppSettingsStateImpl implements _UpdateAppSettingsState {
     required TResult Function(DateTime timestamp) updateLastMusicLibraryUpdate,
     required TResult Function() resetToDefaults,
     required TResult Function(AppSettingsState newState) updateAppSettingsState,
+    required TResult Function(bool isDarkMode, bool followSystemTheme)
+    updateTheme,
+    required TResult Function(int minutes, bool isEnabled) updateSleepTimer,
+    required TResult Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )
+    updatePlaybackSettings,
   }) {
     return updateAppSettingsState(newState);
   }
@@ -937,6 +1121,14 @@ class _$UpdateAppSettingsStateImpl implements _UpdateAppSettingsState {
     TResult? Function(DateTime timestamp)? updateLastMusicLibraryUpdate,
     TResult? Function()? resetToDefaults,
     TResult? Function(AppSettingsState newState)? updateAppSettingsState,
+    TResult? Function(bool isDarkMode, bool followSystemTheme)? updateTheme,
+    TResult? Function(int minutes, bool isEnabled)? updateSleepTimer,
+    TResult? Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )?
+    updatePlaybackSettings,
   }) {
     return updateAppSettingsState?.call(newState);
   }
@@ -950,6 +1142,14 @@ class _$UpdateAppSettingsStateImpl implements _UpdateAppSettingsState {
     TResult Function(DateTime timestamp)? updateLastMusicLibraryUpdate,
     TResult Function()? resetToDefaults,
     TResult Function(AppSettingsState newState)? updateAppSettingsState,
+    TResult Function(bool isDarkMode, bool followSystemTheme)? updateTheme,
+    TResult Function(int minutes, bool isEnabled)? updateSleepTimer,
+    TResult Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )?
+    updatePlaybackSettings,
     required TResult orElse(),
   }) {
     if (updateAppSettingsState != null) {
@@ -970,6 +1170,10 @@ class _$UpdateAppSettingsStateImpl implements _UpdateAppSettingsState {
     required TResult Function(_ResetToDefaults value) resetToDefaults,
     required TResult Function(_UpdateAppSettingsState value)
     updateAppSettingsState,
+    required TResult Function(_UpdateTheme value) updateTheme,
+    required TResult Function(_UpdateSleepTimer value) updateSleepTimer,
+    required TResult Function(_UpdatePlaybackSettings value)
+    updatePlaybackSettings,
   }) {
     return updateAppSettingsState(this);
   }
@@ -984,6 +1188,9 @@ class _$UpdateAppSettingsStateImpl implements _UpdateAppSettingsState {
     updateLastMusicLibraryUpdate,
     TResult? Function(_ResetToDefaults value)? resetToDefaults,
     TResult? Function(_UpdateAppSettingsState value)? updateAppSettingsState,
+    TResult? Function(_UpdateTheme value)? updateTheme,
+    TResult? Function(_UpdateSleepTimer value)? updateSleepTimer,
+    TResult? Function(_UpdatePlaybackSettings value)? updatePlaybackSettings,
   }) {
     return updateAppSettingsState?.call(this);
   }
@@ -998,6 +1205,9 @@ class _$UpdateAppSettingsStateImpl implements _UpdateAppSettingsState {
     updateLastMusicLibraryUpdate,
     TResult Function(_ResetToDefaults value)? resetToDefaults,
     TResult Function(_UpdateAppSettingsState value)? updateAppSettingsState,
+    TResult Function(_UpdateTheme value)? updateTheme,
+    TResult Function(_UpdateSleepTimer value)? updateSleepTimer,
+    TResult Function(_UpdatePlaybackSettings value)? updatePlaybackSettings,
     required TResult orElse(),
   }) {
     if (updateAppSettingsState != null) {
@@ -1022,11 +1232,724 @@ abstract class _UpdateAppSettingsState implements AppSettingsEvent {
 }
 
 /// @nodoc
+abstract class _$$UpdateThemeImplCopyWith<$Res> {
+  factory _$$UpdateThemeImplCopyWith(
+    _$UpdateThemeImpl value,
+    $Res Function(_$UpdateThemeImpl) then,
+  ) = __$$UpdateThemeImplCopyWithImpl<$Res>;
+  @useResult
+  $Res call({bool isDarkMode, bool followSystemTheme});
+}
+
+/// @nodoc
+class __$$UpdateThemeImplCopyWithImpl<$Res>
+    extends _$AppSettingsEventCopyWithImpl<$Res, _$UpdateThemeImpl>
+    implements _$$UpdateThemeImplCopyWith<$Res> {
+  __$$UpdateThemeImplCopyWithImpl(
+    _$UpdateThemeImpl _value,
+    $Res Function(_$UpdateThemeImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of AppSettingsEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({Object? isDarkMode = null, Object? followSystemTheme = null}) {
+    return _then(
+      _$UpdateThemeImpl(
+        isDarkMode: null == isDarkMode
+            ? _value.isDarkMode
+            : isDarkMode // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        followSystemTheme: null == followSystemTheme
+            ? _value.followSystemTheme
+            : followSystemTheme // ignore: cast_nullable_to_non_nullable
+                  as bool,
+      ),
+    );
+  }
+}
+
+/// @nodoc
+
+class _$UpdateThemeImpl implements _UpdateTheme {
+  const _$UpdateThemeImpl({
+    required this.isDarkMode,
+    required this.followSystemTheme,
+  });
+
+  @override
+  final bool isDarkMode;
+  @override
+  final bool followSystemTheme;
+
+  @override
+  String toString() {
+    return 'AppSettingsEvent.updateTheme(isDarkMode: $isDarkMode, followSystemTheme: $followSystemTheme)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$UpdateThemeImpl &&
+            (identical(other.isDarkMode, isDarkMode) ||
+                other.isDarkMode == isDarkMode) &&
+            (identical(other.followSystemTheme, followSystemTheme) ||
+                other.followSystemTheme == followSystemTheme));
+  }
+
+  @override
+  int get hashCode => Object.hash(runtimeType, isDarkMode, followSystemTheme);
+
+  /// Create a copy of AppSettingsEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$UpdateThemeImplCopyWith<_$UpdateThemeImpl> get copyWith =>
+      __$$UpdateThemeImplCopyWithImpl<_$UpdateThemeImpl>(this, _$identity);
+
+  @override
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>({
+    required TResult Function(String platform, String folder, bool isRemove)
+    updateWhiteListFolder,
+    required TResult Function(String format, bool isRemove)
+    updateSupportedAudioFormats,
+    required TResult Function(DateTime timestamp) updateLastMusicLibraryUpdate,
+    required TResult Function() resetToDefaults,
+    required TResult Function(AppSettingsState newState) updateAppSettingsState,
+    required TResult Function(bool isDarkMode, bool followSystemTheme)
+    updateTheme,
+    required TResult Function(int minutes, bool isEnabled) updateSleepTimer,
+    required TResult Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )
+    updatePlaybackSettings,
+  }) {
+    return updateTheme(isDarkMode, followSystemTheme);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>({
+    TResult? Function(String platform, String folder, bool isRemove)?
+    updateWhiteListFolder,
+    TResult? Function(String format, bool isRemove)?
+    updateSupportedAudioFormats,
+    TResult? Function(DateTime timestamp)? updateLastMusicLibraryUpdate,
+    TResult? Function()? resetToDefaults,
+    TResult? Function(AppSettingsState newState)? updateAppSettingsState,
+    TResult? Function(bool isDarkMode, bool followSystemTheme)? updateTheme,
+    TResult? Function(int minutes, bool isEnabled)? updateSleepTimer,
+    TResult? Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )?
+    updatePlaybackSettings,
+  }) {
+    return updateTheme?.call(isDarkMode, followSystemTheme);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>({
+    TResult Function(String platform, String folder, bool isRemove)?
+    updateWhiteListFolder,
+    TResult Function(String format, bool isRemove)? updateSupportedAudioFormats,
+    TResult Function(DateTime timestamp)? updateLastMusicLibraryUpdate,
+    TResult Function()? resetToDefaults,
+    TResult Function(AppSettingsState newState)? updateAppSettingsState,
+    TResult Function(bool isDarkMode, bool followSystemTheme)? updateTheme,
+    TResult Function(int minutes, bool isEnabled)? updateSleepTimer,
+    TResult Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )?
+    updatePlaybackSettings,
+    required TResult orElse(),
+  }) {
+    if (updateTheme != null) {
+      return updateTheme(isDarkMode, followSystemTheme);
+    }
+    return orElse();
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>({
+    required TResult Function(_UpdateWhiteListFolder value)
+    updateWhiteListFolder,
+    required TResult Function(_UpdateSupportedAudioFormats value)
+    updateSupportedAudioFormats,
+    required TResult Function(_UpdateLastMusicLibraryUpdate value)
+    updateLastMusicLibraryUpdate,
+    required TResult Function(_ResetToDefaults value) resetToDefaults,
+    required TResult Function(_UpdateAppSettingsState value)
+    updateAppSettingsState,
+    required TResult Function(_UpdateTheme value) updateTheme,
+    required TResult Function(_UpdateSleepTimer value) updateSleepTimer,
+    required TResult Function(_UpdatePlaybackSettings value)
+    updatePlaybackSettings,
+  }) {
+    return updateTheme(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>({
+    TResult? Function(_UpdateWhiteListFolder value)? updateWhiteListFolder,
+    TResult? Function(_UpdateSupportedAudioFormats value)?
+    updateSupportedAudioFormats,
+    TResult? Function(_UpdateLastMusicLibraryUpdate value)?
+    updateLastMusicLibraryUpdate,
+    TResult? Function(_ResetToDefaults value)? resetToDefaults,
+    TResult? Function(_UpdateAppSettingsState value)? updateAppSettingsState,
+    TResult? Function(_UpdateTheme value)? updateTheme,
+    TResult? Function(_UpdateSleepTimer value)? updateSleepTimer,
+    TResult? Function(_UpdatePlaybackSettings value)? updatePlaybackSettings,
+  }) {
+    return updateTheme?.call(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>({
+    TResult Function(_UpdateWhiteListFolder value)? updateWhiteListFolder,
+    TResult Function(_UpdateSupportedAudioFormats value)?
+    updateSupportedAudioFormats,
+    TResult Function(_UpdateLastMusicLibraryUpdate value)?
+    updateLastMusicLibraryUpdate,
+    TResult Function(_ResetToDefaults value)? resetToDefaults,
+    TResult Function(_UpdateAppSettingsState value)? updateAppSettingsState,
+    TResult Function(_UpdateTheme value)? updateTheme,
+    TResult Function(_UpdateSleepTimer value)? updateSleepTimer,
+    TResult Function(_UpdatePlaybackSettings value)? updatePlaybackSettings,
+    required TResult orElse(),
+  }) {
+    if (updateTheme != null) {
+      return updateTheme(this);
+    }
+    return orElse();
+  }
+}
+
+abstract class _UpdateTheme implements AppSettingsEvent {
+  const factory _UpdateTheme({
+    required final bool isDarkMode,
+    required final bool followSystemTheme,
+  }) = _$UpdateThemeImpl;
+
+  bool get isDarkMode;
+  bool get followSystemTheme;
+
+  /// Create a copy of AppSettingsEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$UpdateThemeImplCopyWith<_$UpdateThemeImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class _$$UpdateSleepTimerImplCopyWith<$Res> {
+  factory _$$UpdateSleepTimerImplCopyWith(
+    _$UpdateSleepTimerImpl value,
+    $Res Function(_$UpdateSleepTimerImpl) then,
+  ) = __$$UpdateSleepTimerImplCopyWithImpl<$Res>;
+  @useResult
+  $Res call({int minutes, bool isEnabled});
+}
+
+/// @nodoc
+class __$$UpdateSleepTimerImplCopyWithImpl<$Res>
+    extends _$AppSettingsEventCopyWithImpl<$Res, _$UpdateSleepTimerImpl>
+    implements _$$UpdateSleepTimerImplCopyWith<$Res> {
+  __$$UpdateSleepTimerImplCopyWithImpl(
+    _$UpdateSleepTimerImpl _value,
+    $Res Function(_$UpdateSleepTimerImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of AppSettingsEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({Object? minutes = null, Object? isEnabled = null}) {
+    return _then(
+      _$UpdateSleepTimerImpl(
+        minutes: null == minutes
+            ? _value.minutes
+            : minutes // ignore: cast_nullable_to_non_nullable
+                  as int,
+        isEnabled: null == isEnabled
+            ? _value.isEnabled
+            : isEnabled // ignore: cast_nullable_to_non_nullable
+                  as bool,
+      ),
+    );
+  }
+}
+
+/// @nodoc
+
+class _$UpdateSleepTimerImpl implements _UpdateSleepTimer {
+  const _$UpdateSleepTimerImpl({
+    required this.minutes,
+    required this.isEnabled,
+  });
+
+  @override
+  final int minutes;
+  @override
+  final bool isEnabled;
+
+  @override
+  String toString() {
+    return 'AppSettingsEvent.updateSleepTimer(minutes: $minutes, isEnabled: $isEnabled)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$UpdateSleepTimerImpl &&
+            (identical(other.minutes, minutes) || other.minutes == minutes) &&
+            (identical(other.isEnabled, isEnabled) ||
+                other.isEnabled == isEnabled));
+  }
+
+  @override
+  int get hashCode => Object.hash(runtimeType, minutes, isEnabled);
+
+  /// Create a copy of AppSettingsEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$UpdateSleepTimerImplCopyWith<_$UpdateSleepTimerImpl> get copyWith =>
+      __$$UpdateSleepTimerImplCopyWithImpl<_$UpdateSleepTimerImpl>(
+        this,
+        _$identity,
+      );
+
+  @override
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>({
+    required TResult Function(String platform, String folder, bool isRemove)
+    updateWhiteListFolder,
+    required TResult Function(String format, bool isRemove)
+    updateSupportedAudioFormats,
+    required TResult Function(DateTime timestamp) updateLastMusicLibraryUpdate,
+    required TResult Function() resetToDefaults,
+    required TResult Function(AppSettingsState newState) updateAppSettingsState,
+    required TResult Function(bool isDarkMode, bool followSystemTheme)
+    updateTheme,
+    required TResult Function(int minutes, bool isEnabled) updateSleepTimer,
+    required TResult Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )
+    updatePlaybackSettings,
+  }) {
+    return updateSleepTimer(minutes, isEnabled);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>({
+    TResult? Function(String platform, String folder, bool isRemove)?
+    updateWhiteListFolder,
+    TResult? Function(String format, bool isRemove)?
+    updateSupportedAudioFormats,
+    TResult? Function(DateTime timestamp)? updateLastMusicLibraryUpdate,
+    TResult? Function()? resetToDefaults,
+    TResult? Function(AppSettingsState newState)? updateAppSettingsState,
+    TResult? Function(bool isDarkMode, bool followSystemTheme)? updateTheme,
+    TResult? Function(int minutes, bool isEnabled)? updateSleepTimer,
+    TResult? Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )?
+    updatePlaybackSettings,
+  }) {
+    return updateSleepTimer?.call(minutes, isEnabled);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>({
+    TResult Function(String platform, String folder, bool isRemove)?
+    updateWhiteListFolder,
+    TResult Function(String format, bool isRemove)? updateSupportedAudioFormats,
+    TResult Function(DateTime timestamp)? updateLastMusicLibraryUpdate,
+    TResult Function()? resetToDefaults,
+    TResult Function(AppSettingsState newState)? updateAppSettingsState,
+    TResult Function(bool isDarkMode, bool followSystemTheme)? updateTheme,
+    TResult Function(int minutes, bool isEnabled)? updateSleepTimer,
+    TResult Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )?
+    updatePlaybackSettings,
+    required TResult orElse(),
+  }) {
+    if (updateSleepTimer != null) {
+      return updateSleepTimer(minutes, isEnabled);
+    }
+    return orElse();
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>({
+    required TResult Function(_UpdateWhiteListFolder value)
+    updateWhiteListFolder,
+    required TResult Function(_UpdateSupportedAudioFormats value)
+    updateSupportedAudioFormats,
+    required TResult Function(_UpdateLastMusicLibraryUpdate value)
+    updateLastMusicLibraryUpdate,
+    required TResult Function(_ResetToDefaults value) resetToDefaults,
+    required TResult Function(_UpdateAppSettingsState value)
+    updateAppSettingsState,
+    required TResult Function(_UpdateTheme value) updateTheme,
+    required TResult Function(_UpdateSleepTimer value) updateSleepTimer,
+    required TResult Function(_UpdatePlaybackSettings value)
+    updatePlaybackSettings,
+  }) {
+    return updateSleepTimer(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>({
+    TResult? Function(_UpdateWhiteListFolder value)? updateWhiteListFolder,
+    TResult? Function(_UpdateSupportedAudioFormats value)?
+    updateSupportedAudioFormats,
+    TResult? Function(_UpdateLastMusicLibraryUpdate value)?
+    updateLastMusicLibraryUpdate,
+    TResult? Function(_ResetToDefaults value)? resetToDefaults,
+    TResult? Function(_UpdateAppSettingsState value)? updateAppSettingsState,
+    TResult? Function(_UpdateTheme value)? updateTheme,
+    TResult? Function(_UpdateSleepTimer value)? updateSleepTimer,
+    TResult? Function(_UpdatePlaybackSettings value)? updatePlaybackSettings,
+  }) {
+    return updateSleepTimer?.call(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>({
+    TResult Function(_UpdateWhiteListFolder value)? updateWhiteListFolder,
+    TResult Function(_UpdateSupportedAudioFormats value)?
+    updateSupportedAudioFormats,
+    TResult Function(_UpdateLastMusicLibraryUpdate value)?
+    updateLastMusicLibraryUpdate,
+    TResult Function(_ResetToDefaults value)? resetToDefaults,
+    TResult Function(_UpdateAppSettingsState value)? updateAppSettingsState,
+    TResult Function(_UpdateTheme value)? updateTheme,
+    TResult Function(_UpdateSleepTimer value)? updateSleepTimer,
+    TResult Function(_UpdatePlaybackSettings value)? updatePlaybackSettings,
+    required TResult orElse(),
+  }) {
+    if (updateSleepTimer != null) {
+      return updateSleepTimer(this);
+    }
+    return orElse();
+  }
+}
+
+abstract class _UpdateSleepTimer implements AppSettingsEvent {
+  const factory _UpdateSleepTimer({
+    required final int minutes,
+    required final bool isEnabled,
+  }) = _$UpdateSleepTimerImpl;
+
+  int get minutes;
+  bool get isEnabled;
+
+  /// Create a copy of AppSettingsEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$UpdateSleepTimerImplCopyWith<_$UpdateSleepTimerImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class _$$UpdatePlaybackSettingsImplCopyWith<$Res> {
+  factory _$$UpdatePlaybackSettingsImplCopyWith(
+    _$UpdatePlaybackSettingsImpl value,
+    $Res Function(_$UpdatePlaybackSettingsImpl) then,
+  ) = __$$UpdatePlaybackSettingsImplCopyWithImpl<$Res>;
+  @useResult
+  $Res call({bool autoPlayNext, bool showNotifications, double playbackSpeed});
+}
+
+/// @nodoc
+class __$$UpdatePlaybackSettingsImplCopyWithImpl<$Res>
+    extends _$AppSettingsEventCopyWithImpl<$Res, _$UpdatePlaybackSettingsImpl>
+    implements _$$UpdatePlaybackSettingsImplCopyWith<$Res> {
+  __$$UpdatePlaybackSettingsImplCopyWithImpl(
+    _$UpdatePlaybackSettingsImpl _value,
+    $Res Function(_$UpdatePlaybackSettingsImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of AppSettingsEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? autoPlayNext = null,
+    Object? showNotifications = null,
+    Object? playbackSpeed = null,
+  }) {
+    return _then(
+      _$UpdatePlaybackSettingsImpl(
+        autoPlayNext: null == autoPlayNext
+            ? _value.autoPlayNext
+            : autoPlayNext // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        showNotifications: null == showNotifications
+            ? _value.showNotifications
+            : showNotifications // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        playbackSpeed: null == playbackSpeed
+            ? _value.playbackSpeed
+            : playbackSpeed // ignore: cast_nullable_to_non_nullable
+                  as double,
+      ),
+    );
+  }
+}
+
+/// @nodoc
+
+class _$UpdatePlaybackSettingsImpl implements _UpdatePlaybackSettings {
+  const _$UpdatePlaybackSettingsImpl({
+    required this.autoPlayNext,
+    required this.showNotifications,
+    required this.playbackSpeed,
+  });
+
+  @override
+  final bool autoPlayNext;
+  @override
+  final bool showNotifications;
+  @override
+  final double playbackSpeed;
+
+  @override
+  String toString() {
+    return 'AppSettingsEvent.updatePlaybackSettings(autoPlayNext: $autoPlayNext, showNotifications: $showNotifications, playbackSpeed: $playbackSpeed)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$UpdatePlaybackSettingsImpl &&
+            (identical(other.autoPlayNext, autoPlayNext) ||
+                other.autoPlayNext == autoPlayNext) &&
+            (identical(other.showNotifications, showNotifications) ||
+                other.showNotifications == showNotifications) &&
+            (identical(other.playbackSpeed, playbackSpeed) ||
+                other.playbackSpeed == playbackSpeed));
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(runtimeType, autoPlayNext, showNotifications, playbackSpeed);
+
+  /// Create a copy of AppSettingsEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$UpdatePlaybackSettingsImplCopyWith<_$UpdatePlaybackSettingsImpl>
+  get copyWith =>
+      __$$UpdatePlaybackSettingsImplCopyWithImpl<_$UpdatePlaybackSettingsImpl>(
+        this,
+        _$identity,
+      );
+
+  @override
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>({
+    required TResult Function(String platform, String folder, bool isRemove)
+    updateWhiteListFolder,
+    required TResult Function(String format, bool isRemove)
+    updateSupportedAudioFormats,
+    required TResult Function(DateTime timestamp) updateLastMusicLibraryUpdate,
+    required TResult Function() resetToDefaults,
+    required TResult Function(AppSettingsState newState) updateAppSettingsState,
+    required TResult Function(bool isDarkMode, bool followSystemTheme)
+    updateTheme,
+    required TResult Function(int minutes, bool isEnabled) updateSleepTimer,
+    required TResult Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )
+    updatePlaybackSettings,
+  }) {
+    return updatePlaybackSettings(
+      autoPlayNext,
+      showNotifications,
+      playbackSpeed,
+    );
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>({
+    TResult? Function(String platform, String folder, bool isRemove)?
+    updateWhiteListFolder,
+    TResult? Function(String format, bool isRemove)?
+    updateSupportedAudioFormats,
+    TResult? Function(DateTime timestamp)? updateLastMusicLibraryUpdate,
+    TResult? Function()? resetToDefaults,
+    TResult? Function(AppSettingsState newState)? updateAppSettingsState,
+    TResult? Function(bool isDarkMode, bool followSystemTheme)? updateTheme,
+    TResult? Function(int minutes, bool isEnabled)? updateSleepTimer,
+    TResult? Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )?
+    updatePlaybackSettings,
+  }) {
+    return updatePlaybackSettings?.call(
+      autoPlayNext,
+      showNotifications,
+      playbackSpeed,
+    );
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>({
+    TResult Function(String platform, String folder, bool isRemove)?
+    updateWhiteListFolder,
+    TResult Function(String format, bool isRemove)? updateSupportedAudioFormats,
+    TResult Function(DateTime timestamp)? updateLastMusicLibraryUpdate,
+    TResult Function()? resetToDefaults,
+    TResult Function(AppSettingsState newState)? updateAppSettingsState,
+    TResult Function(bool isDarkMode, bool followSystemTheme)? updateTheme,
+    TResult Function(int minutes, bool isEnabled)? updateSleepTimer,
+    TResult Function(
+      bool autoPlayNext,
+      bool showNotifications,
+      double playbackSpeed,
+    )?
+    updatePlaybackSettings,
+    required TResult orElse(),
+  }) {
+    if (updatePlaybackSettings != null) {
+      return updatePlaybackSettings(
+        autoPlayNext,
+        showNotifications,
+        playbackSpeed,
+      );
+    }
+    return orElse();
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>({
+    required TResult Function(_UpdateWhiteListFolder value)
+    updateWhiteListFolder,
+    required TResult Function(_UpdateSupportedAudioFormats value)
+    updateSupportedAudioFormats,
+    required TResult Function(_UpdateLastMusicLibraryUpdate value)
+    updateLastMusicLibraryUpdate,
+    required TResult Function(_ResetToDefaults value) resetToDefaults,
+    required TResult Function(_UpdateAppSettingsState value)
+    updateAppSettingsState,
+    required TResult Function(_UpdateTheme value) updateTheme,
+    required TResult Function(_UpdateSleepTimer value) updateSleepTimer,
+    required TResult Function(_UpdatePlaybackSettings value)
+    updatePlaybackSettings,
+  }) {
+    return updatePlaybackSettings(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>({
+    TResult? Function(_UpdateWhiteListFolder value)? updateWhiteListFolder,
+    TResult? Function(_UpdateSupportedAudioFormats value)?
+    updateSupportedAudioFormats,
+    TResult? Function(_UpdateLastMusicLibraryUpdate value)?
+    updateLastMusicLibraryUpdate,
+    TResult? Function(_ResetToDefaults value)? resetToDefaults,
+    TResult? Function(_UpdateAppSettingsState value)? updateAppSettingsState,
+    TResult? Function(_UpdateTheme value)? updateTheme,
+    TResult? Function(_UpdateSleepTimer value)? updateSleepTimer,
+    TResult? Function(_UpdatePlaybackSettings value)? updatePlaybackSettings,
+  }) {
+    return updatePlaybackSettings?.call(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>({
+    TResult Function(_UpdateWhiteListFolder value)? updateWhiteListFolder,
+    TResult Function(_UpdateSupportedAudioFormats value)?
+    updateSupportedAudioFormats,
+    TResult Function(_UpdateLastMusicLibraryUpdate value)?
+    updateLastMusicLibraryUpdate,
+    TResult Function(_ResetToDefaults value)? resetToDefaults,
+    TResult Function(_UpdateAppSettingsState value)? updateAppSettingsState,
+    TResult Function(_UpdateTheme value)? updateTheme,
+    TResult Function(_UpdateSleepTimer value)? updateSleepTimer,
+    TResult Function(_UpdatePlaybackSettings value)? updatePlaybackSettings,
+    required TResult orElse(),
+  }) {
+    if (updatePlaybackSettings != null) {
+      return updatePlaybackSettings(this);
+    }
+    return orElse();
+  }
+}
+
+abstract class _UpdatePlaybackSettings implements AppSettingsEvent {
+  const factory _UpdatePlaybackSettings({
+    required final bool autoPlayNext,
+    required final bool showNotifications,
+    required final double playbackSpeed,
+  }) = _$UpdatePlaybackSettingsImpl;
+
+  bool get autoPlayNext;
+  bool get showNotifications;
+  double get playbackSpeed;
+
+  /// Create a copy of AppSettingsEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$UpdatePlaybackSettingsImplCopyWith<_$UpdatePlaybackSettingsImpl>
+  get copyWith => throw _privateConstructorUsedError;
+}
+
+/// @nodoc
 mixin _$AppSettingsState {
   Map<String, List<String>> get whiteListFolder =>
       throw _privateConstructorUsedError;
   List<String> get supportedAudioFormats => throw _privateConstructorUsedError;
   DateTime? get lastUpdateMusicLibrary => throw _privateConstructorUsedError;
+  bool get isDarkMode => throw _privateConstructorUsedError;
+  bool get followSystemTheme => throw _privateConstructorUsedError;
+  int get sleepTimerMinutes => throw _privateConstructorUsedError;
+  bool get isSleepTimerEnabled => throw _privateConstructorUsedError;
+  bool get autoPlayNext => throw _privateConstructorUsedError;
+  bool get showNotifications => throw _privateConstructorUsedError;
+  double get playbackSpeed => throw _privateConstructorUsedError;
 
   /// Create a copy of AppSettingsState
   /// with the given fields replaced by the non-null parameter values.
@@ -1046,6 +1969,13 @@ abstract class $AppSettingsStateCopyWith<$Res> {
     Map<String, List<String>> whiteListFolder,
     List<String> supportedAudioFormats,
     DateTime? lastUpdateMusicLibrary,
+    bool isDarkMode,
+    bool followSystemTheme,
+    int sleepTimerMinutes,
+    bool isSleepTimerEnabled,
+    bool autoPlayNext,
+    bool showNotifications,
+    double playbackSpeed,
   });
 }
 
@@ -1067,6 +1997,13 @@ class _$AppSettingsStateCopyWithImpl<$Res, $Val extends AppSettingsState>
     Object? whiteListFolder = null,
     Object? supportedAudioFormats = null,
     Object? lastUpdateMusicLibrary = freezed,
+    Object? isDarkMode = null,
+    Object? followSystemTheme = null,
+    Object? sleepTimerMinutes = null,
+    Object? isSleepTimerEnabled = null,
+    Object? autoPlayNext = null,
+    Object? showNotifications = null,
+    Object? playbackSpeed = null,
   }) {
     return _then(
       _value.copyWith(
@@ -1082,6 +2019,34 @@ class _$AppSettingsStateCopyWithImpl<$Res, $Val extends AppSettingsState>
                 ? _value.lastUpdateMusicLibrary
                 : lastUpdateMusicLibrary // ignore: cast_nullable_to_non_nullable
                       as DateTime?,
+            isDarkMode: null == isDarkMode
+                ? _value.isDarkMode
+                : isDarkMode // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            followSystemTheme: null == followSystemTheme
+                ? _value.followSystemTheme
+                : followSystemTheme // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            sleepTimerMinutes: null == sleepTimerMinutes
+                ? _value.sleepTimerMinutes
+                : sleepTimerMinutes // ignore: cast_nullable_to_non_nullable
+                      as int,
+            isSleepTimerEnabled: null == isSleepTimerEnabled
+                ? _value.isSleepTimerEnabled
+                : isSleepTimerEnabled // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            autoPlayNext: null == autoPlayNext
+                ? _value.autoPlayNext
+                : autoPlayNext // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            showNotifications: null == showNotifications
+                ? _value.showNotifications
+                : showNotifications // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            playbackSpeed: null == playbackSpeed
+                ? _value.playbackSpeed
+                : playbackSpeed // ignore: cast_nullable_to_non_nullable
+                      as double,
           )
           as $Val,
     );
@@ -1101,6 +2066,13 @@ abstract class _$$InitialImplCopyWith<$Res>
     Map<String, List<String>> whiteListFolder,
     List<String> supportedAudioFormats,
     DateTime? lastUpdateMusicLibrary,
+    bool isDarkMode,
+    bool followSystemTheme,
+    int sleepTimerMinutes,
+    bool isSleepTimerEnabled,
+    bool autoPlayNext,
+    bool showNotifications,
+    double playbackSpeed,
   });
 }
 
@@ -1121,6 +2093,13 @@ class __$$InitialImplCopyWithImpl<$Res>
     Object? whiteListFolder = null,
     Object? supportedAudioFormats = null,
     Object? lastUpdateMusicLibrary = freezed,
+    Object? isDarkMode = null,
+    Object? followSystemTheme = null,
+    Object? sleepTimerMinutes = null,
+    Object? isSleepTimerEnabled = null,
+    Object? autoPlayNext = null,
+    Object? showNotifications = null,
+    Object? playbackSpeed = null,
   }) {
     return _then(
       _$InitialImpl(
@@ -1136,6 +2115,34 @@ class __$$InitialImplCopyWithImpl<$Res>
             ? _value.lastUpdateMusicLibrary
             : lastUpdateMusicLibrary // ignore: cast_nullable_to_non_nullable
                   as DateTime?,
+        isDarkMode: null == isDarkMode
+            ? _value.isDarkMode
+            : isDarkMode // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        followSystemTheme: null == followSystemTheme
+            ? _value.followSystemTheme
+            : followSystemTheme // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        sleepTimerMinutes: null == sleepTimerMinutes
+            ? _value.sleepTimerMinutes
+            : sleepTimerMinutes // ignore: cast_nullable_to_non_nullable
+                  as int,
+        isSleepTimerEnabled: null == isSleepTimerEnabled
+            ? _value.isSleepTimerEnabled
+            : isSleepTimerEnabled // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        autoPlayNext: null == autoPlayNext
+            ? _value.autoPlayNext
+            : autoPlayNext // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        showNotifications: null == showNotifications
+            ? _value.showNotifications
+            : showNotifications // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        playbackSpeed: null == playbackSpeed
+            ? _value.playbackSpeed
+            : playbackSpeed // ignore: cast_nullable_to_non_nullable
+                  as double,
       ),
     );
   }
@@ -1148,6 +2155,13 @@ class _$InitialImpl implements _Initial {
     required final Map<String, List<String>> whiteListFolder,
     required final List<String> supportedAudioFormats,
     required this.lastUpdateMusicLibrary,
+    required this.isDarkMode,
+    required this.followSystemTheme,
+    required this.sleepTimerMinutes,
+    required this.isSleepTimerEnabled,
+    required this.autoPlayNext,
+    required this.showNotifications,
+    required this.playbackSpeed,
   }) : _whiteListFolder = whiteListFolder,
        _supportedAudioFormats = supportedAudioFormats;
 
@@ -1170,10 +2184,24 @@ class _$InitialImpl implements _Initial {
 
   @override
   final DateTime? lastUpdateMusicLibrary;
+  @override
+  final bool isDarkMode;
+  @override
+  final bool followSystemTheme;
+  @override
+  final int sleepTimerMinutes;
+  @override
+  final bool isSleepTimerEnabled;
+  @override
+  final bool autoPlayNext;
+  @override
+  final bool showNotifications;
+  @override
+  final double playbackSpeed;
 
   @override
   String toString() {
-    return 'AppSettingsState(whiteListFolder: $whiteListFolder, supportedAudioFormats: $supportedAudioFormats, lastUpdateMusicLibrary: $lastUpdateMusicLibrary)';
+    return 'AppSettingsState(whiteListFolder: $whiteListFolder, supportedAudioFormats: $supportedAudioFormats, lastUpdateMusicLibrary: $lastUpdateMusicLibrary, isDarkMode: $isDarkMode, followSystemTheme: $followSystemTheme, sleepTimerMinutes: $sleepTimerMinutes, isSleepTimerEnabled: $isSleepTimerEnabled, autoPlayNext: $autoPlayNext, showNotifications: $showNotifications, playbackSpeed: $playbackSpeed)';
   }
 
   @override
@@ -1190,7 +2218,21 @@ class _$InitialImpl implements _Initial {
               _supportedAudioFormats,
             ) &&
             (identical(other.lastUpdateMusicLibrary, lastUpdateMusicLibrary) ||
-                other.lastUpdateMusicLibrary == lastUpdateMusicLibrary));
+                other.lastUpdateMusicLibrary == lastUpdateMusicLibrary) &&
+            (identical(other.isDarkMode, isDarkMode) ||
+                other.isDarkMode == isDarkMode) &&
+            (identical(other.followSystemTheme, followSystemTheme) ||
+                other.followSystemTheme == followSystemTheme) &&
+            (identical(other.sleepTimerMinutes, sleepTimerMinutes) ||
+                other.sleepTimerMinutes == sleepTimerMinutes) &&
+            (identical(other.isSleepTimerEnabled, isSleepTimerEnabled) ||
+                other.isSleepTimerEnabled == isSleepTimerEnabled) &&
+            (identical(other.autoPlayNext, autoPlayNext) ||
+                other.autoPlayNext == autoPlayNext) &&
+            (identical(other.showNotifications, showNotifications) ||
+                other.showNotifications == showNotifications) &&
+            (identical(other.playbackSpeed, playbackSpeed) ||
+                other.playbackSpeed == playbackSpeed));
   }
 
   @override
@@ -1199,6 +2241,13 @@ class _$InitialImpl implements _Initial {
     const DeepCollectionEquality().hash(_whiteListFolder),
     const DeepCollectionEquality().hash(_supportedAudioFormats),
     lastUpdateMusicLibrary,
+    isDarkMode,
+    followSystemTheme,
+    sleepTimerMinutes,
+    isSleepTimerEnabled,
+    autoPlayNext,
+    showNotifications,
+    playbackSpeed,
   );
 
   /// Create a copy of AppSettingsState
@@ -1215,6 +2264,13 @@ abstract class _Initial implements AppSettingsState {
     required final Map<String, List<String>> whiteListFolder,
     required final List<String> supportedAudioFormats,
     required final DateTime? lastUpdateMusicLibrary,
+    required final bool isDarkMode,
+    required final bool followSystemTheme,
+    required final int sleepTimerMinutes,
+    required final bool isSleepTimerEnabled,
+    required final bool autoPlayNext,
+    required final bool showNotifications,
+    required final double playbackSpeed,
   }) = _$InitialImpl;
 
   @override
@@ -1223,6 +2279,20 @@ abstract class _Initial implements AppSettingsState {
   List<String> get supportedAudioFormats;
   @override
   DateTime? get lastUpdateMusicLibrary;
+  @override
+  bool get isDarkMode;
+  @override
+  bool get followSystemTheme;
+  @override
+  int get sleepTimerMinutes;
+  @override
+  bool get isSleepTimerEnabled;
+  @override
+  bool get autoPlayNext;
+  @override
+  bool get showNotifications;
+  @override
+  double get playbackSpeed;
 
   /// Create a copy of AppSettingsState
   /// with the given fields replaced by the non-null parameter values.

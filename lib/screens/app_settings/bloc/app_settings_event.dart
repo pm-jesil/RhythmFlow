@@ -22,4 +22,20 @@ class AppSettingsEvent with _$AppSettingsEvent {
   const factory AppSettingsEvent.updateAppSettingsState({
     required AppSettingsState newState,
   }) = _UpdateAppSettingsState;
+
+  const factory AppSettingsEvent.updateTheme({
+    required bool isDarkMode,
+    required bool followSystemTheme,
+  }) = _UpdateTheme;
+
+  const factory AppSettingsEvent.updateSleepTimer({
+    required int minutes,
+    required bool isEnabled,
+  }) = _UpdateSleepTimer;
+
+  const factory AppSettingsEvent.updatePlaybackSettings({
+    required bool autoPlayNext,
+    required bool showNotifications,
+    required double playbackSpeed,
+  }) = _UpdatePlaybackSettings;
 }

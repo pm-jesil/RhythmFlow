@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:pmj_music_player/core/constants/app_enums.dart';
 import '../../../core/theme/theme_extension.dart';
+import '../../../core/widgets/custom_tab_view_app_bar.dart';
 import '../../../utils/logger/logger.dart';
 import '../../../utils/models/my_playlist/my_playlist_model.dart';
 import '../../../utils/models/song/song_model.dart';
@@ -21,7 +23,7 @@ class PlaylistsScreen extends StatefulWidget {
 
 class _PlaylistsScreenState extends State<PlaylistsScreen> {
   final AppLogger _logger = AppLogger('PlaylistsScreen');
-  final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   List<MyPlaylist> _filteredPlaylists = [];
   bool _isLoadingMore = false;
   bool _hasTriggeredBackgroundLoad = false;
@@ -30,8 +32,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
   void initState() {
     super.initState();
     _logger.i('PlaylistsScreen initialized');
-    _searchController.addListener(_onSearchChanged);
-    
+
     // Reset loading states when screen initializes
     _isLoadingMore = false;
     _hasTriggeredBackgroundLoad = false;
@@ -62,164 +63,161 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  void _onSearchChanged() {
-    setState(() {
-      final query = _searchController.text.toLowerCase();
-      if (query.isEmpty) {
-        _filteredPlaylists = context.read<MusicBloc>().state.myPlaylist;
-      } else {
-        _filteredPlaylists = context
-            .read<MusicBloc>()
-            .state
-            .myPlaylist
-            .where((playlist) => playlist.name.toLowerCase().contains(query))
-            .toList();
-      }
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(gradient: context.backgroundGradient),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          title: Text(
-            'My Playlists',
-            style: TextStyle(
-              color: context.onSurfaceColor,
-              fontWeight: FontWeight.bold,
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(gradient: context.backgroundGradient),
+        child: Column(
+          children: [
+            CustomTabViewAppBar(
+              title: 'My Playlists',
+              showSearchButton: false,
+              scrollController: _scrollController,
             ),
-          ),
-        ),
-        body: BlocBuilder<MusicBloc, MusicState>(
-          builder: (context, state) {
-            // Update filtered playlists when state changes
-            if (_filteredPlaylists.isEmpty && state.myPlaylist.isNotEmpty) {
-              _filteredPlaylists = state.myPlaylist;
-            }
-            
-            // Trigger background loading after initial display
-            if (_filteredPlaylists.isNotEmpty && 
-                !_hasTriggeredBackgroundLoad && 
-                _filteredPlaylists.length > 15 &&
-                !_isLoadingMore) {
-              _hasTriggeredBackgroundLoad = true;
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) {
-                  AlbumArtistPlaylistHelper.triggerBackgroundLoading(
-                    onLoadMore: _loadMorePlaylists,
-                    delay: const Duration(milliseconds: 500),
-                  );
-                }
-              });
-            }
+            Expanded(
+              child: BlocBuilder<MusicBloc, MusicState>(
+                builder: (context, state) {
+                  // Update filtered playlists when state changes
+                  if (_filteredPlaylists.isEmpty && state.myPlaylist.isNotEmpty) {
+                    _filteredPlaylists = state.myPlaylist;
+                  } else if (state.myPlaylist.length != _filteredPlaylists.length) {
+                    // Update when playlist count changes (new playlist added/deleted)
+                    _filteredPlaylists = state.myPlaylist;
+                  } else {
+                    // Always update filtered playlists to reflect any changes in playlist data
+                    // (e.g., when songs are added/removed from playlists)
+                    _filteredPlaylists = state.myPlaylist;
+                  }
 
-            return CustomScrollView(
-              slivers: [
-                // Search Bar
-                AlbumArtistPlaylistHelper.buildSearchBar(
-                  controller: _searchController,
-                  hintText: 'Search playlists...',
-                  context: context,
-                ),
+                  // Trigger background loading after initial display
+                  if (_filteredPlaylists.isNotEmpty &&
+                      !_hasTriggeredBackgroundLoad &&
+                      _filteredPlaylists.length > 15 &&
+                      !_isLoadingMore) {
+                    _hasTriggeredBackgroundLoad = true;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        AlbumArtistPlaylistHelper.triggerBackgroundLoading(
+                          onLoadMore: _loadMorePlaylists,
+                          delay: const Duration(milliseconds: 500),
+                        );
+                      }
+                    });
+                  }
 
-                // Create Playlist Button
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16.w),
-                    child: GlassCard(
-                      child: ListTile(
-                        leading: AlbumArtWidget(
-                          albumArt: null,
-                          size: 50.w,
-                          borderRadius: 8.r,
-                          defaultIcon: Icons.add_rounded,
-                          defaultIconSize: 24.0,
-                        ),
-                        title: Text(
-                          'Create New Playlist',
-                          style: TextStyle(
-                            color: context.onSurfaceColor,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14.sp,
+                  return CustomScrollView(
+                    controller: _scrollController,
+                    slivers: [
+
+                      // Create Playlist Button
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16.w),
+                          child: GlassCard(
+                            child: ListTile(
+                              leading: AlbumArtWidget(
+                                albumArt: null,
+                                width: 50.w,
+                                height: 50.h,
+                                borderRadius: 8.r,
+                                defaultIcon: Icons.add_rounded,
+                                defaultIconSize: 24.0,
+                              ),
+                              title: Text(
+                                'Create New Playlist',
+                                style: TextStyle(
+                                  color: context.onSurfaceColor,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14.sp,
+                                ),
+                              ),
+                              subtitle: Text(
+                                'Add your favorite songs to a playlist',
+                                style: TextStyle(
+                                  color: context.onSurfaceVariantColor,
+                                  fontSize: 12.sp,
+                                ),
+                              ),
+                              trailing: Icon(
+                                Icons.arrow_forward_ios_rounded,
+                                color: context.onSurfaceVariantColor,
+                                size: 16.sp,
+                              ),
+                              onTap: () {
+                                _showCreatePlaylistDialog();
+                              },
+                            ),
                           ),
                         ),
-                        subtitle: Text(
-                          'Add your favorite songs to a playlist',
-                          style: TextStyle(
-                            color: context.onSurfaceVariantColor,
-                            fontSize: 12.sp,
-                          ),
-                        ),
-                        trailing: Icon(
-                          Icons.arrow_forward_ios_rounded,
-                          color: context.onSurfaceVariantColor,
-                          size: 16.sp,
-                        ),
-                        onTap: () {
-                          _showCreatePlaylistDialog();
-                        },
                       ),
-                    ),
-                  ),
-                ),
 
-                SliverToBoxAdapter(child: SizedBox(height: 16.h)),
+                      // SliverToBoxAdapter(child: SizedBox(height: 16.h)),
 
-                // Playlists List
-                if (_filteredPlaylists.isEmpty)
-                  AlbumArtistPlaylistHelper.buildEmptyState(
-                    context: context,
-                    icon: Icons.queue_music_outlined,
-                    message: 'No playlists found',
-                    subtitle: 'Create your first playlist to get started',
-                  )
-                else if (AlbumArtistPlaylistHelper.shouldUseLazyLoading(_filteredPlaylists, 15))
-                  AlbumArtistPlaylistHelper.buildLazyLoadingMasonryGrid<MyPlaylist>(
-                    context: context,
-                    allItems: _filteredPlaylists,
-                    itemBuilder: (context, index) {
-                      final playlist = _filteredPlaylists[index];
-                      return _buildPlaylistCard(playlist, state.allSongs);
-                    },
-                    onLoadMore: _loadMorePlaylists,
-                    isLoadingMore: _isLoadingMore,
-                    initialLoadCount: 15,
-                  )
-                else
-                  AlbumArtistPlaylistHelper.buildMasonryGrid<MyPlaylist>(
-                    items: _filteredPlaylists,
-                    itemBuilder: (context, index) {
-                      final playlist = _filteredPlaylists[index];
-                      return _buildPlaylistCard(playlist, state.allSongs);
-                    },
-                  ),
+                      // Playlists List
+                      if (_filteredPlaylists.isEmpty)
+                        AlbumArtistPlaylistHelper.buildEmptyState(
+                          context: context,
+                          icon: Icons.queue_music_outlined,
+                          message: 'No playlists found',
+                          subtitle: 'Create your first playlist to get started',
+                        )
+                      else if (AlbumArtistPlaylistHelper.shouldUseLazyLoading(
+                        _filteredPlaylists,
+                        15,
+                      ))
+                        AlbumArtistPlaylistHelper.buildLazyLoadingMasonryGrid<
+                          MyPlaylist
+                        >(
+                          context: context,
+                          allItems: _filteredPlaylists,
+                          itemBuilder: (context, index) {
+                            final playlist = _filteredPlaylists[index];
+                            return _buildPlaylistCard(playlist, state.allSongs);
+                          },
+                          onLoadMore: _loadMorePlaylists,
+                          isLoadingMore: _isLoadingMore,
+                          initialLoadCount: 15,
+                        )
+                      else
+                        AlbumArtistPlaylistHelper.buildMasonryGrid<MyPlaylist>(
+                          items: _filteredPlaylists,
+                          itemBuilder: (context, index) {
+                            final playlist = _filteredPlaylists[index];
+                            return _buildPlaylistCard(playlist, state.allSongs);
+                          },
+                        ),
 
-                // Bottom padding for navigation
-                AlbumArtistPlaylistHelper.buildBottomPadding(),
-              ],
-            );
-          },
+                      // Bottom padding for navigation
+                      AlbumArtistPlaylistHelper.buildBottomPadding(),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildPlaylistCard(MyPlaylist playlist, List<Song> allSongs) {
-    final playlistSongs = AlbumArtistPlaylistHelper.getPlaylistSongs(playlist, allSongs);
+    final playlistSongs = AlbumArtistPlaylistHelper.getPlaylistSongs(
+      playlist,
+      allSongs,
+    );
     final songCount = playlistSongs.length;
     final hasSongs = songCount > 0;
 
     return AlbumArtistPlaylistHelper.buildCard(
-      onTap: hasSongs ? () => _navigateToPlaylistDetail(playlist, playlistSongs) : null,
+      onTap: hasSongs
+          ? () => _navigateToPlaylistDetail(playlist, playlistSongs)
+          : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -241,7 +239,9 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
             title: playlist.name,
             songCount: songCount,
             hasSongs: hasSongs,
-            onPlay: hasSongs ? () => _playPlaylist(playlistSongs, playlist.id) : null,
+            onPlay: hasSongs
+                ? () => _playPlaylist(playlistSongs, playlist.id)
+                : null,
             subtitle: playlist.description,
           ),
         ],
@@ -328,8 +328,17 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
           ElevatedButton(
             onPressed: () {
               if (nameController.text.isNotEmpty) {
-                // TODO: Implement playlist creation
                 _logger.i('Creating playlist: ${nameController.text}');
+
+                // Create playlist using the new event
+                context.read<MusicBloc>().add(
+                  MusicEvent.addOrUpdateMyPlayList(
+                    operation: MyPlaylistOperation.create,
+                    name: nameController.text,
+                    description: descriptionController.text,
+                  ),
+                );
+
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(

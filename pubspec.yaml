@@ -64,6 +64,7 @@ dependencies:
   photo_view: ^0.15.0
   carousel_slider: ^5.1.1
   iconify_flutter_plus: ^1.0.4
+  skeletonizer: ^2.1.0+1
 
   # Utilities
   logger: ^2.6.1
