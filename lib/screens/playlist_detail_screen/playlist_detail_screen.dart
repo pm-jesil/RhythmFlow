@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import '../../../core/theme/theme_extension.dart';
-import '../../../utils/logger/logger.dart';
-import '../../../utils/models/playlist_source/playlist_source_model.dart';
-import '../../../utils/models/song/song_model.dart';
-import 'bloc/music_bloc.dart';
-import '../widgets/glass_card.dart';
-import '../widgets/song_list_item.dart';
+import '../../core/theme/theme_extension.dart';
+import '../../utils/logger/logger.dart';
+import '../../utils/models/playlist_source/playlist_source_model.dart';
+import '../../utils/models/song/song_model.dart';
+import '../bottom_tab/screens/bloc/music_bloc.dart';
+import '../bottom_tab/widgets/glass_card.dart';
+import '../bottom_tab/widgets/song_list_item.dart';
 
 enum PlaylistDetailType {
   album,

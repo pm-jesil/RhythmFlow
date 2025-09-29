@@ -143,11 +143,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildNativeSwitchTile(
             icon: Icons.dark_mode_rounded,
             title: 'Dark Mode',
-            value: state.isDarkMode,
-            onChanged: state.followSystemTheme ? null : (value) => _updateTheme(value, state.followSystemTheme),
-            enabled: !state.followSystemTheme,
+            value: state.isDarkMode ?? false,
+            onChanged: (state.followSystemTheme == true) ? null : (value) => _updateTheme(value, state.followSystemTheme),
+            enabled: state.followSystemTheme != true,
           ),
-          if (state.followSystemTheme)
+          if (state.followSystemTheme == true)
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 16.w),
               child: Text(
@@ -164,7 +164,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildNativeSwitchTile(
             icon: Icons.settings_suggest_rounded,
             title: 'Follow System',
-            value: state.followSystemTheme,
+            value: state.followSystemTheme ?? true,
             onChanged: (value) => _updateFollowSystem(value),
           ),
         ],
@@ -288,23 +288,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // ==================== EVENT HANDLERS ====================
   
-  void _updateTheme(bool isDarkMode, bool followSystemTheme) {
+  void _updateTheme(bool isDarkMode, bool? followSystemTheme) {
+    // When user manually toggles dark mode, disable follow system
+    final actualFollowSystem = false;
+    
     // Update AppSettingsBloc
     context.read<AppSettingsBloc>().add(
       AppSettingsEvent.updateTheme(
         isDarkMode: isDarkMode,
-        followSystemTheme: followSystemTheme,
+        followSystemTheme: actualFollowSystem,
       ),
     );
     
     // Sync with main app's theme system
     AppTheme.updateTheme(
       isDarkMode: isDarkMode,
-      isFollowingSystem: followSystemTheme,
+      isFollowingSystem: actualFollowSystem,
     );
     
     // Also sync with ThemeBloc if available
-    _syncWithThemeBloc(isDarkMode, followSystemTheme);
+    _syncWithThemeBloc(isDarkMode, actualFollowSystem);
   }
   
   void _syncWithThemeBloc(bool isDarkMode, bool followSystemTheme) {
@@ -321,10 +324,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _updateFollowSystem(bool followSystemTheme) {
-    final currentState = context.read<AppSettingsBloc>().state;
-    bool actualDarkMode = currentState.isDarkMode;
+    bool? actualDarkMode;
     
-    if (!followSystemTheme) {
+    if (followSystemTheme) {
+      // When enabling follow system, set isDarkMode to false (follow system)
+      actualDarkMode = false;
+    } else {
       // When disabling follow system, get current app theme state
       try {
         final themeBloc = context.read<ThemeBloc>();

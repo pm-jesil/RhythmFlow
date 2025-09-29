@@ -96,7 +96,7 @@ class AppInitializationService {
       await Future.wait(futures);
       
       // Check if we need to restore last played song and position
-      await _restoreLastPlayedSong(context, musicBloc);
+      await _restoreLastPlayedSong(musicBloc);
       
       _logger.i('✅ Music data loaded successfully');
     } catch (e) {
@@ -156,7 +156,7 @@ class AppInitializationService {
   static bool get isInitialized => _isInitialized;
   
   /// Restore last played song and position if available
-  static Future<void> _restoreLastPlayedSong(BuildContext context, MusicBloc musicBloc) async {
+  static Future<void> _restoreLastPlayedSong(MusicBloc musicBloc) async {
     try {
       final currentState = musicBloc.state;
       

@@ -16,6 +16,7 @@ import 'package:rxdart/rxdart.dart';
 import 'package:get_it/get_it.dart';
 import 'widgets/album_art_widget_music_palyer_screen.dart';
 import 'widgets/playlist_selection_popup.dart';
+import '../widgets/custom_scrolling_text.dart';
 
 // Main Music Player Screen (now just a placeholder since we use modal)
 class MusicPlayerScreen extends StatelessWidget {
@@ -723,27 +724,15 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
           key: ValueKey(currentSong.id), // Unique key for each song
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              currentSong.title,
-              style: TextStyle(
-                color: context.onSurfaceColor,
-                fontSize: 18.sp,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.5,
-                fontFamily: 'Poppins',
-                shadows: [
-                  Shadow(
-                    color: context.isDark
-                        ? Colors.black.withValues(alpha: 0.5)
-                        : Colors.black.withValues(alpha: 0.3),
-                    offset: Offset(0, 2.h),
-                    blurRadius: 4.r,
-                  ),
-                ],
-              ),
+            CustomScrollingText(
+              text: currentSong.title,
+              color: context.onSurfaceColor,
+              fontSize: 18.sp,
+              fontWeight: FontWeight.w700,
+              cardWidth: MediaQuery.of(context).size.width - 40.w, // Account for padding
+              isTitleScrolling: true,
+              height: 24.h,
               textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
             ),
 
             SizedBox(height: 3.h), // Reduced spacing

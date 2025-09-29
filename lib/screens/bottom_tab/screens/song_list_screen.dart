@@ -6,7 +6,7 @@ import '../../../utils/logger/logger.dart';
 import '../../../utils/models/song/song_model.dart';
 import '../../../core/theme/theme_extension.dart';
 import '../../../utils/models/playlist_source/playlist_source_model.dart';
-import '../../../core/widgets/custom_tab_view_app_bar.dart';
+import '../../widgets/custom_tab_view_app_bar.dart';
 import '../../../core/router/app_router.dart';
 import 'bloc/music_bloc.dart';
 import '../widgets/song_list_item.dart';

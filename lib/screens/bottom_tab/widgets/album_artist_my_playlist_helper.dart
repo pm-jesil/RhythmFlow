@@ -4,7 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import '../../../core/theme/theme_extension.dart';
 import '../../../core/router/app_router.dart';
-import '../screens/playlist_detail_screen.dart';
+import '../../playlist_detail_screen/playlist_detail_screen.dart';
 import '../../../utils/models/playlist_source/playlist_source_model.dart';
 import '../../../utils/models/artist/artist_model.dart';
 import '../../../utils/models/album/album_model.dart';
@@ -12,7 +12,7 @@ import '../../../utils/models/my_playlist/my_playlist_model.dart';
 import '../../../utils/models/song/song_model.dart';
 import '../screens/bloc/music_bloc.dart';
 import '../../widgets/album_art_widget.dart';
-import '../../../core/widgets/custom_3d_card.dart';
+import '../../widgets/custom_3d_card.dart';
 
 /// Helper class containing common widgets and methods for Album, Artist, and Playlist screens
 class AlbumArtistPlaylistHelper {
@@ -321,6 +321,10 @@ class AlbumArtistPlaylistHelper {
     required bool hasSongs,
     required VoidCallback? onPlay,
     String? subtitle,
+    // Text styling parameters
+    FontWeight? titleFontWeight,
+    double? titleFontSize,
+    Color? titleColor,
   }) {
     return AnimatedOpacity(
       opacity: 1.0,
@@ -335,12 +339,12 @@ class AlbumArtistPlaylistHelper {
             Text(
               title,
               style: TextStyle(
-                color: context.onSurfaceColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 12.sp,
+                color: titleColor ?? context.onSurfaceColor,
+                fontWeight: titleFontWeight ?? FontWeight.bold,
+                fontSize: titleFontSize ?? 12.sp,
                 fontFamily: 'Poppins',
-                height: 1.2,
               ),
+              textAlign: TextAlign.left,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -440,19 +444,27 @@ class AlbumArtistPlaylistHelper {
 
   /// Builds common 3D card with fade transition
   static Widget buildCard({
+    double? height,
+    double? width,
     required Widget child,
     required VoidCallback? onTap,
     bool enableAnimation = true,
     int animationDelay = 0,
+    List<BoxShadow>? boxShadow,
+    EdgeInsetsGeometry? margin,
   }) {
     return AnimatedOpacity(
       opacity: 1.0,
       duration: Duration(milliseconds: 300 + animationDelay),
       curve: Curves.easeInOut,
       child: Custom3DCard(
+        height: height,
+        width: width,
+        margin: margin,
         enableAnimation: enableAnimation,
         animationDelay: animationDelay,
         animationDuration: const Duration(milliseconds: 600),
+        boxShadow: boxShadow,
         onTap: onTap,
         child: child,
       ),

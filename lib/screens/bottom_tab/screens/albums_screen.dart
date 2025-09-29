@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:pmj_music_player/core/widgets/custom_tab_view_app_bar.dart';
+import 'package:pmj_music_player/screens/widgets/custom_tab_view_app_bar.dart';
 import '../../../core/theme/theme_extension.dart';
 import '../../../utils/logger/logger.dart';
 import '../../../utils/models/album/album_model.dart';
 import '../../../utils/models/song/song_model.dart';
 import '../../../utils/models/playlist_source/playlist_source_model.dart';
-import 'playlist_detail_screen.dart';
+import '../../playlist_detail_screen/playlist_detail_screen.dart';
 import 'bloc/music_bloc.dart';
 import '../widgets/album_artist_my_playlist_helper.dart';
 

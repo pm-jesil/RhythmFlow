@@ -73,6 +73,20 @@ Future<void> _initializeHydratedBloc() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
+  /// Get the appropriate ThemeMode based on app settings
+  ThemeMode _getThemeMode(AppSettingsState state) {
+    if (state.followSystemTheme == true) {
+      return ThemeMode.system;
+    } else if (state.isDarkMode == true) {
+      return ThemeMode.dark;
+    } else if (state.isDarkMode == false) {
+      return ThemeMode.light;
+    } else {
+      // First install - follow system
+      return ThemeMode.system;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
@@ -85,8 +99,8 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (ctx) => getIt<MusicBloc>()),
         BlocProvider(create: (ctx) => getIt<AppSettingsBloc>()),
       ],
-      child: BlocBuilder<ThemeBloc, ThemeState>(
-        builder: (context, themeState) {
+      child: BlocBuilder<AppSettingsBloc, AppSettingsState>(
+        builder: (context, appSettingsState) {
           return ScreenUtilInit(
             designSize: const Size(375, 812), // iPhone X design size
             minTextAdapt: true,
@@ -97,7 +111,7 @@ class MyApp extends StatelessWidget {
                 debugShowCheckedModeBanner: false,
                 theme: AppTheme.lightTheme,
                 darkTheme: AppTheme.darkTheme,
-                themeMode: context.read<ThemeBloc>().themeMode,
+                themeMode: _getThemeMode(appSettingsState),
                 routerConfig: AppRouter.router,
                 builder: (context, child) {
                   return MediaQuery(

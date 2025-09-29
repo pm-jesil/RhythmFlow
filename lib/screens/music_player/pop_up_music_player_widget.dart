@@ -3,13 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
-import 'dart:ui';
 
 import '../../../utils/logger/logger.dart';
 import '../../core/theme/theme_extension.dart';
 import '../../core/router/app_router.dart';
 import '../bottom_tab/screens/bloc/music_bloc.dart';
 import '../widgets/album_art_widget.dart';
+import '../widgets/custom_scrolling_text.dart';
 
 class PopUpMusicPlayerWidget extends StatefulWidget {
   const PopUpMusicPlayerWidget({super.key});
@@ -352,20 +352,14 @@ class _PopUpMusicPlayerWidgetState extends State<PopUpMusicPlayerWidget>
                                                   mainAxisSize:
                                                       MainAxisSize.min,
                                                   children: [
-                                                    Text(
-                                                      currentSong.title,
-                                                      style: TextStyle(
-                                                        color: context
-                                                            .onSurfaceColor,
-                                                        fontSize: 13
-                                                            .sp, // Reduced font size
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        fontFamily: 'Poppins',
-                                                      ),
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
+                                                    CustomScrollingText(
+                                                      text: currentSong.title,
+                                                      color: context.onSurfaceColor,
+                                                      fontSize: 13.sp,
+                                                      fontWeight: FontWeight.w600,
+                                                      cardWidth: MediaQuery.of(context).size.width - 100.w, // Account for album art and controls
+                                                      isTitleScrolling: true,
+                                                      height: 16.h,
                                                     ),
                                                     SizedBox(
                                                       height: 1.h,

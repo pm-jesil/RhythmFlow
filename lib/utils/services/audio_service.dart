@@ -305,6 +305,21 @@ class AudioService {
     _logger.i('✅ Position change callback set');
   }
   
+  /// Set playback speed
+  Future<void> setSpeed(double speed) async {
+    try {
+      _logger.i('⚡ Setting playback speed: ${speed}x');
+      await _audioPlayer.setSpeed(speed);
+      _logger.i('✅ Playback speed set to: ${speed}x');
+    } catch (e) {
+      _logger.e('❌ Error setting playback speed: $e');
+      rethrow;
+    }
+  }
+  
+  /// Get current playback speed
+  double get speed => _audioPlayer.speed;
+  
   /// Create MediaItem for notification and lock screen
   MediaItem _createMediaItem(Song song) {
     // Use enhanced notification service for better MediaItem creation

@@ -65,6 +65,7 @@ dependencies:
   carousel_slider: ^5.1.1
   iconify_flutter_plus: ^1.0.4
   skeletonizer: ^2.1.0+1
+  text_scroll: ^0.2.1
 
   # Utilities
   logger: ^2.6.1
@@ -92,7 +93,6 @@ dev_dependencies:
 
   # Testing
   mocktail: ^1.0.4
-  bloc_test: ^10.0.0
 
   # Linting & Analysis
   flutter_lints: ^6.0.0

@@ -3,6 +3,7 @@ import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:injectable/injectable.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:flutter/material.dart';
 import 'package:pmj_music_player/core/constants/app_enums.dart';
 import 'package:pmj_music_player/utils/models/my_playlist/my_playlist_model.dart';
 import '../../../../core/constants/app_constants.dart';
@@ -20,6 +21,7 @@ import '../../../../utils/services/remote_control_service.dart';
 import '../../../../utils/services/song_uniqueness_validator.dart';
 import '../../../../utils/services/play_count_tracking_service.dart';
 import '../../../../utils/services/my_playlist_service.dart';
+import '../../../widgets/sync_app_settings_helper.dart';
 import '../../../app_settings/bloc/app_settings_bloc.dart';
 
 part 'music_event.dart';
@@ -37,6 +39,10 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
   // Stream subscriptions for proper disposal
   StreamSubscription<PlayerState>? _playerStateSubscription;
+  StreamSubscription<AppSettingsState>? _appSettingsSubscription;
+  
+  // Sleep timer
+  Timer? _sleepTimer;
 
   // Flag to prevent race conditions during state updates
   bool _isUpdatingState = false;
@@ -101,6 +107,26 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
     // Set up remote control service
     _remoteControlService.setActionCallback(_handleRemoteControlAction);
+    
+    // Initialize all app settings synchronization
+    SyncAppSettingsHelper.initializeSettingsSync(
+      appSettingsBloc: _appSettingsBloc,
+      audioService: _audioService,
+    );
+    
+    // Listen to AppSettingsBloc changes for settings sync
+    _appSettingsSubscription = _appSettingsBloc.stream.listen((appSettingsState) {
+      SyncAppSettingsHelper.syncAllSettings(
+        appSettingsBloc: _appSettingsBloc,
+        audioService: _audioService,
+      );
+      
+      // Handle sleep timer settings changes with proper cleanup
+      SyncAppSettingsHelper.handleSleepTimerSettingsChange(
+        appSettingsBloc: _appSettingsBloc,
+        musicBloc: this,
+      );
+    });
 
     // ==================== SINGLE STATE SYNC LISTENER ====================
     // Listen to player state for comprehensive sync (includes playing state)
@@ -739,6 +765,9 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
         // Stop the audio service to actually stop playback
         await _audioService.stop();
+        
+        // Stop sleep timer when force stopping
+        SyncAppSettingsHelper.stopSleepTimer(musicBloc: this);
 
         emit(state.copyWith(myPlayerState: state.myPlayerState.clear()));
         _hideNotification();
@@ -751,6 +780,9 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
         // Stop the audio service to actually stop playback
         await _audioService.stop();
+        
+        // Stop sleep timer when clearing song
+        SyncAppSettingsHelper.stopSleepTimer(musicBloc: this);
 
         emit(state.copyWith(myPlayerState: state.myPlayerState.clear()));
         _hideNotification();
@@ -821,6 +853,12 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           playlistSource: source,
         );
         _showNotificationForCurrentSong();
+        
+        // Start sleep timer when song starts playing
+        SyncAppSettingsHelper.startSleepTimer(
+          appSettingsBloc: _appSettingsBloc,
+          musicBloc: this,
+        );
         return;
       }
 
@@ -846,6 +884,9 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           );
           _audioService.pause();
           _updateNotificationForCurrentSong();
+          
+          // Stop sleep timer when pausing
+          SyncAppSettingsHelper.stopSleepTimer(musicBloc: this);
         } else {
           // Currently paused - resume
           emit(
@@ -857,6 +898,12 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           // Resume playback
           _audioService.resume();
           _updateNotificationForCurrentSong();
+          
+          // Start sleep timer when resuming playback
+          SyncAppSettingsHelper.startSleepTimer(
+            appSettingsBloc: _appSettingsBloc,
+            musicBloc: this,
+          );
         }
       } else {
         _logger.i('🆕 Different song - playing new song');
@@ -921,6 +968,12 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           playlistSource: source,
         );
         _showNotificationForCurrentSong();
+        
+        // Start sleep timer when playing different song
+        SyncAppSettingsHelper.startSleepTimer(
+          appSettingsBloc: _appSettingsBloc,
+          musicBloc: this,
+        );
       }
 
       _logger.i(
@@ -969,6 +1022,12 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
           // Update notification
           _updateNotificationForCurrentSong();
+          
+          // Start sleep timer when playing next song
+          SyncAppSettingsHelper.startSleepTimer(
+            appSettingsBloc: _appSettingsBloc,
+            musicBloc: this,
+          );
         } else {
           _logger.w('⚠️ No next song in queue or same song (loop/repeat mode)');
         }
@@ -1021,6 +1080,12 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
           // Update notification
           _updateNotificationForCurrentSong();
+          
+          // Start sleep timer when playing previous song
+          SyncAppSettingsHelper.startSleepTimer(
+            appSettingsBloc: _appSettingsBloc,
+            musicBloc: this,
+          );
         } else {
           _logger.w('⚠️ No previous song available or same song');
         }
@@ -1556,44 +1621,83 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
   // ==================== SONG COMPLETION HANDLING ====================
   /// Handle when a song completes - move it to completed songs and play next
-  void _handleSongCompletion() {
-    _logger.i('🎯 Song completed - moving to completed songs and playing next');
+  Future<void> _handleSongCompletion() async {
+    _logger.i('🎯 Song completed - checking autoPlayNext setting');
 
     if (state.myPlayerState.currentSongId != null &&
         state.myPlayerState.currentPlayList.isNotEmpty) {
-      // Try to get next song (handles repeat/loop logic)
-      final updatedQueue = state.myPlayerState.nextSong();
+      
+      // Check autoPlayNext setting from AppSettingsBloc
+      final appSettingsState = _appSettingsBloc.state;
+      final autoPlayNext = appSettingsState.autoPlayNext;
+      
+      _logger.i('⚙️ AutoPlayNext setting: $autoPlayNext');
+      
+      if (autoPlayNext) {
+        // AutoPlayNext is enabled - continue with normal flow
+        _logger.i('✅ AutoPlayNext enabled - moving to completed songs and playing next');
+        
+        // Try to get next song (handles repeat/loop logic)
+        final updatedQueue = state.myPlayerState.nextSong();
 
-      if (updatedQueue.currentSongId != null) {
-        // There's a next song to play
-        _logger.i(
-          '📋 Queue updated: ${state.myPlayerState.remainingSongs} → ${updatedQueue.remainingSongs} songs',
-        );
-        _logger.i(
-          '✅ Completed songs: ${state.myPlayerState.completedCount} → ${updatedQueue.completedCount} songs',
-        );
+        if (updatedQueue.currentSongId != null) {
+          // There's a next song to play
+          _logger.i(
+            '📋 Queue updated: ${state.myPlayerState.remainingSongs} → ${updatedQueue.remainingSongs} songs',
+          );
+          _logger.i(
+            '✅ Completed songs: ${state.myPlayerState.completedCount} → ${updatedQueue.completedCount} songs',
+          );
 
-        // Update state with new queue and play next song
-        add(
-          MusicEvent.updateMusicBlocState(
-            newState: state.copyWith(
-              myPlayerState: updatedQueue.copyWith(isPlaying: true),
+          // Update state with new queue and play next song
+          add(
+            MusicEvent.updateMusicBlocState(
+              newState: state.copyWith(
+                myPlayerState: updatedQueue.copyWith(isPlaying: true),
+              ),
             ),
-          ),
-        );
+          );
 
-        // Play the next song
-        final nextSong = state.allSongs.firstWhere(
-          (s) => s.id == updatedQueue.currentSongId,
-        );
-        _audioService.playSong(
-          nextSong,
-          playlistId: state.myPlayerState.playlistId,
-          playlistSource: _getPlaylistSourceFromId(state.myPlayerState.playlistId),
-        );
-        _updateNotificationForCurrentSong();
+          // Play the next song
+          final nextSong = state.allSongs.firstWhere(
+            (s) => s.id == updatedQueue.currentSongId,
+          );
+          _audioService.playSong(
+            nextSong,
+            playlistId: state.myPlayerState.playlistId,
+            playlistSource: _getPlaylistSourceFromId(state.myPlayerState.playlistId),
+          );
+          _updateNotificationForCurrentSong();
+        } else {
+          // No next song - just move current to completed
+          final completedQueue = state.myPlayerState.moveCurrentToCompleted();
+
+          _logger.i(
+            '📋 Queue updated: ${state.myPlayerState.remainingSongs} → ${completedQueue.remainingSongs} songs',
+          );
+          _logger.i(
+            '✅ Completed songs: ${state.myPlayerState.completedCount} → ${completedQueue.completedCount} songs',
+          );
+
+          // Update state with completed queue
+          add(
+            MusicEvent.updateMusicBlocState(
+              newState: state.copyWith(
+                myPlayerState: completedQueue.copyWith(isPlaying: false),
+              ),
+            ),
+          );
+
+          // Hide notification when queue is empty
+          if (completedQueue.currentPlayList.isEmpty) {
+            _hideNotification();
+          }
+        }
       } else {
-        // No next song - just move current to completed
+        // AutoPlayNext is disabled - just pause and move to completed
+        _logger.i('⏸️ AutoPlayNext disabled - pausing playback and moving to completed');
+        
+        // Move current song to completed
         final completedQueue = state.myPlayerState.moveCurrentToCompleted();
 
         _logger.i(
@@ -1603,7 +1707,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           '✅ Completed songs: ${state.myPlayerState.completedCount} → ${completedQueue.completedCount} songs',
         );
 
-        // Update state with completed queue
+        // Update state with completed queue and pause
         add(
           MusicEvent.updateMusicBlocState(
             newState: state.copyWith(
@@ -1612,6 +1716,12 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           ),
         );
 
+        // Reset position to beginning and pause the audio service
+        await _audioService.seekTo(Duration.zero);
+        await _audioService.pause();
+        
+        _logger.i('🔄 Song position reset to beginning for next play');
+        
         // Hide notification when queue is empty
         if (completedQueue.currentPlayList.isEmpty) {
           _hideNotification();
@@ -1619,6 +1729,96 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
       }
     }
   }
+
+  // ==================== PLAYBACK SPEED CONTROL ====================
+  
+  /// Public method to sync playback speed (can be called from outside)
+  void syncPlaybackSpeed() {
+    SyncAppSettingsHelper.syncPlaybackSpeed(
+      appSettingsBloc: _appSettingsBloc,
+      audioService: _audioService,
+    );
+  }
+
+  // ==================== SLEEP TIMER PUBLIC METHODS ====================
+  /// Check if sleep timer is currently running
+  bool get isSleepTimerRunning => _sleepTimer != null;
+  
+  /// Get remaining sleep timer duration (for debugging/logging)
+  Duration? getSleepTimerRemainingDuration() {
+    if (_sleepTimer == null) return null;
+    // Note: Dart Timer doesn't provide remaining time, so we return null
+    // This is just for future enhancement if needed
+    return null;
+  }
+  
+  /// Handle app lifecycle changes (background/foreground)
+  void handleAppLifecycleChange(AppLifecycleState lifecycleState) {
+    SyncAppSettingsHelper.handleAppLifecycleChange(
+      lifecycleState: lifecycleState,
+      appSettingsBloc: _appSettingsBloc,
+      musicBloc: this,
+    );
+  }
+
+  // ==================== SLEEP TIMER INTERNAL METHODS ====================
+  /// Internal method to start sleep timer (used by helper)
+  void startSleepTimerInternal(Duration timerDuration) {
+    try {
+      // Cancel any existing timer first
+      _sleepTimer?.cancel();
+      _sleepTimer = null;
+      
+      // Start new timer
+      _sleepTimer = Timer(timerDuration, () {
+        _handleSleepTimerExpiredInternal();
+      });
+    } catch (e) {
+      _logger.e('❌ Error starting sleep timer internally: $e');
+    }
+  }
+  
+  /// Internal method to stop sleep timer (used by helper)
+  void stopSleepTimerInternal() {
+    try {
+      if (_sleepTimer != null) {
+        _sleepTimer?.cancel();
+        _sleepTimer = null;
+        _logger.i('💤 Sleep timer stopped and cleared');
+      } else {
+        _logger.d('💤 No sleep timer running to stop');
+      }
+    } catch (e) {
+      _logger.e('❌ Error stopping sleep timer internally: $e');
+    }
+  }
+  
+  /// Internal method to handle sleep timer expiration (used by helper)
+  void _handleSleepTimerExpiredInternal() {
+    try {
+      _logger.i('💤 Sleep timer expired - pausing playback');
+      
+      // Pause the audio service
+      _audioService.pause();
+      
+      // Update state to reflect paused state
+      add(
+        MusicEvent.updateMusicBlocState(
+          newState: state.copyWith(
+            myPlayerState: state.myPlayerState.copyWith(isPlaying: false),
+          ),
+        ),
+      );
+      
+      // Hide notification
+      _hideNotification();
+      
+      _logger.i('✅ Sleep timer completed - playback paused');
+    } catch (e) {
+      _logger.e('❌ Error handling sleep timer expiration internally: $e');
+    }
+  }
+
 
   // ==================== UTILITY METHODS ====================
   List<Song> _applySorting(List<Song> songs, int sortingIndex) {
@@ -2014,8 +2214,12 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     // Stop play count tracking
     PlayCountTrackingService.stopTracking();
     
+    // Stop sleep timer
+    SyncAppSettingsHelper.stopSleepTimer(musicBloc: this);
+    
     // Dispose stream subscriptions to prevent memory leaks
     _playerStateSubscription?.cancel();
+    _appSettingsSubscription?.cancel();
     return super.close();
   }
 }

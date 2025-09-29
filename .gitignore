@@ -43,3 +43,42 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Generated files
+*.freezed.dart
+*.g.dart
+*.mocks.dart
+*.config.dart
+*.chopper.dart
+*.gr.dart
+*.drift.dart
+*.arb.dart
+*.l10n.dart
+*.gen.dart
+*.generated.dart
+
+# Build generated files
+**/generated_plugin_registrant.dart
+**/generated_plugin_registrant.h
+**/generated_plugin_registrant.cc
+**/generated_plugin_registrant.m
+**/Generated.xcconfig
+**/GeneratedPluginRegistrant.*
+
+# Coverage
+coverage/
+lcov.info
+
+# Test related
+test_driver/
+integration_test/screenshots/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE specific
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json

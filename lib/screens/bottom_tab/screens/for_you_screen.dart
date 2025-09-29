@@ -5,13 +5,15 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:pmj_music_player/core/constants/app_constants.dart';
 import 'package:pmj_music_player/screens/bottom_tab/widgets/album_artist_my_playlist_helper.dart';
 import '../../../core/theme/theme_extension.dart';
-import '../../../core/widgets/custom_3d_card.dart';
-import '../../../core/widgets/custom_tab_view_app_bar.dart';
+import '../../widgets/custom_3d_card.dart';
+import '../../widgets/custom_tab_view_app_bar.dart';
 import '../../../core/router/app_router.dart';
 import '../../../utils/logger/logger.dart';
 import '../../../utils/models/song/song_model.dart';
 import '../../../utils/models/artist/artist_model.dart';
 import '../../../utils/models/album/album_model.dart';
+import '../../../utils/models/playlist_source/playlist_source_model.dart';
+import '../../playlist_detail_screen/playlist_detail_screen.dart';
 import 'bloc/music_bloc.dart';
 import '../../widgets/album_art_widget.dart';
 import '../bottom_tab.dart';
@@ -42,8 +44,6 @@ class _ForYouScreenState extends State<ForYouScreen> {
 
   // Limits
   static const int _maxSongsPerSection = 3;
-  static const int _maxArtistsPerSection = 3;
-  static const int _maxAlbumsPerSection = 3;
 
   // Additional spacing
   static const double _largeSpacing = 24.0;
@@ -263,7 +263,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
           title: 'For You',
           showSearchButton: false,
           showSettingsButton: true,
-            onSettingsPressed: () => context.navigateToSettings(),
+          onSettingsPressed: () => context.navigateToSettings(),
         ),
         body: BlocBuilder<MusicBloc, MusicState>(
           builder: (context, state) {
@@ -290,13 +290,13 @@ class _ForYouScreenState extends State<ForYouScreen> {
                       _buildRecentlyAdded(state),
                       SizedBox(height: _largeSpacing.h),
 
-                      // Top Artists (by play count)
-                      _buildTopArtistsByPlayCount(state),
-                      SizedBox(height: _largeSpacing.h),
-
                       // Top Albums (by play count)
                       _buildTopAlbumsByPlayCount(state),
-                      SizedBox(height: 100.h), // Bottom padding for navigation
+                      SizedBox(height: _largeSpacing.h),
+
+                      // Top Artists (by play count)
+                      _buildTopArtistsByPlayCount(state),
+                      SizedBox(height: 150.h),
                     ]),
                   ),
                 ),
@@ -687,19 +687,22 @@ class _ForYouScreenState extends State<ForYouScreen> {
           () => _navigateToTopArtists(),
         ),
         SizedBox(height: _itemSpacing.h),
-        ...topArtists.take(_maxArtistsPerSection).toList().asMap().entries.map((
-          entry,
-        ) {
-          final index = entry.key;
-          final artist = entry.value;
-          return Column(
-            children: [
-              _buildArtistItemWithPlayCount(artist),
-              if (index < _maxArtistsPerSection - 1)
-                SizedBox(height: _itemSpacing.h),
-            ],
-          );
-        }),
+        // Use horizontal scrollable row
+        SizedBox(
+          height: 190.h, // Fixed height for the horizontal scroll
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: topArtists.take(6).length,
+            itemBuilder: (context, index) {
+              final artist = topArtists[index];
+              return _buildMediaCard(
+                mediaItem: artist,
+                allSongs: state.allSongs,
+                isAlbum: false,
+              );
+            },
+          ),
+        ),
       ],
     );
   }
@@ -725,19 +728,22 @@ class _ForYouScreenState extends State<ForYouScreen> {
           () => _navigateToTopAlbums(),
         ),
         SizedBox(height: _itemSpacing.h),
-        ...topAlbums.take(_maxAlbumsPerSection).toList().asMap().entries.map((
-          entry,
-        ) {
-          final index = entry.key;
-          final album = entry.value;
-          return Column(
-            children: [
-              _buildAlbumItemWithPlayCount(album),
-              if (index < _maxAlbumsPerSection - 1)
-                SizedBox(height: _itemSpacing.h),
-            ],
-          );
-        }),
+        // Use horizontal scrollable row
+        SizedBox(
+          height: 190.h, // Fixed height for the horizontal scroll
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: topAlbums.take(6).length,
+            itemBuilder: (context, index) {
+              final album = topAlbums[index];
+              return _buildMediaCard(
+                mediaItem: album,
+                allSongs: state.allSongs,
+                isAlbum: true,
+              );
+            },
+          ),
+        ),
       ],
     );
   }
@@ -854,62 +860,6 @@ class _ForYouScreenState extends State<ForYouScreen> {
     );
   }
 
-  Widget _buildArtistItemWithPlayCount(Artist artist) {
-    // Get artist image with fallback to first song album art
-    String? artistImage = artist.image;
-    if (artistImage == null || artistImage.isEmpty) {
-      final artistSongs = AlbumArtistPlaylistHelper.getArtistSongs(
-        artist,
-        context.read<MusicBloc>().state.allSongs,
-      );
-      // Use first song's album art as fallback
-      if (artistSongs.isNotEmpty) {
-        artistImage = artistSongs.first.albumArt;
-      }
-    }
-
-    return _buildMediaItem(
-      title: artist.name,
-      subtitle: '${artist.songCount} songs',
-      albumArt: artistImage,
-      onTap: () => _navigateToArtist(artist.name),
-      actionIcon: Icons.arrow_forward_ios_rounded,
-      rank: null,
-      playCount: artist.playCount,
-      animationDelay: _topArtistsDelay,
-      borderRadius: 24,
-      isNetworkImage: true,
-    );
-  }
-
-  Widget _buildAlbumItemWithPlayCount(Album album) {
-    // Get album art with fallback to first song album art
-    String? albumArt = album.coverImage;
-    if (albumArt == null || albumArt.isEmpty) {
-      final albumSongs = AlbumArtistPlaylistHelper.getAlbumSongs(
-        album,
-        context.read<MusicBloc>().state.allSongs,
-      );
-      // Use first song's album art as fallback
-      if (albumSongs.isNotEmpty) {
-        albumArt = albumSongs.first.albumArt;
-      }
-    }
-
-    return _buildMediaItem(
-      title: album.name,
-      subtitle: '${album.songCount} songs',
-      albumArt: albumArt,
-      onTap: () => _navigateToAlbum(album.name),
-      actionIcon: Icons.arrow_forward_ios_rounded,
-      rank: null,
-      playCount: album.playCount,
-      animationDelay: _topAlbumsDelay,
-      borderRadius: 8,
-      isNetworkImage: true,
-    );
-  }
-
   Widget _buildSectionHeader(String title, int count, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
@@ -966,16 +916,125 @@ class _ForYouScreenState extends State<ForYouScreen> {
     );
   }
 
-  void _navigateToArtist(String artistName) {
-    _logger.i('Navigate to artist: $artistName');
-    // Navigate to artists tab and filter by artist
-    _navigateToTabWithFilter(3, 'artist', artistName); // Artists tab is index 3
+  /// Unified method to build both artist and album cards
+  Widget _buildMediaCard({
+    required dynamic mediaItem, // Can be Artist or Album
+    required List<Song> allSongs,
+    required bool isAlbum,
+  }) {
+    List<Song> mediaSongs;
+    String title;
+    VoidCallback? onTap;
+    VoidCallback? onPlay;
+    Widget imageWidget;
+
+    if (isAlbum) {
+      final album = mediaItem as Album;
+      mediaSongs = AlbumArtistPlaylistHelper.getAlbumSongs(album, allSongs);
+      title = album.name.isNotEmpty ? album.name : 'Unknown Album';
+      onTap = mediaSongs.isNotEmpty
+          ? () => _navigateToAlbumDetail(album, mediaSongs)
+          : null;
+      onPlay = mediaSongs.isNotEmpty ? () => _playAlbum(mediaSongs) : null;
+
+      // Album uses circular album art
+      imageWidget = Center(
+        child: SizedBox(
+          width: double.infinity,
+          height: double.infinity,
+          child: AlbumArtistPlaylistHelper.buildCircularAlbumArt(
+            context: context,
+            album: album,
+            albumSongs: mediaSongs,
+          ),
+        ),
+      );
+    } else {
+      final artist = mediaItem as Artist;
+      mediaSongs = AlbumArtistPlaylistHelper.getArtistSongs(artist, allSongs);
+      title = artist.name;
+      onTap = mediaSongs.isNotEmpty
+          ? () => _navigateToArtistDetail(artist, mediaSongs)
+          : null;
+      onPlay = mediaSongs.isNotEmpty ? () => _playArtist(mediaSongs) : null;
+
+      // Artist uses regular artist image
+      imageWidget = AlbumArtistPlaylistHelper.buildArtistImage(
+        context: context,
+        artist: artist,
+        artistSongs: mediaSongs,
+      );
+    }
+
+    final songCount = mediaSongs.length;
+    final hasSongs = songCount > 0;
+
+    return AlbumArtistPlaylistHelper.buildCard(
+      height: 190.h,
+      width: 140.w,
+      boxShadow: [],
+      margin: EdgeInsets.only(right: 10.w),
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Image Section
+          AlbumArtistPlaylistHelper.buildCardImageSection(
+            imageWidget: imageWidget,
+          ),
+
+          SizedBox(height: 8.h),
+
+          // Info Section
+          AlbumArtistPlaylistHelper.buildCardInfoSection(
+            context: context,
+            title: title,
+            songCount: songCount,
+            hasSongs: hasSongs,
+            onPlay: onPlay,
+          ),
+        ],
+      ),
+    );
   }
 
-  void _navigateToAlbum(String albumName) {
-    _logger.i('Navigate to album: $albumName');
-    // Navigate to albums tab and filter by album
-    _navigateToTabWithFilter(2, 'album', albumName); // Albums tab is index 2
+  void _playArtist(List<Song> artistSongs) {
+    AlbumArtistPlaylistHelper.playSongs(
+      context: context,
+      songs: artistSongs,
+      playlistSource: PlaylistSource.artist(artistSongs.first.artists.first),
+    );
+  }
+
+  void _playAlbum(List<Song> albumSongs) {
+    AlbumArtistPlaylistHelper.playSongs(
+      context: context,
+      songs: albumSongs,
+      playlistSource: PlaylistSource.album(albumSongs.first.albums.first),
+    );
+  }
+
+  void _navigateToArtistDetail(Artist artist, List<Song> artistSongs) {
+    AlbumArtistPlaylistHelper.navigateToDetail(
+      context: context,
+      type: PlaylistDetailType.artist,
+      id: artist.id,
+      name: artist.name,
+      songCount: artistSongs.length,
+      bio: artist.bio,
+    );
+  }
+
+  void _navigateToAlbumDetail(Album album, List<Song> albumSongs) {
+    AlbumArtistPlaylistHelper.navigateToDetail(
+      context: context,
+      type: PlaylistDetailType.album,
+      id: album.id,
+      name: album.name,
+      songCount: albumSongs.length,
+      bio: null,
+    );
   }
 
   void _navigateToRecentlyAdded() {

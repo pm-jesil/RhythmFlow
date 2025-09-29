@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:injectable/injectable.dart';
@@ -24,10 +25,37 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
   }
   
   void _initializeThemeSync() {
-    // Sync current settings with AppTheme
+    // Get system theme preference
+    final platformDispatcher = WidgetsBinding.instance.platformDispatcher;
+    final systemBrightness = platformDispatcher.platformBrightness;
+    final isSystemDark = systemBrightness == Brightness.dark;
+    
+    bool? actualIsDarkMode;
+    bool? actualFollowSystem;
+    
+    // Determine theme logic based on stored values
+    if (state.followSystemTheme == null || state.followSystemTheme == true) {
+      // First install or follow system is enabled
+      actualIsDarkMode = isSystemDark;
+      actualFollowSystem = true;
+    } else {
+      // User has explicitly set a theme preference
+      actualIsDarkMode = state.isDarkMode ?? isSystemDark;
+      actualFollowSystem = false;
+    }
+    
+    // Update state if needed
+    if (state.isDarkMode != actualIsDarkMode || state.followSystemTheme != actualFollowSystem) {
+      add(AppSettingsEvent.updateTheme(
+        isDarkMode: actualIsDarkMode,
+        followSystemTheme: actualFollowSystem,
+      ));
+    }
+    
+    // Sync with AppTheme
     AppTheme.updateTheme(
-      isDarkMode: state.isDarkMode,
-      isFollowingSystem: state.followSystemTheme,
+      isDarkMode: actualIsDarkMode,
+      isFollowingSystem: actualFollowSystem,
     );
   }
 
@@ -150,8 +178,8 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
         lastUpdateMusicLibrary: json['lastUpdateMusicLibrary'] != null
             ? DateTime.parse(json['lastUpdateMusicLibrary'])
             : null,
-        isDarkMode: json['isDarkMode'] ?? false,
-        followSystemTheme: json['followSystemTheme'] ?? true,
+        isDarkMode: json['isDarkMode'], // Keep null if not set
+        followSystemTheme: json['followSystemTheme'], // Keep null if not set
         sleepTimerMinutes: json['sleepTimerMinutes'] ?? 30,
         isSleepTimerEnabled: json['isSleepTimerEnabled'] ?? false,
         autoPlayNext: json['autoPlayNext'] ?? true,

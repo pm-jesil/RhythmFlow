@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import '../theme/theme_extension.dart';
+import '../../core/theme/theme_extension.dart';
 
 class CustomTabViewAppBar extends StatefulWidget
     implements PreferredSizeWidget {
