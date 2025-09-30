@@ -72,8 +72,6 @@ class _SongListItemState extends State<SongListItem>
   @override
   void didUpdateWidget(SongListItem oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // This ensures animations are controlled even when widget updates
-    // The build method will handle the actual animation control
   }
 
   @override
@@ -100,10 +98,8 @@ class _SongListItemState extends State<SongListItem>
     widget.onTap();
   }
 
-  // Control animations based on playing state
   void _controlAnimations(bool isPlaying, bool isCurrentSong) {
     if (isCurrentSong && isPlaying) {
-      // Start animations when song is playing
       if (!_waveController.isAnimating) {
         _waveController.repeat();
       }
@@ -111,14 +107,13 @@ class _SongListItemState extends State<SongListItem>
         _pulseController.repeat(reverse: true);
       }
     } else {
-      // Stop animations when song is not playing or not current
       if (_waveController.isAnimating) {
         _waveController.stop();
-        _waveController.reset(); // Reset to beginning
+        _waveController.reset();
       }
       if (_pulseController.isAnimating) {
         _pulseController.stop();
-        _pulseController.reset(); // Reset to beginning
+        _pulseController.reset();
       }
     }
   }
@@ -127,7 +122,6 @@ class _SongListItemState extends State<SongListItem>
   Widget build(BuildContext context) {
     return BlocBuilder<MusicBloc, MusicState>(
       buildWhen: (previous, current) {
-        // Only rebuild when this specific song's state changes
         final prevSongId = previous.myPlayerState.currentSongId;
         final currSongId = current.myPlayerState.currentSongId;
         final prevIsPlaying = previous.myPlayerState.isPlaying;
@@ -141,11 +135,8 @@ class _SongListItemState extends State<SongListItem>
         final isCurrentlyPlaying = state.myPlayerState.currentSongId == widget.songId && state.myPlayerState.isPlaying;
         final isCurrentSong = state.myPlayerState.currentSongId == widget.songId;
         
-        // Control animations based on playing state
         _controlAnimations(isCurrentlyPlaying, isCurrentSong);
-        
-        // Use immediate selection for instant feedback, fallback to BLoC state
-        final isSelected = widget.isImmediatelySelected || isCurrentSong;
+        final isSelected = isCurrentSong;
 
         return Container(
           decoration: BoxDecoration(

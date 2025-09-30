@@ -35,6 +35,9 @@ abstract class MusicState with _$MusicState {
     // General loading and error states (for backward compatibility)
     required bool isLoading,
     required bool isError,
+    
+    // App settings fetch song flag
+    @Default(false) bool appSettingsFetchSong,
   }) = _Initial;
 
   factory MusicState.initial() => const MusicState(

@@ -6,7 +6,7 @@ import '../../../utils/logger/logger.dart';
 import '../../../utils/models/song/song_model.dart';
 import '../../../core/theme/theme_extension.dart';
 import '../../../utils/models/playlist_source/playlist_source_model.dart';
-import '../../widgets/custom_tab_view_app_bar.dart';
+import '../widgets/custom_tab_view_app_bar.dart';
 import '../../../core/router/app_router.dart';
 import 'bloc/music_bloc.dart';
 import '../widgets/song_list_item.dart';
@@ -24,36 +24,15 @@ class _SongListScreenState extends State<SongListScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   List<Song> _filteredSongs = [];
-  String? _immediatelySelectedSongId;
 
   @override
   void initState() {
     super.initState();
-    _logger.i('SongListScreen initialized');
     _searchController.addListener(_onSearchChanged);
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Only update if we haven't initialized yet or song actually changed
-    final musicState = context.read<MusicBloc>().state;
-    final newSongId = musicState.myPlayerState.currentSongId;
-    
-    if (newSongId != _immediatelySelectedSongId) {
-      _logger.i(
-        '🔄 Updating selected song ID on dependency change: $newSongId (was: $_immediatelySelectedSongId)',
-      );
-      // Use setState to trigger UI rebuild for selection changes
-      setState(() {
-        _immediatelySelectedSongId = newSongId;
-      });
-    }
-  }
-
-  @override
   void dispose() {
-    // Clear filter keyword when leaving the screen
     if (_searchController.text.isNotEmpty) {
       context.read<MusicBloc>().add(
         const MusicEvent.updateFilterKeyword(filterKeyword: ''),
@@ -65,7 +44,6 @@ class _SongListScreenState extends State<SongListScreen> {
   }
 
   void _updateFilteredSongs(MusicState musicState) {
-    // Only update if we have songs and they're different from current filtered songs
     if (musicState.allSongs.isEmpty) {
       _filteredSongs = [];
       return;
@@ -78,7 +56,6 @@ class _SongListScreenState extends State<SongListScreen> {
     if (query.isEmpty) {
       newFilteredSongs = currentSongs;
     } else {
-      // Optimized filtering with early returns
       newFilteredSongs = currentSongs.where((song) {
         final title = song.title.toLowerCase();
         if (title.contains(query)) return true;
@@ -98,28 +75,7 @@ class _SongListScreenState extends State<SongListScreen> {
     }
   }
 
-  /// Update selected song ID when bloc state changes (auto-advance, etc.)
-  void _updateSelectedSongFromBloc(MusicState musicState) {
-    final newSongId = musicState.myPlayerState.currentSongId;
-    
-    // Update if the song ID has actually changed (including clearing to null)
-    if (newSongId != _immediatelySelectedSongId) {  
-      _logger.i(
-        '🔄 Updating selected song ID from bloc state: $newSongId (was: $_immediatelySelectedSongId)',
-      );
-      // Update the state variable directly without setState during build
-      _immediatelySelectedSongId = newSongId;
-      
-      // Schedule setState for the next frame to avoid build-time setState
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() {
-            // State is already updated, this just triggers rebuild
-          });
-        }
-      });
-    }
-  }
+  // Removed _updateSelectedSongFromBloc - no longer needed since we only use bloc state
 
   bool _areSongListsEqual(List<Song> list1, List<Song> list2) {
     if (list1.length != list2.length) return false;
@@ -155,16 +111,8 @@ class _SongListScreenState extends State<SongListScreen> {
         return previous.myPlayerState.currentSongId != current.myPlayerState.currentSongId;
       },
       listener: (context, musicState) {
-        // Handle state changes that require UI updates
-        final newSongId = musicState.myPlayerState.currentSongId;
-        
-        _logger.i(
-          '🔄 BlocListener: Updating selected song ID: $newSongId (was: $_immediatelySelectedSongId)',
-        );
-        // Use setState to trigger UI rebuild for selection changes
-        setState(() {
-          _immediatelySelectedSongId = newSongId;
-        });
+        // No longer needed - bloc state changes automatically trigger rebuilds
+        // Selection is now handled purely by bloc state
       },
       child: BlocBuilder<MusicBloc, MusicState>(
         buildWhen: (previous, current) {
@@ -176,8 +124,7 @@ class _SongListScreenState extends State<SongListScreen> {
         builder: (context, musicState) {
           // Update filtered songs when music state changes (including sorting)
           _updateFilteredSongs(musicState);
-          // Update selected song ID without setState during build
-          _updateSelectedSongFromBloc(musicState);
+          // No longer need to update selected song - handled by bloc state
 
           return Scaffold(
             body: Container(
@@ -381,14 +328,12 @@ class _SongListScreenState extends State<SongListScreen> {
                     duration: song.duration,
                     albumArtPath: song.albumArt,
                     songId: song.id,
-                    isImmediatelySelected: _immediatelySelectedSongId == song.id,
+                    isImmediatelySelected: false, // CRITICAL: Don't use local state for selection
                     onTap: () {
                       HapticFeedback.lightImpact();
 
-                      // Immediate visual feedback
-                      setState(() {
-                        _immediatelySelectedSongId = song.id;
-                      });
+                      // CRITICAL: Don't set local selection state here
+                      // Let the bloc state handle selection to prevent multiple songs being selected
 
                       _logger.i(
                         'Play/Pause Song - ID: ${song.id}, Title: ${song.title}, Artist: ${song.artists.join(', ')}, Album: ${song.albums.join(', ')}',
@@ -407,10 +352,8 @@ class _SongListScreenState extends State<SongListScreen> {
                         'Open Music Player - ID: ${song.id}, Title: ${song.title}',
                       );
 
-                      // Immediately update selected song for instant feedback
-                      setState(() {
-                        _immediatelySelectedSongId = song.id;
-                      });
+                      // CRITICAL: Don't set local selection state here
+                      // Let the bloc state handle selection to prevent multiple songs being selected
 
                       _logger.d("🎵 Tapping song: ${song.title} | Current: ${musicState.myPlayerState.currentSongId}");
 

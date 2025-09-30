@@ -38,4 +38,13 @@ class AppSettingsEvent with _$AppSettingsEvent {
     required bool showNotifications,
     required double playbackSpeed,
   }) = _UpdatePlaybackSettings;
+
+  const factory AppSettingsEvent.updateBackgroundRefreshTimeGap({
+    required int hours,
+  }) = _UpdateBackgroundRefreshTimeGap;
+
+  const factory AppSettingsEvent.updateUserProfile({
+    required String userName,
+    required String nickName,
+  }) = _UpdateUserProfile;
 }

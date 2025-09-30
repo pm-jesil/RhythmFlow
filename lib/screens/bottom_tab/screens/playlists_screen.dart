@@ -3,12 +3,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:pmj_music_player/core/constants/app_enums.dart';
 import '../../../core/theme/theme_extension.dart';
-import '../../widgets/custom_tab_view_app_bar.dart';
+import '../widgets/custom_tab_view_app_bar.dart';
 import '../../../utils/logger/logger.dart';
 import '../../../utils/models/my_playlist/my_playlist_model.dart';
 import '../../../utils/models/song/song_model.dart';
 import '../../../utils/models/playlist_source/playlist_source_model.dart';
-import '../../playlist_detail_screen/playlist_detail_screen.dart';
 import 'bloc/music_bloc.dart';
 import '../widgets/glass_card.dart';
 import '../../widgets/album_art_widget.dart';
@@ -67,7 +66,6 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
     super.dispose();
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -84,9 +82,11 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
               child: BlocBuilder<MusicBloc, MusicState>(
                 builder: (context, state) {
                   // Update filtered playlists when state changes
-                  if (_filteredPlaylists.isEmpty && state.myPlaylist.isNotEmpty) {
+                  if (_filteredPlaylists.isEmpty &&
+                      state.myPlaylist.isNotEmpty) {
                     _filteredPlaylists = state.myPlaylist;
-                  } else if (state.myPlaylist.length != _filteredPlaylists.length) {
+                  } else if (state.myPlaylist.length !=
+                      _filteredPlaylists.length) {
                     // Update when playlist count changes (new playlist added/deleted)
                     _filteredPlaylists = state.myPlaylist;
                   } else {
@@ -114,7 +114,6 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                   return CustomScrollView(
                     controller: _scrollController,
                     slivers: [
-
                       // Create Playlist Button
                       SliverToBoxAdapter(
                         child: Padding(
@@ -261,13 +260,9 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
     MyPlaylist playlist,
     List<Song> playlistSongs,
   ) {
-    AlbumArtistPlaylistHelper.navigateToDetail(
+    AlbumArtistPlaylistHelper.navigateToPlaylistDetail(
       context: context,
-      type: PlaylistDetailType.playlist,
-      id: playlist.id,
-      name: playlist.name,
-      songCount: playlistSongs.length,
-      description: playlist.description,
+      playlist: playlist,
     );
   }
 

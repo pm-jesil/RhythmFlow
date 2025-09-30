@@ -185,10 +185,10 @@ List<String> _ensureAlbums(List<String> albums, String filePath) {
 ) {
   try {
     final fileName = filePath.split('/').last.split('.').first;
-    final cleanFileName = _cleanFilename(fileName);
+    final cleanFileName = SharedValidation.cleanFilename(fileName);
     
     // Use intelligent parsing
-    final parsed = MetadataParser.parseFilenameIntelligently(cleanFileName);
+    final parsed = SharedValidation.parseFilenameIntelligently(cleanFileName);
     
     // Only use filename parsing results if metadata is missing or poor quality
     final finalArtists = existingArtists.isEmpty || _isPoorQualityMetadata(existingArtists) 
@@ -291,42 +291,6 @@ Future<DateTime> _getFileCreationDate(String filePath) async {
 }
 
 
-bool _isCommonMusicFolderName(String folderName) {
-  return FilenameParser.isCommonMusicFolderName(folderName);
-}
-
-Future<int> _getAndroidVersion() async {
-  return MetadataUtils.getAndroidVersion();
-}
-
-// Functions needed by specialized classes
-String _cleanFilename(String fileName) {
-  return FilenameParser.cleanFilename(fileName);
-}
-
-List<String> _splitArtists(String artistString) {
-  return ArtistNameExtractor.splitArtists(artistString);
-}
-
-String _guessArtistFromPath(String filePath) {
-  return ArtistNameExtractor.guessArtistFromPath(filePath);
-}
-
-String _guessAlbumFromPath(String filePath) {
-  return AlbumNameExtractor.guessAlbumFromPath(filePath);
-}
-
-bool _isLikelyArtistName(String text) {
-  return ArtistNameExtractor.isLikelyArtistName(text);
-}
-
-
-bool _isLikelySongTitle(String text) {
-  return FilenameParser.isLikelySongTitle(text);
-}
-
-bool _isLikelyAlbumName(String text) {
-  return AlbumNameExtractor.isLikelyAlbumName(text);
-}
+// Functions moved to SharedValidation class to eliminate duplications
 
 

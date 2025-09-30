@@ -1,62 +1,3 @@
-class AppConstants {
-  // App Info
-  static const String appName = 'PMJ Music Player';
-  static const String appVersion = '1.0.0';
-  
-  // Storage Keys
-  static const String themeKey = 'theme_preference';
-  static const String lastPlayedSongKey = 'last_played_song';
-  static const String playlistsKey = 'playlists';
-  static const String favoritesKey = 'favorites';
-  
-  // Audio Settings
-  static const double defaultVolume = 1.0;
-  static const bool defaultShuffle = false;
-  static const bool defaultRepeat = false;
-  
-  // UI Constants
-  static const double defaultPadding = 16.0;
-  static const double defaultRadius = 12.0;
-  static const double defaultElevation = 2.0;
-  
-  // Animation Durations
-  static const Duration shortAnimation = Duration(milliseconds: 200);
-  static const Duration mediumAnimation = Duration(milliseconds: 300);
-  static const Duration longAnimation = Duration(milliseconds: 500);
-  
-  // File Extensions
-  static const List<String> supportedAudioFormats = [
-    '.mp3',
-    '.m4a',
-    '.wav',
-    '.flac',
-    '.aac',
-    '.ogg',
-  ];
-  
-  // Glassmorphism Constants
-  static const double glassBlurRadius = 10.0;
-  static const double glassOpacity = 0.8;
-  static const double glassBorderRadius = 20.0;
-  
-  // Gradient Constants
-  static const double gradientStartX = 0.0;
-  static const double gradientStartY = 0.0;
-  static const double gradientEndX = 1.0;
-  static const double gradientEndY = 1.0;
-  
-}
-
-class TabLabels {
-  const TabLabels();
-
-  static const String forYou = 'For You';
-  static const String songs = 'Songs';
-  static const String albums = 'Albums';
-  static const String artists = 'Artists';
-  static const String playlists = 'Playlists';
-}
-
 class Sources {
   const Sources();
   
@@ -64,4 +5,55 @@ class Sources {
   static const String album = 'album';
   static const String artist = 'artist';
   static const String myPlaylist = 'my_playlist';
+}
+
+class TabLabels {
+  const TabLabels();
+  
+  static const String forYou = 'For You';
+  static const String songs = 'Songs';
+  static const String albums = 'Albums';
+  static const String artists = 'Artists';
+  static const String playlists = 'Playlists';
+}
+
+class AppConstants {
+  const AppConstants();
+  
+  static const String appName = 'PMJ Music Player';
+  static const Duration longAnimation = Duration(milliseconds: 800);
+  
+  // Music quotes for personalized experience
+  static const List<String> musicQuotes = [
+    "Music is the universal language of mankind",
+    "Where words fail, music speaks",
+    "Music is the soundtrack of your life",
+    "Life is better with music",
+    "Music washes away from the soul the dust of everyday life",
+    "Without music, life would be a mistake",
+    "Music is the wine that fills the cup of silence",
+    "One good thing about music, when it hits you, you feel no pain",
+    "Music expresses that which cannot be put into words",
+    "The music is not in the notes, but in the silence between",
+    "Music is the art of thinking with sounds",
+    "Music is the language of the spirit",
+    "Music is the moonlight in the gloomy night of life",
+    "Music is the poetry of the air",
+    "Music is the medicine of the mind",
+    "Music is the voice of the heart",
+    "Music is the soul of language",
+    "Music is the art which is most nigh to tears and memory",
+    "Music is the movement of sound to reach the soul",
+    "Music is the silence between the notes",
+    "Music is the universal language of the world",
+    "Music is the food of love",
+    "Music is the healing force of the universe",
+    "Music is the rhythm of life",
+    "Music is the melody of the soul",
+    "Music is the harmony of the heart",
+    "Music is the poetry of sound",
+    "Music is the art of the invisible",
+    "Music is the language of emotions",
+    "Music is the bridge between heaven and earth",
+  ];
 }

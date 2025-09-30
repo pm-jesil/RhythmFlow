@@ -5,8 +5,8 @@ import 'package:injectable/injectable.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:flutter/material.dart';
 import 'package:pmj_music_player/core/constants/app_enums.dart';
+import 'package:pmj_music_player/core/constants/app_constants.dart';
 import 'package:pmj_music_player/utils/models/my_playlist/my_playlist_model.dart';
-import '../../../../core/constants/app_constants.dart';
 import '../../../../utils/models/song/song_model.dart';
 import '../../../../utils/models/album/album_model.dart';
 import '../../../../utils/models/artist/artist_model.dart';
@@ -19,10 +19,13 @@ import '../../../../utils/services/audio_service.dart';
 import '../../../../utils/services/enhanced_notification_service.dart';
 import '../../../../utils/services/remote_control_service.dart';
 import '../../../../utils/services/song_uniqueness_validator.dart';
+import '../../../../utils/services/song_cleanup_service.dart';
 import '../../../../utils/services/play_count_tracking_service.dart';
 import '../../../../utils/services/my_playlist_service.dart';
 import '../../../widgets/sync_app_settings_helper.dart';
 import '../../../app_settings/bloc/app_settings_bloc.dart';
+import '../../../widgets/sorting_helper.dart';
+import '../../../widgets/playlist_source_helper.dart';
 
 part 'music_event.dart';
 part 'music_state.dart';
@@ -61,81 +64,50 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
   MusicBloc(this._audioService, this._remoteControlService, this._appSettingsBloc)
     : super(MusicState.initial()) {
-    // ==================== SETUP PLAY COUNT TRACKING ====================
     _setupPlayCountTracking();
     
-    // ==================== REGISTER EVENT HANDLERS ====================
-    // Loading events
     on<_LoadAllSongs>(_onLoadAllSongs);
     on<_LoadAllSongsProgressive>(_onLoadAllSongsProgressive);
-
     on<_LoadAlbums>(_onLoadAlbums);
     on<_LoadAlbumsProgressive>(_onLoadAlbumsProgressive);
-
     on<_LoadArtists>(_onLoadArtists);
     on<_LoadArtistsProgressive>(_onLoadArtistsProgressive);
-
     on<_LoadMyPlaylists>(_onLoadMyPlaylists);
     on<_AddOrUpdateMyPlayList>(_onAddOrUpdateMyPlayList);
-
-    // Playback events
     on<_PlayOrPauseSong>(_onPlayOrPauseSong);
     on<_PlayNext>(_onPlayNext);
     on<_PlayPrevious>(_onPlayPrevious);
-
-    // Playback settings events
     on<_ToggleShuffle>(_onToggleShuffle);
     on<_ToggleRepeat>(_onToggleRepeat);
-
-    // Sorting and seeking events
     on<_ChangeSortingOrder>(_onChangeSortingOrder);
     on<_SeekToPosition>(_onSeekToPosition);
     on<_UpdateLastPosition>(_onUpdateLastPosition);
-
-    // Filter events
     on<_UpdateFilterKeyword>(_onUpdateFilterKeyword);
     on<_SetNavigationFilter>(_onSetNavigationFilter);
-
-    // State update event
     on<_UpdateMusicBlocState>(_onUpdateMusicBlocState);
 
-    // Listen to audio service song changes
     _audioService.onSongChanged = _onAudioServiceSongChanged;
-    
-    // Set up position tracking callback
     _audioService.setPositionChangedCallback(_onPositionChanged);
-
-    // Set up remote control service
     _remoteControlService.setActionCallback(_handleRemoteControlAction);
     
-    // Initialize all app settings synchronization
     SyncAppSettingsHelper.initializeSettingsSync(
       appSettingsBloc: _appSettingsBloc,
       audioService: _audioService,
     );
     
-    // Listen to AppSettingsBloc changes for settings sync
     _appSettingsSubscription = _appSettingsBloc.stream.listen((appSettingsState) {
       SyncAppSettingsHelper.syncAllSettings(
         appSettingsBloc: _appSettingsBloc,
         audioService: _audioService,
       );
-      
-      // Handle sleep timer settings changes with proper cleanup
       SyncAppSettingsHelper.handleSleepTimerSettingsChange(
         appSettingsBloc: _appSettingsBloc,
         musicBloc: this,
       );
     });
 
-    // ==================== SINGLE STATE SYNC LISTENER ====================
-    // Listen to player state for comprehensive sync (includes playing state)
-    _playerStateSubscription = _audioService.playerStateStream.listen((
-      playerState,
-    ) {
-      // Only sync if we're not currently updating state to prevent race conditions
+    _playerStateSubscription = _audioService.playerStateStream.listen((playerState) {
       if (!_isUpdatingState) {
-        // Sync playing state into myPlayerState
         if (state.myPlayerState.isPlaying != playerState.playing) {
           add(
             MusicEvent.updateMusicBlocState(
@@ -149,7 +121,6 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         }
       }
 
-      // Handle completion state - remove completed song from queue
       if (playerState.processingState == ProcessingState.completed) {
         _handleSongCompletion();
       }
@@ -252,7 +223,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
   // ==================== LOADING EVENT HANDLERS ====================
   
-  /// Check if we should skip fetching based on last update time (5-hour rule)
+  /// Check if we should skip fetching based on last update time (configurable rule)
   bool _shouldSkipFetch() {
     final lastUpdate = _appSettingsBloc.state.lastUpdateMusicLibrary;
     if (lastUpdate == null) {
@@ -262,13 +233,13 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     
     final now = DateTime.now();
     final timeDifference = now.difference(lastUpdate);
-    const fiveHours = Duration(hours: 5);
+    final refreshTimeGap = Duration(hours: _appSettingsBloc.state.appBackgroundRefreshTimeGap);
     
-    if (timeDifference < fiveHours) {
-      _logger.i('⏰ Last fetch was ${timeDifference.inMinutes} minutes ago (< 5 hours) - skipping fetch');
+    if (timeDifference < refreshTimeGap) {
+      _logger.i('⏰ Last fetch was ${timeDifference.inMinutes} minutes ago (< ${_appSettingsBloc.state.appBackgroundRefreshTimeGap} hours) - skipping fetch');
       return true;
     } else {
-      _logger.i('⏰ Last fetch was ${timeDifference.inHours} hours ago (>= 5 hours) - proceeding with fetch');
+      _logger.i('⏰ Last fetch was ${timeDifference.inHours} hours ago (>= ${_appSettingsBloc.state.appBackgroundRefreshTimeGap} hours) - proceeding with fetch');
       return false;
     }
   }
@@ -287,51 +258,67 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     _LoadAllSongs event,
     Emitter<MusicState> emit,
   ) async {
-    _logger.i('Loading all songs...');
+    _logger.i('Loading all songs... (isForce: ${event.isForce ?? false})');
 
-    // Check if we should skip fetching based on 5-hour rule
-    if (_shouldSkipFetch() && state.allSongs.isNotEmpty) {
+    // Check if we should skip fetching based on 5-hour rule (unless force refresh)
+    if (!(event.isForce ?? false) && _shouldSkipFetch() && state.allSongs.isNotEmpty) {
       _logger.i('⏰ Skipping song fetch - using cached data (${state.allSongs.length} songs)');
       return;
     }
 
     try {
+      // Set app settings fetch flag to true
       emit(
         state.copyWith(
           isSongListLoading: state.allSongs.isEmpty ? true : false,
           isSongListError: false,
+          appSettingsFetchSong: true,
         ),
       );
 
-      final songs = await FetchSongsService.fetchAllSongs();
+      final songs = await FetchSongsService.fetchAllSongs(
+        supportedFormats: _appSettingsBloc.state.supportedAudioFormats,
+        whitelistedFolders: _appSettingsBloc.state.whiteListFolder,
+      );
       _logger.i('Loaded ${songs.length} songs');
 
       // Validate song uniqueness
+      List<Song> finalSongs;
       if (!SongUniquenessValidator.validateUniqueIds(songs)) {
         _logger.e('❌ Song uniqueness validation failed - removing duplicates');
-        final uniqueSongs = SongUniquenessValidator.removeDuplicates(songs);
+        finalSongs = SongUniquenessValidator.removeDuplicates(songs);
         _logger.i(
-          '✅ Removed duplicates: ${songs.length} → ${uniqueSongs.length} songs',
+          '✅ Removed duplicates: ${songs.length} → ${finalSongs.length} songs',
         );
-        emit(state.copyWith(allSongs: uniqueSongs, isSongListLoading: false));
       } else {
         _logger.i('✅ All songs are unique');
-        emit(state.copyWith(allSongs: songs, isSongListLoading: false));
+        finalSongs = songs;
       }
+
+      // Clean up removed songs from all references
+      final removedSongIds = SongCleanupService.findRemovedSongIds(state.allSongs, finalSongs);
+      final cleanedState = _applySongCleanup(state, removedSongIds);
+      
+      emit(cleanedState.copyWith(
+        allSongs: finalSongs, 
+        isSongListLoading: false,
+        appSettingsFetchSong: false,
+      ));
 
       // Update last fetch time after successful fetch
       _updateLastFetchTime();
 
-      // Auto-load albums and artists if they're empty
-      if (state.albumList.isEmpty) {
-        add(const MusicEvent.loadAlbums());
-      }
-      if (state.artistList.isEmpty) {
-        add(const MusicEvent.loadArtists());
-      }
+      // Always update albums and artists when songs are refreshed
+      _logger.i('🔄 Updating albums and artists after song refresh...');
+      add(const MusicEvent.loadAlbums());
+      add(const MusicEvent.loadArtists());
     } catch (e) {
       _logger.e('Error loading songs: $e');
-      emit(state.copyWith(isSongListLoading: false, isSongListError: true));
+      emit(state.copyWith(
+        isSongListLoading: false, 
+        isSongListError: true,
+        appSettingsFetchSong: false,
+      ));
     }
   }
 
@@ -340,15 +327,22 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     _LoadAllSongsProgressive event,
     Emitter<MusicState> emit,
   ) async {
-    _logger.i('🚀 Starting progressive song loading...');
+    _logger.i('🚀 Starting progressive song loading... (isForce: ${event.isForce ?? false})');
 
-    // Check if we should skip fetching based on 5-hour rule
-    if (_shouldSkipFetch() && state.allSongs.isNotEmpty) {
+    // Check if we should skip fetching based on 5-hour rule (unless force refresh)
+    if (!(event.isForce ?? false) && _shouldSkipFetch() && state.allSongs.isNotEmpty) {
       _logger.i('⏰ Skipping progressive song fetch - using cached data (${state.allSongs.length} songs)');
       return;
     }
 
     try {
+      // Set app settings fetch flag to true
+      emit(
+        state.copyWith(
+          appSettingsFetchSong: true,
+        ),
+      );
+      
       // Check if we already have songs in cache (HydratedBloc)
       final hasExistingSongs = state.allSongs.isNotEmpty;
       
@@ -365,7 +359,11 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         );
 
         // Fetch only new songs (not in existing list)
-        final newSongs = await FetchSongsService.fetchNewSongs(state.allSongs);
+        final newSongs = await FetchSongsService.fetchNewSongs(
+          state.allSongs,
+          supportedFormats: _appSettingsBloc.state.supportedAudioFormats,
+          whitelistedFolders: _appSettingsBloc.state.whiteListFolder,
+        );
         
         if (newSongs.isNotEmpty) {
           _logger.i('🆕 Found ${newSongs.length} new songs to add');
@@ -380,13 +378,17 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
             state.copyWith(
               allSongs: uniqueSongs,
               isSongListLoading: false,
+              appSettingsFetchSong: false,
             ),
           );
           
           _logger.i('✅ Added ${uniqueSongs.length - state.allSongs.length} new songs');
         } else {
           _logger.i('✅ No new songs found - keeping existing ${state.allSongs.length} songs');
-          emit(state.copyWith(isSongListLoading: false));
+          emit(state.copyWith(
+            isSongListLoading: false,
+            appSettingsFetchSong: false,
+          ));
         }
       } else {
         _logger.i('📀 No cached songs found - performing full progressive scan');
@@ -402,6 +404,8 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
         // Start progressive loading in background
         await FetchSongsService.fetchAllSongsProgressive(
+          supportedFormats: _appSettingsBloc.state.supportedAudioFormats,
+          whitelistedFolders: _appSettingsBloc.state.whiteListFolder,
           onProgress: (newSongs, isComplete, totalFound) {
             _logger.d(
               '📀 Progress update: ${newSongs.length} new songs, total: $totalFound, complete: $isComplete',
@@ -420,6 +424,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
                 allSongs: uniqueSongs,
                 isSongListLoading: !isComplete,
                 songLoadingProgress: totalFound,
+                appSettingsFetchSong: !isComplete,
               ),
             );
 
@@ -429,25 +434,46 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
                 '🎵 First batch loaded (${uniqueSongs.length} songs) - showing UI',
               );
             }
+            
+            // Update albums and artists when we have a significant number of songs
+            if (uniqueSongs.length >= 10 && uniqueSongs.length % 20 == 0) {
+              _logger.i('🔄 Updating albums and artists with ${uniqueSongs.length} songs...');
+              refreshAlbumsAndArtists();
+            }
           },
         );
 
         _logger.i('✅ Progressive song loading completed');
+        
+        // Clean up removed songs from all references
+        final removedSongIds = SongCleanupService.findRemovedSongIds(state.allSongs, state.allSongs);
+        final cleanedState = _applySongCleanup(state, removedSongIds);
+        if (cleanedState != state) {
+          emit(cleanedState);
+        }
+        
+        // Final refresh of albums and artists after all songs are loaded
+        _logger.i('🔄 Final refresh of albums and artists after progressive loading...');
+        refreshAlbumsAndArtists();
       }
 
       // Update last fetch time after successful progressive loading
       _updateLastFetchTime();
 
-      // Auto-load albums and artists if they're empty
-      if (state.albumList.isEmpty) {
-        add(const MusicEvent.loadAlbumsProgressive());
-      }
-      if (state.artistList.isEmpty) {
-        add(const MusicEvent.loadArtistsProgressive());
-      }
+      // Always update albums and artists when songs are refreshed
+      _logger.i('🔄 Updating albums and artists after progressive song refresh...');
+      add(const MusicEvent.loadAlbumsProgressive());
+      add(const MusicEvent.loadArtistsProgressive());
+      
+      // Set app settings fetch flag to false after completion
+      emit(state.copyWith(appSettingsFetchSong: false));
     } catch (e) {
       _logger.e('❌ Error in progressive song loading: $e');
-      emit(state.copyWith(isSongListLoading: false, isSongListError: true));
+      emit(state.copyWith(
+        isSongListLoading: false, 
+        isSongListError: true,
+        appSettingsFetchSong: false,
+      ));
     }
   }
 
@@ -459,19 +485,18 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     _logger.i('🚀 Starting progressive album loading...');
 
     try {
-      // Check if we already have albums in cache
-      final hasExistingAlbums = state.albumList.isNotEmpty;
+      // Always update albums from current songs to ensure they're in sync
+      _logger.i('💿 Updating albums from current songs (${state.allSongs.length} songs)');
       
-      if (hasExistingAlbums) {
-        _logger.i('💿 Found ${state.albumList.length} cached albums - extracting from current songs');
-        
-        // Extract albums from current songs (no progressive loading needed)
-        final albums = MusicService.fetchAlbumList(state.allSongs);
-        final uniqueAlbums = albums.toSet().toList();
-        
-        emit(state.copyWith(albumList: uniqueAlbums));
-        _logger.i('✅ Updated albums: ${uniqueAlbums.length} total');
-      } else {
+      // Extract albums from current songs
+      final albums = MusicService.fetchAlbumList(state.allSongs);
+      final uniqueAlbums = albums.toSet().toList();
+      
+      emit(state.copyWith(albumList: uniqueAlbums));
+      _logger.i('✅ Updated albums: ${uniqueAlbums.length} total');
+      
+      // Only do progressive loading if we have no albums and songs are being loaded progressively
+      if (state.albumList.isEmpty && state.allSongs.length < 50) {
         _logger.i('💿 No cached albums found - performing progressive extraction');
         
         // Start progressive loading in background
@@ -506,19 +531,18 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     _logger.i('🚀 Starting progressive artist loading...');
 
     try {
-      // Check if we already have artists in cache
-      final hasExistingArtists = state.artistList.isNotEmpty;
+      // Always update artists from current songs to ensure they're in sync
+      _logger.i('👤 Updating artists from current songs (${state.allSongs.length} songs)');
       
-      if (hasExistingArtists) {
-        _logger.i('👤 Found ${state.artistList.length} cached artists - extracting from current songs');
-        
-        // Extract artists from current songs (no progressive loading needed)
-        final artists = MusicService.fetchArtistList(state.allSongs);
-        final uniqueArtists = artists.toSet().toList();
-        
-        emit(state.copyWith(artistList: uniqueArtists));
-        _logger.i('✅ Updated artists: ${uniqueArtists.length} total');
-      } else {
+      // Extract artists from current songs
+      final artists = MusicService.fetchArtistList(state.allSongs);
+      final uniqueArtists = artists.toSet().toList();
+      
+      emit(state.copyWith(artistList: uniqueArtists));
+      _logger.i('✅ Updated artists: ${uniqueArtists.length} total');
+      
+      // Only do progressive loading if we have no artists and songs are being loaded progressively
+      if (state.artistList.isEmpty && state.allSongs.length < 50) {
         _logger.i('👤 No cached artists found - performing progressive extraction');
         
         // Start progressive loading in background
@@ -1090,7 +1114,31 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           _logger.w('⚠️ No previous song available or same song');
         }
       } else {
-        _logger.w('⚠️ No completed songs to go back to');
+        _logger.i('🔄 No completed songs to go back to - seeking current song to beginning');
+        
+        // Seek current song to beginning (0.0) and continue playing
+        await _audioService.seekTo(Duration.zero);
+        
+        // Ensure the song is playing
+        if (!state.myPlayerState.isPlaying) {
+          await _audioService.resume();
+          
+          // Update state to reflect playing status
+          emit(
+            state.copyWith(
+              myPlayerState: state.myPlayerState.copyWith(isPlaying: true),
+            ),
+          );
+          
+          // Update notification
+          _updateNotificationForCurrentSong();
+          
+          // Start sleep timer
+          SyncAppSettingsHelper.startSleepTimer(
+            appSettingsBloc: _appSettingsBloc,
+            musicBloc: this,
+          );
+        }
       }
     } catch (e) {
       _logger.e('Error playing previous song: $e');
@@ -1406,9 +1454,9 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     _UpdateMusicBlocState event,
     Emitter<MusicState> emit,
   ) async {
-    // Removed redundant state update logging
     emit(event.newState);
   }
+
   
   /// Mark initialization as complete to allow position updates
   void markInitializationComplete() {
@@ -1820,39 +1868,83 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
   }
 
 
+  // ==================== REFRESH METHODS ====================
+  
+  /// Force refresh albums and artists from current songs
+  /// This ensures albums and artists are always in sync with songs
+  void refreshAlbumsAndArtists() {
+    _logger.i('🔄 Force refreshing albums and artists from current songs...');
+    
+    if (state.allSongs.isNotEmpty) {
+      // Update albums
+      final albums = MusicService.fetchAlbumList(state.allSongs);
+      final uniqueAlbums = albums.toSet().toList();
+      
+      // Update artists  
+      final artists = MusicService.fetchArtistList(state.allSongs);
+      final uniqueArtists = artists.toSet().toList();
+      
+      // Perform post-fetch cleanup to remove empty albums/artists
+      final cleanupResult = SongCleanupService.performPostFetchCleanup(
+        albums: uniqueAlbums,
+        artists: uniqueArtists,
+        playlists: state.myPlaylist, // Pass current playlists (they won't be cleaned)
+      );
+      
+      add(MusicEvent.updateMusicBlocState(
+        newState: state.copyWith(
+          albumList: cleanupResult['albums'] as List<Album>,
+          artistList: cleanupResult['artists'] as List<Artist>,
+        ),
+      ));
+      
+      final albumsRemoved = cleanupResult['albumsRemoved'] as int;
+      final artistsRemoved = cleanupResult['artistsRemoved'] as int;
+      
+      _logger.i('✅ Albums and artists refreshed: ${(cleanupResult['albums'] as List).length} albums, ${(cleanupResult['artists'] as List).length} artists');
+      if (albumsRemoved > 0 || artistsRemoved > 0) {
+        _logger.i('🧹 Cleanup: removed $albumsRemoved empty albums, $artistsRemoved empty artists');
+      }
+    } else {
+      _logger.w('⚠️ No songs available to refresh albums and artists');
+    }
+  }
+
+
+  // ==================== SONG CLEANUP METHODS ====================
+  
+  /// Apply song cleanup to the current state
+  MusicState _applySongCleanup(MusicState currentState, List<String> removedSongIds) {
+    if (removedSongIds.isEmpty) {
+      return currentState;
+    }
+    
+    _logger.i('🧹 Applying cleanup for ${removedSongIds.length} removed songs');
+    
+    // Clean up current player state
+    final cleanedPlayerState = SongCleanupService.cleanupPlayerState(currentState.myPlayerState, removedSongIds);
+    
+    // Clean up albums
+    final cleanedAlbums = SongCleanupService.cleanupAlbums(currentState.albumList, removedSongIds);
+    
+    // Clean up artists
+    final cleanedArtists = SongCleanupService.cleanupArtists(currentState.artistList, removedSongIds);
+    
+    // Clean up my playlists
+    final cleanedPlaylists = SongCleanupService.cleanupMyPlaylists(currentState.myPlaylist, removedSongIds);
+    
+    return currentState.copyWith(
+      myPlayerState: cleanedPlayerState,
+      albumList: cleanedAlbums,
+      artistList: cleanedArtists,
+      myPlaylist: cleanedPlaylists,
+    );
+  }
+
   // ==================== UTILITY METHODS ====================
   List<Song> _applySorting(List<Song> songs, int sortingIndex) {
-    List<Song> result = List.from(songs);
-
-    switch (sortingIndex) {
-      case 0: // Newest First
-        result.sort(
-          (a, b) => (b.dateAdded ?? DateTime.now()).compareTo(
-            a.dateAdded ?? DateTime.now(),
-          ),
-        );
-        break;
-      case 1: // Oldest First
-        result.sort(
-          (a, b) => (a.dateAdded ?? DateTime.now()).compareTo(
-            b.dateAdded ?? DateTime.now(),
-          ),
-        );
-        break;
-      case 2: // Alphabetical
-        result.sort(
-          (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
-        );
-        break;
-      case 3: // Duration (Shortest)
-        result.sort((a, b) => a.duration.compareTo(b.duration));
-        break;
-      case 4: // Duration (Longest)
-        result.sort((a, b) => b.duration.compareTo(a.duration));
-        break;
-    }
-
-    return result;
+    // Use centralized SortingHelper instead of duplicate logic
+    return SortingHelper.applySorting(songs, sortingIndex);
   }
 
   // ==================== HELPER METHODS ====================
@@ -1886,95 +1978,27 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
   /// Get playlist ID based on PlaylistSource
   String _getPlaylistId(PlaylistSource playlistSource) {
-    switch (playlistSource.source) {
-      case Sources.allSongs:
-        return 'all_songs';
-      case Sources.album:
-        return 'album_${playlistSource.albumId}';
-      case Sources.artist:
-        return 'artist_${playlistSource.artistId}';
-      case Sources.myPlaylist:
-        return 'my_playlist_${playlistSource.playlistId}';
-      default:
-        return 'unknown';
-    }
+    return PlaylistSourceHelper.getPlaylistId(playlistSource);
   }
 
   /// Get playlist songs based on PlaylistSource
   List<Song> _getPlaylistSongs(PlaylistSource playlistSource) {
-    switch (playlistSource.source) {
-      case Sources.allSongs:
-        return state.allSongs;
-      case Sources.album:
-        if (playlistSource.albumId == null) return state.allSongs;
-        final album = state.albumList.firstWhere(
-          (album) => album.id == playlistSource.albumId,
-          orElse: () =>
-              throw Exception('Album not found: ${playlistSource.albumId}'),
-        );
-        return getSongsFromIds(album.songIds);
-      case Sources.artist:
-        if (playlistSource.artistId == null) return state.allSongs;
-        final artist = state.artistList.firstWhere(
-          (artist) => artist.id == playlistSource.artistId,
-          orElse: () =>
-              throw Exception('Artist not found: ${playlistSource.artistId}'),
-        );
-        return getSongsFromIds(artist.songIds);
-      case Sources.myPlaylist:
-        if (playlistSource.playlistId == null) return state.allSongs;
-        final myPlaylist = state.myPlaylist.firstWhere(
-          (playlist) => playlist.id == playlistSource.playlistId,
-          orElse: () => throw Exception(
-            'MyPlaylist not found: ${playlistSource.playlistId}',
-          ),
-        );
-        return getSongsFromIds(myPlaylist.songIds);
-      default:
-        return state.allSongs;
-    }
+    return PlaylistSourceHelper.getPlaylistSongs(playlistSource, state);
   }
 
   /// Get song IDs from a list of songs
   List<String> getSongIds(List<Song> songs) {
-    return songs.map((song) => song.id).toList();
+    return PlaylistSourceHelper.getSongIds(songs);
   }
 
   /// Get songs from song IDs using allSongs
   List<Song> getSongsFromIds(List<String> songIds) {
-    return songIds
-        .map(
-          (songId) => state.allSongs.firstWhere(
-            (song) => song.id == songId,
-            orElse: () => throw Exception('Song not found: $songId'),
-          ),
-        )
-        .toList();
+    return PlaylistSourceHelper.getSongsFromIds(songIds, state.allSongs);
   }
 
   /// Get PlaylistSource from playlist ID
   PlaylistSource? _getPlaylistSourceFromId(String? playlistId) {
-    if (playlistId == null) return null;
-    
-    if (playlistId == 'all_songs') {
-      return PlaylistSource.allSongs();
-    } else if (playlistId.startsWith('album_')) {
-      final albumId = playlistId.substring(6);
-      return PlaylistSource.album(albumId);
-    } else if (playlistId.startsWith('artist_')) {
-      final artistId = playlistId.substring(7);
-      return PlaylistSource.artist(artistId);
-    } else if (playlistId.startsWith('my_playlist_')) {
-      final myPlaylistId = playlistId.substring(12);
-      // Verify playlist exists
-      state.myPlaylist.firstWhere(
-        (playlist) => playlist.id == myPlaylistId,
-        orElse: () => throw Exception('MyPlaylist not found: $myPlaylistId'),
-      );
-      return PlaylistSource.myPlaylist(myPlaylistId);
-    }
-    
-    return null;
+    return PlaylistSourceHelper.getPlaylistSourceFromId(playlistId);
   }
 
   // ==================== FILTER EVENT HANDLERS ====================

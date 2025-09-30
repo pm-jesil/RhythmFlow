@@ -3,10 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../core/theme/theme_extension.dart';
 import '../../../utils/logger/logger.dart';
-import '../../../utils/models/playlist_source/playlist_source_model.dart';
 import '../../../utils/models/song/song_model.dart';
 import '../bottom_tab/screens/bloc/music_bloc.dart';
 import '../widgets/album_art_widget.dart';
+import '../widgets/playlist_source_helper.dart';
 
 class PlayingQueueScreen extends StatefulWidget {
   const PlayingQueueScreen({super.key});
@@ -409,7 +409,7 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
               MusicEvent.playOrPauseSong(
                 songId: song.id,
                 currentPlayList: state.myPlayerState.currentPlayList,
-                playlistSource: _getPlaylistSourceFromPlaylistId(
+                playlistSource: PlaylistSourceHelper.getPlaylistSourceFromId(
                   state.myPlayerState.playlistId,
                 ),
               ),
@@ -672,26 +672,6 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
     );
   }
 
-  PlaylistSource? _getPlaylistSourceFromPlaylistId(String? playlistId) {
-    if (playlistId == null) return null;
-
-    if (playlistId == 'all_songs') {
-      return PlaylistSource.allSongs();
-    } else if (playlistId.startsWith('album_')) {
-      final albumId = playlistId.substring(6); // Remove 'album_' prefix
-      return PlaylistSource.album(albumId);
-    } else if (playlistId.startsWith('artist_')) {
-      final artistId = playlistId.substring(7); // Remove 'artist_' prefix
-      return PlaylistSource.artist(artistId);
-    } else if (playlistId.startsWith('my_playlist_')) {
-      final myPlaylistId = playlistId.substring(
-        12,
-      ); // Remove 'my_playlist_' prefix
-      return PlaylistSource.myPlaylist(myPlaylistId);
-    }
-
-    return null;
-  }
 
   void _clearQueue(BuildContext context) {
     showDialog(

@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../core/theme/theme_extension.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_bloc.dart';
+import '../../../core/router/app_router.dart';
 import 'bloc/app_settings_bloc.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -59,6 +60,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context, state) {
         return ListView(
           children: [
+            _buildProfileSection(state),
+            SizedBox(height: 32.h),
             _buildAppearanceSection(state),
             SizedBox(height: 32.h),
             _buildPlaybackSection(state),
@@ -74,13 +77,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ==================== SECTION BUILDERS ====================
-  
+
+  Widget _buildProfileSection(AppSettingsState state) {
+    return Column(
+      children: [_buildSectionHeader('Profile'), _buildProfileSettings(state)],
+    );
+  }
+
   Widget _buildAppearanceSection(AppSettingsState state) {
     return Column(
-      children: [
-        _buildSectionHeader('Appearance'),
-        _buildThemeSettings(state),
-      ],
+      children: [_buildSectionHeader('Appearance'), _buildThemeSettings(state)],
     );
   }
 
@@ -112,7 +118,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ==================== SECTION HEADERS ====================
-  
+
   Widget _buildSectionHeader(String title) {
     return Padding(
       padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
@@ -130,7 +136,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ==================== SETTINGS SECTIONS ====================
-  
+
+  Widget _buildProfileSettings(AppSettingsState state) {
+    final nickName = state.nickName ?? 'Not set';
+
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16.w),
+      decoration: BoxDecoration(
+        color: context.surfaceColor,
+        borderRadius: BorderRadius.circular(10.r),
+      ),
+      child: Column(
+        children: [
+          _buildProfileTile(
+            icon: Icons.face_rounded,
+            title: 'Profile',
+            subtitle: nickName,
+            onTap: () => _navigateToProfileEdit(),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildThemeSettings(AppSettingsState state) {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16.w),
@@ -144,7 +172,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             icon: Icons.dark_mode_rounded,
             title: 'Dark Mode',
             value: state.isDarkMode ?? false,
-            onChanged: (state.followSystemTheme == true) ? null : (value) => _updateTheme(value, state.followSystemTheme),
+            onChanged: (state.followSystemTheme == true)
+                ? null
+                : (value) => _updateTheme(value, state.followSystemTheme),
             enabled: state.followSystemTheme != true,
           ),
           if (state.followSystemTheme == true)
@@ -186,8 +216,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: 'Auto Play Next',
             value: state.autoPlayNext,
             onChanged: (value) => _updatePlaybackSettings(
-              value, 
-              state.showNotifications, 
+              value,
+              state.showNotifications,
               state.playbackSpeed,
             ),
           ),
@@ -197,8 +227,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: 'Show Notifications',
             value: state.showNotifications,
             onChanged: (value) => _updatePlaybackSettings(
-              state.autoPlayNext, 
-              value, 
+              state.autoPlayNext,
+              value,
               state.playbackSpeed,
             ),
           ),
@@ -212,8 +242,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             max: 2.0,
             divisions: 15,
             onChanged: (value) => _updatePlaybackSettings(
-              state.autoPlayNext, 
-              state.showNotifications, 
+              state.autoPlayNext,
+              state.showNotifications,
               value,
             ),
           ),
@@ -235,10 +265,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             icon: Icons.bedtime_rounded,
             title: 'Sleep Timer',
             value: state.isSleepTimerEnabled,
-            onChanged: (value) => _updateSleepTimer(
-              state.sleepTimerMinutes, 
-              value,
-            ),
+            onChanged: (value) =>
+                _updateSleepTimer(state.sleepTimerMinutes, value),
           ),
           if (state.isSleepTimerEnabled) ...[
             _buildDivider(),
@@ -250,10 +278,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               min: 5,
               max: 120,
               divisions: 23,
-              onChanged: (value) => _updateSleepTimer(
-                value.round(), 
-                state.isSleepTimerEnabled,
-              ),
+              onChanged: (value) =>
+                  _updateSleepTimer(value.round(), state.isSleepTimerEnabled),
             ),
           ],
         ],
@@ -271,6 +297,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         children: [
           _buildNativeActionTile(
+            icon: Icons.music_note_rounded,
+            title: 'Fetch Songs Settings',
+            onTap: _navigateToFetchSongsSettings,
+          ),
+          _buildDivider(),
+          _buildNativeSliderTile(
+            icon: Icons.refresh_rounded,
+            title: 'Background Refresh Interval',
+            subtitle: '${state.appBackgroundRefreshTimeGap} hours',
+            value: state.appBackgroundRefreshTimeGap.toDouble(),
+            min: 1,
+            max: 24,
+            divisions: 23,
+            onChanged: (value) =>
+                _updateBackgroundRefreshTimeGap(value.round()),
+          ),
+          _buildDivider(),
+          _buildNativeActionTile(
             icon: Icons.restore_rounded,
             title: 'Reset to Defaults',
             onTap: _showResetDialog,
@@ -287,11 +331,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ==================== EVENT HANDLERS ====================
-  
+
   void _updateTheme(bool isDarkMode, bool? followSystemTheme) {
     // When user manually toggles dark mode, disable follow system
     final actualFollowSystem = false;
-    
+
     // Update AppSettingsBloc
     context.read<AppSettingsBloc>().add(
       AppSettingsEvent.updateTheme(
@@ -299,17 +343,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
         followSystemTheme: actualFollowSystem,
       ),
     );
-    
+
     // Sync with main app's theme system
     AppTheme.updateTheme(
       isDarkMode: isDarkMode,
       isFollowingSystem: actualFollowSystem,
     );
-    
+
     // Also sync with ThemeBloc if available
     _syncWithThemeBloc(isDarkMode, actualFollowSystem);
   }
-  
+
   void _syncWithThemeBloc(bool isDarkMode, bool followSystemTheme) {
     try {
       final themeBloc = context.read<ThemeBloc>();
@@ -325,7 +369,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _updateFollowSystem(bool followSystemTheme) {
     bool? actualDarkMode;
-    
+
     if (followSystemTheme) {
       // When enabling follow system, set isDarkMode to false (follow system)
       actualDarkMode = false;
@@ -339,7 +383,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actualDarkMode = AppTheme.isDarkMode;
       }
     }
-    
+
     // Update AppSettingsBloc
     context.read<AppSettingsBloc>().add(
       AppSettingsEvent.updateTheme(
@@ -347,18 +391,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
         followSystemTheme: followSystemTheme,
       ),
     );
-    
+
     // Sync with main app's theme system
     AppTheme.updateTheme(
       isDarkMode: actualDarkMode,
       isFollowingSystem: followSystemTheme,
     );
-    
+
     // Also sync with ThemeBloc if available
     _syncWithThemeBloc(actualDarkMode, followSystemTheme);
   }
 
-  void _updatePlaybackSettings(bool autoPlayNext, bool showNotifications, double playbackSpeed) {
+  void _updatePlaybackSettings(
+    bool autoPlayNext,
+    bool showNotifications,
+    double playbackSpeed,
+  ) {
     context.read<AppSettingsBloc>().add(
       AppSettingsEvent.updatePlaybackSettings(
         autoPlayNext: autoPlayNext,
@@ -368,17 +416,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  void _updateBackgroundRefreshTimeGap(int hours) {
+    context.read<AppSettingsBloc>().add(
+      AppSettingsEvent.updateBackgroundRefreshTimeGap(hours: hours),
+    );
+  }
+
+  void _navigateToFetchSongsSettings() {
+    context.navigateToMusicLibrarySettings();
+  }
+
   void _updateSleepTimer(int minutes, bool isEnabled) {
     context.read<AppSettingsBloc>().add(
-      AppSettingsEvent.updateSleepTimer(
-        minutes: minutes,
-        isEnabled: isEnabled,
-      ),
+      AppSettingsEvent.updateSleepTimer(minutes: minutes, isEnabled: isEnabled),
     );
   }
 
   // ==================== UI COMPONENTS ====================
-  
+
   Widget _buildNativeSwitchTile({
     required IconData icon,
     required String title,
@@ -395,7 +450,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       title: Text(
         title,
         style: TextStyle(
-          color: enabled ? context.onSurfaceColor : context.onSurfaceVariantColor,
+          color: enabled
+              ? context.onSurfaceColor
+              : context.onSurfaceVariantColor,
           fontSize: 16.sp,
           fontWeight: FontWeight.w400,
           fontFamily: 'Poppins',
@@ -421,11 +478,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required ValueChanged<double> onChanged,
   }) {
     return ListTile(
-      leading: Icon(
-        icon,
-        color: context.primaryStart,
-        size: 22.sp,
-      ),
+      leading: Icon(icon, color: context.primaryStart, size: 22.sp),
       title: Text(
         title,
         style: TextStyle(
@@ -467,11 +520,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required VoidCallback onTap,
   }) {
     return ListTile(
-      leading: Icon(
-        icon,
-        color: context.primaryStart,
-        size: 22.sp,
-      ),
+      leading: Icon(icon, color: context.primaryStart, size: 22.sp),
       title: Text(
         title,
         style: TextStyle(
@@ -496,11 +545,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required String subtitle,
   }) {
     return ListTile(
-      leading: Icon(
-        icon,
-        color: context.onSurfaceVariantColor,
-        size: 22.sp,
-      ),
+      leading: Icon(icon, color: context.onSurfaceVariantColor, size: 22.sp),
       title: Text(
         title,
         style: TextStyle(
@@ -602,5 +647,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
+  }
+
+  // ==================== PROFILE HELPER METHODS ====================
+
+  Widget _buildProfileTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Container(
+        padding: EdgeInsets.all(8.w),
+        decoration: BoxDecoration(
+          color: context.primaryStart.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8.r),
+        ),
+        child: Icon(icon, color: context.primaryStart, size: 20.sp),
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: context.onSurfaceColor,
+          fontSize: 16.sp,
+          fontWeight: FontWeight.w500,
+          fontFamily: 'Poppins',
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(
+          color: context.onSurfaceVariantColor,
+          fontSize: 14.sp,
+          fontFamily: 'Poppins',
+        ),
+      ),
+      trailing: Icon(
+        Icons.arrow_forward_ios_rounded,
+        color: context.onSurfaceVariantColor,
+        size: 16.sp,
+      ),
+      onTap: onTap,
+    );
+  }
+
+  void _navigateToProfileEdit() {
+    context.navigateToProfileEdit();
   }
 }

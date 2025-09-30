@@ -597,10 +597,8 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                                           ? Icons.pause
                                                           : Icons.play_arrow,
                                                       key: ValueKey(
-                                                        state
-                                                            .myPlayerState
-                                                            .isPlaying,
-                                                      ), // Ensure proper animation
+                                                        'main_player_${state.myPlayerState.isPlaying}',
+                                                      ), // Unique key for main player
                                                       color: Colors.white,
                                                       size: 32.sp,
                                                     ),

@@ -1,31 +1,16 @@
 import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import '../models/song/song_model.dart';
 import '../logger/logger.dart';
 import 'metadata_extractor/metadata_extractor.dart';
+import 'format_utils.dart';
+import 'song_cleanup_service.dart';
 
 class FetchSongsService {
   static final AppLogger _logger = AppLogger('FetchSongsService');
 
-  // Supported audio formats (excludes video files)
-  static const List<String> supportedFormats = [
-    '.mp3',
-    '.m4a',
-    '.aac',
-    '.wav',
-    '.flac',
-    '.ogg',
-    '.wma',
-    '.opus',
-    '.aiff',
-    '.alac',
-    '.m4b',
-    '.m4p',
-    '.amr',
-    '.3ga',
-  ];
+  // Supported audio formats are now managed by FormatUtils
 
   // Video file extensions to exclude
   static const List<String> videoFormats = [
@@ -49,17 +34,6 @@ class FetchSongsService {
   static const Duration minDuration = Duration(seconds: 2);
   static const Duration maxDuration = Duration(hours: 1);
 
-  // Default music folders for different platforms
-  static const Map<String, List<String>> defaultMusicFolders = {
-    'android': [
-      '/storage/emulated/0/Music',
-      '/storage/emulated/0/Download',
-    ],
-    'ios': [
-      '/var/mobile/Media/iTunes_Control/Music',
-      '/var/mobile/Media/Music',
-    ],
-  };
 
   /// Request all required permissions for song fetching
   static Future<bool> requestAllRequiredPermissions() async {
@@ -106,7 +80,7 @@ class FetchSongsService {
   }
 
   /// Fetch all songs from device folders
-  static Future<List<Song>> fetchAllSongs() async {
+  static Future<List<Song>> fetchAllSongs({List<String>? supportedFormats, Map<String, List<String>>? whitelistedFolders}) async {
     _logger.i('Starting to fetch all songs');
 
     try {
@@ -117,11 +91,11 @@ class FetchSongsService {
       }
 
       final List<Song> allSongs = [];
-      final List<String> foldersToScan = await _getFoldersToScan();
+      final List<String> foldersToScan = await _getFoldersToScan(whitelistedFolders ?? {});
 
       for (final folder in foldersToScan) {
         _logger.d('Scanning folder: $folder');
-        final songs = await _scanFolderForSongs(folder);
+        final songs = await scanFolderForSongs(folder, supportedFormats: supportedFormats);
         allSongs.addAll(songs);
         _logger.d('Found ${songs.length} songs in $folder');
       }
@@ -140,6 +114,8 @@ class FetchSongsService {
   /// Fetch songs progressively with callback for each batch
   static Future<void> fetchAllSongsProgressive({
     required Function(List<Song>, bool, int) onProgress,
+    List<String>? supportedFormats,
+    Map<String, List<String>>? whitelistedFolders,
   }) async {
     _logger.i('🚀 Starting progressive song fetching...');
 
@@ -152,7 +128,7 @@ class FetchSongsService {
       }
 
       final List<Song> allSongs = [];
-      final List<String> foldersToScan = await _getFoldersToScan();
+      final List<String> foldersToScan = await _getFoldersToScan(whitelistedFolders ?? {});
       const int batchSize = 10;
       int totalProcessed = 0;
 
@@ -171,7 +147,7 @@ class FetchSongsService {
 
           await for (final entity in directory.list(recursive: true)) {
             if (entity is File) {
-              final song = await _processFile(entity);
+              final song = await processFile(entity);
               if (song != null) {
                 folderSongs.add(song);
                 fileCount++;
@@ -224,7 +200,7 @@ class FetchSongsService {
   }
 
   /// Fetch only new songs (not present in existing songs list)
-  static Future<List<Song>> fetchNewSongs(List<Song> existingSongs) async {
+  static Future<List<Song>> fetchNewSongs(List<Song> existingSongs, {List<String>? supportedFormats, Map<String, List<String>>? whitelistedFolders}) async {
     _logger.i(
       'Starting to fetch new songs (excluding ${existingSongs.length} existing songs)',
     );
@@ -237,11 +213,11 @@ class FetchSongsService {
       }
 
       final List<Song> allSongs = [];
-      final List<String> foldersToScan = await _getFoldersToScan();
+      final List<String> foldersToScan = await _getFoldersToScan(whitelistedFolders ?? {});
 
       for (final folder in foldersToScan) {
         _logger.d('Scanning folder: $folder');
-        final songs = await _scanFolderForSongs(folder);
+        final songs = await scanFolderForSongs(folder, supportedFormats: supportedFormats);
         allSongs.addAll(songs);
         _logger.d('Found ${songs.length} songs in $folder');
       }
@@ -482,34 +458,14 @@ class FetchSongsService {
   }
 
   /// Get folders to scan for music files
-  static Future<List<String>> _getFoldersToScan() async {
+  static Future<List<String>> _getFoldersToScan(Map<String, List<String>> whitelistedFolders) async {
     final List<String> folders = [];
 
-    if (Platform.isAndroid) {
-      // Add default Android music folders
-      folders.addAll(defaultMusicFolders['android']!);
-
-      // Add external storage directories if available
-      try {
-        final externalDir = await getExternalStorageDirectory();
-        if (externalDir != null) {
-          folders.add(externalDir.path);
-        }
-      } catch (e) {
-        _logger.w('Could not get external storage directory', error: e);
-      }
-    } else if (Platform.isIOS) {
-      // Add default iOS music folders
-      folders.addAll(defaultMusicFolders['ios']!);
-
-      // Add app documents directory
-      try {
-        final appDir = await getApplicationDocumentsDirectory();
-        folders.add(appDir.path);
-      } catch (e) {
-        _logger.w('Could not get app documents directory', error: e);
-      }
-    }
+    // Use whitelisted folders from AppSettingsState
+    final platform = Platform.isAndroid ? 'android' : 'ios';
+    final platformFolders = whitelistedFolders[platform] ?? [];
+    folders.addAll(platformFolders);
+    _logger.d('Using whitelisted folders for $platform: $platformFolders');
 
     // Filter out non-existent folders
     final existingFolders = <String>[];
@@ -525,7 +481,7 @@ class FetchSongsService {
   }
 
   /// Scan a folder for music files
-  static Future<List<Song>> _scanFolderForSongs(String folderPath) async {
+  static Future<List<Song>> scanFolderForSongs(String folderPath, {List<String>? supportedFormats}) async {
     final List<Song> songs = [];
 
     try {
@@ -537,7 +493,7 @@ class FetchSongsService {
 
       await for (final entity in directory.list(recursive: true)) {
         if (entity is File) {
-          final song = await _processFile(entity);
+          final song = await processFile(entity, supportedFormats: supportedFormats);
           if (song != null) {
             songs.add(song);
           }
@@ -551,7 +507,7 @@ class FetchSongsService {
   }
 
   /// Process a file to extract song information using enhanced metadata extraction
-  static Future<Song?> _processFile(File file) async {
+  static Future<Song?> processFile(File file, {List<String>? supportedFormats}) async {
     try {
       final path = file.path.toLowerCase();
 
@@ -561,20 +517,22 @@ class FetchSongsService {
         return null;
       }
 
+      // Use provided formats or default
+      final formats = supportedFormats ?? FormatUtils.defaultSupportedFormats;
+
       // Check if file is a supported audio format
-      if (!supportedFormats.any((format) => path.endsWith(format))) {
+      if (!formats.any((format) => path.endsWith(format))) {
         return null;
       }
 
-      // Skip invalid audio files
-      if (!await MetadataExtractor.isValidAudioFile(file.path)) {
+      // Skip invalid audio files (using provided formats)
+      if (!await _isValidAudioFileWithFormats(file.path, formats)) {
         _logger.d('Skipping invalid audio file: ${file.path}');
         return null;
       }
 
       // Use enhanced metadata extraction
       final song = await MetadataExtractor.extractMetadata(file.path);
-
 
       return song;
     } catch (e) {
@@ -634,182 +592,21 @@ class FetchSongsService {
 
   /// Get list of supported audio formats
   static List<String> getSupportedFormats() {
-    return List.from(supportedFormats);
+    return List.from(FormatUtils.defaultSupportedFormats);
   }
 
   /// Remove duplicate songs by title, keeping the best version
   static List<Song> _removeDuplicateSongsByTitle(List<Song> songs) {
-    _logger.d('Removing duplicate songs by title from ${songs.length} songs');
-
-    final Map<String, Song> uniqueSongs = {};
-    int duplicatesRemoved = 0;
-
-    for (final song in songs) {
-      final normalizedTitle = _normalizeTitle(song.title);
-
-      if (uniqueSongs.containsKey(normalizedTitle)) {
-        // Found a duplicate - keep the better version
-        final existingSong = uniqueSongs[normalizedTitle]!;
-        final betterSong = _selectBetterSong(existingSong, song);
-
-        if (betterSong != existingSong) {
-          _logger.d(
-            'Replacing duplicate: "${existingSong.title}" with better version: "${song.title}"',
-          );
-          uniqueSongs[normalizedTitle] = betterSong;
-        } else {
-          _logger.d(
-            'Keeping existing song: "${existingSong.title}", removing duplicate: "${song.title}"',
-          );
-        }
-
-        duplicatesRemoved++;
-      } else {
-        // First occurrence of this title
-        uniqueSongs[normalizedTitle] = song;
-      }
-    }
-
-    _logger.i(
-      'Removed $duplicatesRemoved duplicate songs, kept ${uniqueSongs.length} unique songs',
-    );
-    return uniqueSongs.values.toList();
+    return SongCleanupService.removeDuplicateSongsByTitle(songs);
   }
 
-  /// Enhanced normalization that handles multiple languages
-  static String _normalizeTitle(String title) {
-    if (title.isEmpty) return '';
-
-    String normalized = title.toLowerCase().trim();
-
-    // Remove common prefixes/suffixes in multiple languages
-    final commonPrefixes = [
-      'the ', 'a ', 'an ', // English
-      'la ', 'le ', 'les ', 'un ', 'une ', // French
-      'el ', 'la ', 'los ', 'las ', 'un ', 'una ', // Spanish
-      'der ', 'die ', 'das ', 'ein ', 'eine ', // German
-      'il ', 'lo ', 'la ', 'gli ', 'le ', 'un ', 'una ', // Italian
-      'o ', 'a ', 'os ', 'as ', 'um ', 'uma ', // Portuguese
-      'де ', 'ла ', 'ле ', // Russian (Cyrillic)
-    ];
-
-    for (final prefix in commonPrefixes) {
-      if (normalized.startsWith(prefix)) {
-        normalized = normalized.substring(prefix.length);
-        break; // Only remove one prefix
-      }
-    }
-
-    // Remove special characters and extra spaces while preserving Unicode
-    normalized = normalized
-        .replaceAll(RegExp(r'[^\w\s\u00C0-\u017F\u0400-\u04FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF]'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-
-    // Remove common suffixes
-    final commonSuffixes = [
-      ' remix', ' remaster', ' remastered', ' extended', ' radio edit',
-      ' acoustic', ' live', ' demo', ' instrumental', ' karaoke',
-      ' cover', ' version', ' mix', ' edit',
-    ];
-
-    for (final suffix in commonSuffixes) {
-      if (normalized.endsWith(suffix)) {
-        normalized = normalized.substring(0, normalized.length - suffix.length).trim();
-        break; // Only remove one suffix
-      }
-    }
-
-    return normalized;
-  }
-
-  /// Enhanced song comparison that considers multiple factors
-  static Song _selectBetterSong(Song song1, Song song2) {
-    // Quality indicators (higher score = better quality)
-    int getQualityScore(Song song) {
-      int score = 0;
-
-      // File size preference (larger usually means better quality)
-      if (song.fileSize != null) {
-        score += (song.fileSize! / 1000000).round(); // MB as score
-      }
-
-      // Bitrate preference
-      if (song.bitrate != null) {
-        score += (song.bitrate! / 32).round(); // Bitrate/32 as score
-      }
-
-      // Duration preference (not too short, not too long)
-      final durationSeconds = song.duration.inSeconds;
-      if (durationSeconds >= 30 && durationSeconds <= 600) { // 30s to 10min
-        score += 10;
-      } else if (durationSeconds < 30) {
-        score -= 5; // Penalty for very short songs
-      }
-
-      // Prefer songs with more metadata
-      if (song.artists.isNotEmpty) score += 2;
-      if (song.albums.isNotEmpty) score += 2;
-      if (song.genre != null && song.genre!.isNotEmpty) score += 1;
-      if (song.year != null && song.year! > 0) score += 1;
-
-      // Prefer lossless formats
-      final extension = song.path.split('.').last.toLowerCase();
-      switch (extension) {
-        case 'flac':
-        case 'wav':
-        case 'aiff':
-          score += 15;
-          break;
-        case 'mp3':
-          score += 10;
-          break;
-        case 'aac':
-        case 'm4a':
-          score += 8;
-          break;
-        case 'ogg':
-          score += 6;
-          break;
-        default:
-          score += 3;
-      }
-
-      // Penalty for songs with suspicious patterns in title
-      final title = song.title.toLowerCase();
-      if (title.contains('sample') || title.contains('preview')) {
-        score -= 10;
-      }
-      if (title.length < 3) {
-        score -= 5; // Very short titles are suspicious
-      }
-
-      return score;
-    }
-
-    final score1 = getQualityScore(song1);
-    final score2 = getQualityScore(song2);
-
-    _logger.d('Song quality scores: "${song1.title}" = $score1, "${song2.title}" = $score2');
-
-    // If scores are very close, prefer the one added later (usually means it's newer)
-    if ((score1 - score2).abs() <= 2) {
-      if (song1.dateAdded != null && song2.dateAdded != null) {
-        return song1.dateAdded!.isAfter(song2.dateAdded!) ? song1 : song2;
-      }
-      // If dates are null, prefer song1 as default
-      return song1;
-    }
-
-    return score1 > score2 ? song1 : song2;
-  }
 
   /// Get filter settings
   static Map<String, dynamic> getFilterSettings() {
     return {
       'minDuration': minDuration.inSeconds,
       'maxDuration': maxDuration.inSeconds,
-      'supportedFormats': supportedFormats,
+      'supportedFormats': FormatUtils.defaultSupportedFormats,
       'duplicateRemoval': true,
       'fuzzyMatching': false, // Set to true for more aggressive duplicate detection
     };
@@ -818,11 +615,6 @@ class FetchSongsService {
   /// Set duplicate detection mode
   static bool _useFuzzyMatching = false;
 
-  /// Enable or disable fuzzy matching for duplicate detection
-  static void setFuzzyMatching(bool enabled) {
-    _useFuzzyMatching = enabled;
-    _logger.i('Fuzzy matching ${enabled ? 'enabled' : 'disabled'} for duplicate detection');
-  }
 
   /// Get duplicate removal statistics (for debugging/monitoring)
   static Map<String, dynamic> getDuplicateRemovalStats(
@@ -842,110 +634,56 @@ class FetchSongsService {
     };
   }
 
+  /// Validate if file is a valid audio file using provided formats
+  static Future<bool> _isValidAudioFileWithFormats(String filePath, List<String> supportedFormats) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) return false;
+
+      final stat = await file.stat();
+      if (stat.size < 1024) return false;
+
+      // Check if file extension is in supported formats
+      final extension = '.${filePath.split('.').last.toLowerCase()}';
+      if (!supportedFormats.contains(extension)) return false;
+
+      // Basic header validation for common formats
+      final bytes = await file.openRead(0, 12).first;
+      return _validateAudioHeader(bytes, extension);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Validate audio file header for common formats
+  static bool _validateAudioHeader(List<int> header, String extension) {
+    if (header.length < 4) return false;
+
+    switch (extension) {
+      case '.mp3':
+        // ID3v2 tag or MP3 frame header
+        if (header[0] == 0x49 && header[1] == 0x44 && header[2] == 0x33) return true;
+        if (header[0] == 0xFF && (header[1] & 0xE0) == 0xE0) return true;
+        return false;
+      case '.flac':
+        return header[0] == 0x66 && header[1] == 0x4C && header[2] == 0x61 && header[3] == 0x43;
+      case '.ogg':
+        return header[0] == 0x4F && header[1] == 0x67 && header[2] == 0x67 && header[3] == 0x53;
+      case '.wav':
+        return header[0] == 0x52 && header[1] == 0x49 && header[2] == 0x46 && header[3] == 0x46;
+      case '.m4a':
+      case '.m4p':
+        return header.length >= 8 && header[4] == 0x66 && header[5] == 0x74 && 
+               header[6] == 0x79 && header[7] == 0x70;
+      default:
+        return true; // For other formats, assume valid if extension matches
+    }
+  }
+
   /// Alternative: More aggressive duplicate detection using fuzzy matching
   static List<Song> _removeDuplicatesSongsFuzzy(List<Song> songs) {
-    _logger.d('Removing duplicate songs using fuzzy matching from ${songs.length} songs');
-
-    final List<Song> uniqueSongs = [];
-    int duplicatesRemoved = 0;
-
-    for (final song in songs) {
-      bool isDuplicate = false;
-
-      for (int i = 0; i < uniqueSongs.length; i++) {
-        if (_areSongsSimilar(uniqueSongs[i], song)) {
-          // Found a potential duplicate
-          final betterSong = _selectBetterSong(uniqueSongs[i], song);
-          
-          if (betterSong != uniqueSongs[i]) {
-            _logger.d('Replacing fuzzy duplicate: "${uniqueSongs[i].title}" with "${song.title}"');
-            uniqueSongs[i] = betterSong;
-          } else {
-            _logger.d('Keeping existing song, removing fuzzy duplicate: "${song.title}"');
-          }
-          
-          isDuplicate = true;
-          duplicatesRemoved++;
-          break;
-        }
-      }
-
-      if (!isDuplicate) {
-        uniqueSongs.add(song);
-      }
-    }
-
-    _logger.i('Fuzzy matching removed $duplicatesRemoved duplicates, kept ${uniqueSongs.length} unique songs');
-    return uniqueSongs;
+    return SongCleanupService.removeDuplicatesSongsFuzzy(songs);
   }
 
-  /// Check if two songs are similar enough to be considered duplicates
-  static bool _areSongsSimilar(Song song1, Song song2) {
-    // Normalize titles for comparison
-    final title1 = _normalizeTitle(song1.title);
-    final title2 = _normalizeTitle(song2.title);
 
-    // Exact match after normalization
-    if (title1 == title2) return true;
-
-    // Fuzzy matching using Levenshtein distance
-    final similarity = _calculateStringSimilarity(title1, title2);
-    
-    // Consider similar if:
-    // 1. Very high string similarity (>90%)
-    // 2. Same artist and high similarity (>80%)
-    // 3. Same duration (±5 seconds) and good similarity (>70%)
-    
-    if (similarity > 0.9) return true;
-    
-    if (similarity > 0.8 && 
-        song1.artists.join(', ').toLowerCase() == song2.artists.join(', ').toLowerCase()) {
-      return true;
-    }
-
-    if (similarity > 0.7 && 
-        (song1.duration.inSeconds - song2.duration.inSeconds).abs() <= 5) {
-      return true;
-    }
-
-    return false;
-  }
-
-  /// Calculate string similarity using Levenshtein distance
-  static double _calculateStringSimilarity(String s1, String s2) {
-    if (s1 == s2) return 1.0;
-    if (s1.isEmpty || s2.isEmpty) return 0.0;
-
-    final int len1 = s1.length;
-    final int len2 = s2.length;
-    
-    // Create a matrix for dynamic programming
-    List<List<int>> matrix = List.generate(
-      len1 + 1, 
-      (i) => List.filled(len2 + 1, 0),
-    );
-
-    // Initialize first row and column
-    for (int i = 0; i <= len1; i++) {
-      matrix[i][0] = i;
-    }
-    for (int j = 0; j <= len2; j++) {
-      matrix[0][j] = j;
-    }
-
-    // Fill the matrix
-    for (int i = 1; i <= len1; i++) {
-      for (int j = 1; j <= len2; j++) {
-        final cost = s1[i - 1] == s2[j - 1] ? 0 : 1;
-        matrix[i][j] = [
-          matrix[i - 1][j] + 1,      // deletion
-          matrix[i][j - 1] + 1,      // insertion
-          matrix[i - 1][j - 1] + cost, // substitution
-        ].reduce((a, b) => a < b ? a : b);
-      }
-    }
-
-    final maxLength = len1 > len2 ? len1 : len2;
-    return 1.0 - (matrix[len1][len2] / maxLength);
-  }
 }

@@ -28,22 +28,21 @@ class _PopUpMusicPlayerWidgetState extends State<PopUpMusicPlayerWidget>
   late AnimationController _contentController;
 
   double _dragOffset = 0.0;
-  static bool _hasAnimatedIn = false; // Static to persist across rebuilds
+  static bool _hasAnimatedIn = false;
   String? _lastSongId;
   bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    _logger.i('PopUpMusicPlayerWidget initialized');
 
     _slideController = AnimationController(
-      duration: const Duration(milliseconds: 200), // Faster animation
+      duration: const Duration(milliseconds: 200),
       vsync: this,
     );
 
     _scaleController = AnimationController(
-      duration: const Duration(milliseconds: 150), // Faster animation
+      duration: const Duration(milliseconds: 150),
       vsync: this,
     );
 
@@ -259,9 +258,8 @@ class _PopUpMusicPlayerWidgetState extends State<PopUpMusicPlayerWidget>
                               children: [
                                 Padding(
                                   padding: EdgeInsets.symmetric(
-                                    horizontal: 16.w,
-                                    vertical:
-                                        12.h, // Increased vertical padding
+                                    horizontal: 12.w,
+                                    vertical: 8.h, // Reduced padding
                                   ),
                                   child: Row(
                                     children: [
@@ -457,8 +455,8 @@ class _PopUpMusicPlayerWidgetState extends State<PopUpMusicPlayerWidget>
                                                     ? Icons.pause
                                                     : Icons.play_arrow,
                                                 key: ValueKey(
-                                                  state.myPlayerState.isPlaying,
-                                                ), // Ensure proper animation
+                                                  'popup_player_${state.myPlayerState.isPlaying}',
+                                                ), // Unique key for popup player
                                                 color: Colors.white,
                                                 size: 20.sp,
                                               ),

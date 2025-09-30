@@ -1,19 +1,17 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import '../../core/constants/app_enums.dart';
 import '../../core/theme/theme_extension.dart';
 import '../../utils/logger/logger.dart';
 import '../../utils/models/playlist_source/playlist_source_model.dart';
 import '../../utils/models/song/song_model.dart';
 import '../bottom_tab/screens/bloc/music_bloc.dart';
-import '../bottom_tab/widgets/glass_card.dart';
-import '../bottom_tab/widgets/song_list_item.dart';
+import '../widgets/sorting_helper.dart';
+import '../widgets/custom_music_floating_button.dart';
 
-enum PlaylistDetailType {
-  album,
-  artist,
-  playlist,
-}
+enum PlaylistDetailType { album, artist, playlist }
 
 class PlaylistDetailScreen extends StatefulWidget {
   final PlaylistDetailType type;
@@ -23,7 +21,8 @@ class PlaylistDetailScreen extends StatefulWidget {
   final String? year;
   final String? bio;
   final int songCount;
-  final int? albumCount;
+  final List<Song> songs;
+  final String? coverImage;
 
   const PlaylistDetailScreen({
     super.key,
@@ -34,7 +33,8 @@ class PlaylistDetailScreen extends StatefulWidget {
     this.year,
     this.bio,
     required this.songCount,
-    this.albumCount,
+    required this.songs,
+    this.coverImage,
   });
 
   @override
@@ -43,87 +43,22 @@ class PlaylistDetailScreen extends StatefulWidget {
 
 class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   final AppLogger _logger = AppLogger('PlaylistDetailScreen');
-  final TextEditingController _searchController = TextEditingController();
   List<Song> _filteredSongs = [];
-  String? _immediatelySelectedSongId;
 
   @override
   void initState() {
     super.initState();
-    _logger.i('PlaylistDetailScreen initialized for ${widget.type.name}: ${widget.name}');
-    _searchController.addListener(_onSearchChanged);
+    _filteredSongs = List.from(widget.songs);
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Update selected song when dependencies change
-    final musicState = context.read<MusicBloc>().state;
-    final newSongId = musicState.myPlayerState.currentSongId;
-    
-    if (newSongId != _immediatelySelectedSongId) {
-      _logger.i(
-        '🔄 Updating selected song ID on dependency change: $newSongId (was: $_immediatelySelectedSongId)',
-      );
-      setState(() {
-        _immediatelySelectedSongId = newSongId;
-      });
-    }
-  }
-
-  void _onSearchChanged() {
-    setState(() {
-      final query = _searchController.text.toLowerCase();
-      if (query.isEmpty) {
-        _filteredSongs = _getSongsFromSource();
-      } else {
-        _filteredSongs = _getSongsFromSource()
-            .where((song) => 
-                song.title.toLowerCase().contains(query) ||
-                song.artists.any((artist) => artist.toLowerCase().contains(query)) ||
-                song.albums.any((album) => album.toLowerCase().contains(query)))
-            .toList();
-      }
-    });
-  }
-
-  List<Song> _getSongsFromSource() {
-    final state = context.read<MusicBloc>().state;
-    
+  IconData _getTypeIcon() {
     switch (widget.type) {
       case PlaylistDetailType.album:
-        return state.allSongs
-            .where((song) => song.albums.any((album) => album == widget.name))
-            .toList();
+        return Icons.album_rounded;
       case PlaylistDetailType.artist:
-        return state.allSongs
-            .where((song) => song.artists.any((artist) => artist == widget.name))
-            .toList();
+        return Icons.person_rounded;
       case PlaylistDetailType.playlist:
-        final playlist = state.myPlaylist.firstWhere(
-          (p) => p.id == widget.id,
-          orElse: () => throw Exception('Playlist not found'),
-        );
-        return state.allSongs
-            .where((song) => playlist.songIds.contains(song.id))
-            .toList();
-    }
-  }
-
-  PlaylistSource _getPlaylistSource() {
-    switch (widget.type) {
-      case PlaylistDetailType.album:
-        return PlaylistSource.album(widget.id);
-      case PlaylistDetailType.artist:
-        return PlaylistSource.artist(widget.id);
-      case PlaylistDetailType.playlist:
-        return PlaylistSource.myPlaylist(widget.id);
+        return Icons.queue_music_rounded;
     }
   }
 
@@ -138,84 +73,190 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     }
   }
 
-  IconData _getTypeIcon() {
+  PlaylistSource _getPlaylistSource() {
     switch (widget.type) {
       case PlaylistDetailType.album:
-        return Icons.album_rounded;
+        return PlaylistSource.album(widget.id);
       case PlaylistDetailType.artist:
-        return Icons.person_rounded;
+        return PlaylistSource.artist(widget.id);
       case PlaylistDetailType.playlist:
-        return Icons.queue_music_rounded;
+        return PlaylistSource.myPlaylist(widget.id);
     }
+  }
+
+  int _getAlbumCountForArtist() {
+    if (widget.type != PlaylistDetailType.artist) return 0;
+    final state = context.read<MusicBloc>().state;
+    return state.albumList.where((album) => album.artistId == widget.id).length;
+  }
+
+  IconButton _buildActionButton({
+    required BuildContext context,
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    return IconButton(
+      onPressed: onPressed,
+      icon: Icon(icon, color: Colors.white, size: 18.sp),
+      style: IconButton.styleFrom(
+        backgroundColor: Colors.white.withValues(alpha: 0.2),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12.r),
+        ),
+        padding: EdgeInsets.all(4.w),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
+      body: Stack(
+        children: [
+          Container(
         decoration: BoxDecoration(gradient: context.backgroundGradient),
-        child: SafeArea(
           child: BlocBuilder<MusicBloc, MusicState>(
             builder: (context, state) {
               // Update filtered songs when state changes
               if (_filteredSongs.isEmpty) {
-                _filteredSongs = _getSongsFromSource();
+                _filteredSongs = List.from(widget.songs);
               }
+
+            // Get cover image from first song or use default
+            final coverImage = _filteredSongs.isNotEmpty
+                ? _filteredSongs.first.albumArt
+                : null;
 
               return CustomScrollView(
                 slivers: [
-                  // App Bar with Hero Image
+                 // Enhanced SliverAppBar with cover image background
                   SliverAppBar(
-                    expandedHeight: 280.h,
+                   expandedHeight: 240.h,
                     floating: false,
                     pinned: true,
                     backgroundColor: Colors.transparent,
                     elevation: 0,
+                   leading: IconButton(
+                     icon: Icon(
+                       Icons.arrow_back_ios_rounded,
+                       color: Colors.white,
+                       size: 20.sp,
+                     ),
+                     onPressed: () => Navigator.of(context).pop(),
+                   ),
+                   actions: [
+                     // Only show edit and delete for my playlist items
+                     if (widget.type == PlaylistDetailType.playlist) ...[
+                       _buildActionButton(
+                         context: context,
+                         icon: Icons.edit_rounded,
+                         onPressed: _showEditPlaylistDialog,
+                       ),
+                       _buildActionButton(
+                         context: context,
+                         icon: Icons.delete_rounded,
+                         onPressed: _showDeletePlaylistDialog,
+                       ),
+                     ],
+                     // Sort button for all types
+                     _buildActionButton(
+                       context: context,
+                       icon: Icons.sort_rounded,
+                       onPressed: _showSortingMenu,
+                     ),
+                   ],
                     flexibleSpace: FlexibleSpaceBar(
                       background: Container(
                         decoration: BoxDecoration(
-                          gradient: context.primaryGradient,
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            context.primaryStart.withValues(alpha: 0.9),
+                            context.primaryEnd.withValues(alpha: 0.8),
+                          ],
+                        ),
                         ),
                         child: Stack(
                           children: [
-                            // Background Pattern
+                          // Cover image background with blur effect
+                          if (coverImage != null)
                             Positioned.fill(
                               child: Container(
                                 decoration: BoxDecoration(
+                                  image: DecorationImage(
+                                    image: FileImage(File(coverImage)),
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              child: Container(
+                                decoration: BoxDecoration(
                                   gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
                                     colors: [
-                                      context.primaryStart.withValues(alpha: 0.3),
-                                      context.primaryEnd.withValues(alpha: 0.1),
+                                        Colors.black.withValues(alpha: 0.3),
+                                        Colors.black.withValues(alpha: 0.6),
                                     ],
                                   ),
                                 ),
                               ),
                             ),
-                            // Content
+                            ),
+                          // Content overlay
                             Positioned(
                               bottom: 0,
                               left: 0,
                               right: 0,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.transparent,
+                                    Colors.black.withValues(alpha: 0.7),
+                                  ],
+                                ),
+                              ),
                               child: Padding(
-                                padding: EdgeInsets.all(24.w),
+                                padding: EdgeInsets.fromLTRB(
+                                  20.w,
+                                  20.h,
+                                  20.w,
+                                  24.h,
+                                ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // Type Badge
+                                    // Type Badge with improved design
                                     Container(
                                       padding: EdgeInsets.symmetric(
-                                        horizontal: 12.w,
-                                        vertical: 6.h,
+                                        horizontal: 14.w,
+                                        vertical: 8.h,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.2),
-                                        borderRadius: BorderRadius.circular(20.r),
-                                        border: Border.all(
-                                          color: Colors.white.withValues(alpha: 0.3),
-                                          width: 1,
+                                        color: Colors.white.withValues(
+                                          alpha: 0.25,
                                         ),
+                                        borderRadius: BorderRadius.circular(
+                                          25.r,
+                                        ),
+                                        border: Border.all(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.4,
+                                          ),
+                                          width: 1.5,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(
+                                              alpha: 0.1,
+                                            ),
+                                            blurRadius: 8.r,
+                                            offset: Offset(0, 2.h),
+                                          ),
+                                        ],
                                       ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
@@ -223,72 +264,95 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                           Icon(
                                             _getTypeIcon(),
                                             color: Colors.white,
-                                            size: 16.sp,
+                                            size: 18.sp,
                                           ),
-                                          SizedBox(width: 6.w),
+                                          SizedBox(width: 8.w),
                                           Text(
                                             _getTypeTitle(),
                                             style: TextStyle(
                                               color: Colors.white,
-                                              fontSize: 12.sp,
-                                              fontWeight: FontWeight.w600,
+                                              fontSize: 13.sp,
+                                              fontWeight: FontWeight.w700,
                                               fontFamily: 'Poppins',
+                                              letterSpacing: 0.5,
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
-                                    SizedBox(height: 16.h),
-                                    // Title
+                                    SizedBox(height: 20.h),
+                                     // Title with improved typography
                                     Text(
                                       widget.name,
                                       style: TextStyle(
                                         color: Colors.white,
-                                        fontSize: 28.sp,
+                                        fontSize: 32.sp,
                                         fontWeight: FontWeight.bold,
                                         fontFamily: 'Poppins',
+                                        height: 1.2,
+                                        shadows: [
+                                          Shadow(
+                                            color: Colors.black.withValues(
+                                              alpha: 0.3,
+                                            ),
+                                            offset: Offset(0, 2.h),
+                                            blurRadius: 4.r,
+                                          ),
+                                        ],
                                       ),
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                     ),
-                                    SizedBox(height: 8.h),
-                                    // Description/Bio
-                                    if (widget.description?.isNotEmpty == true || widget.bio?.isNotEmpty == true)
+                                    SizedBox(height: 12.h),
+                                     // Description/Bio with better styling
+                                     if (widget.description?.isNotEmpty == true)
                                       Text(
-                                        widget.description ?? widget.bio ?? '',
+                                         widget.description!,
                                         style: TextStyle(
-                                          color: Colors.white.withValues(alpha: 0.9),
-                                          fontSize: 14.sp,
+                                          color: Colors.white.withValues(
+                                            alpha: 0.95,
+                                          ),
+                                          fontSize: 15.sp,
                                           fontFamily: 'Poppins',
+                                          height: 1.4,
+                                          shadows: [
+                                            Shadow(
+                                              color: Colors.black.withValues(
+                                                alpha: 0.2,
+                                              ),
+                                              offset: Offset(0, 1.h),
+                                              blurRadius: 2.r,
+                                            ),
+                                          ],
                                         ),
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                       ),
-                                    SizedBox(height: 12.h),
-                                    // Stats Row
-                                    Row(
+                                    SizedBox(height: 16.h),
+                                    // Enhanced Stats Row
+                                    Wrap(
+                                      spacing: 20.w,
+                                      runSpacing: 8.h,
                                       children: [
                                         _buildStatItem(
                                           icon: Icons.music_note_rounded,
                                           label: '${widget.songCount} songs',
                                         ),
-                                        if (widget.albumCount != null) ...[
-                                          SizedBox(width: 24.w),
+                                         if (widget.type == PlaylistDetailType.artist)
                                           _buildStatItem(
                                             icon: Icons.album_rounded,
-                                            label: '${widget.albumCount} albums',
+                                             label:
+                                                 '${_getAlbumCountForArtist()} albums',
                                           ),
-                                        ],
-                                        if (widget.year != null) ...[
-                                          SizedBox(width: 24.w),
+                                         if (widget.year != null)
                                           _buildStatItem(
                                             icon: Icons.calendar_today_rounded,
                                             label: widget.year!,
                                           ),
-                                        ],
                                       ],
                                     ),
                                   ],
+                                ),
                                 ),
                               ),
                             ),
@@ -298,79 +362,74 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                     ),
                   ),
 
-                  // Search Bar
+                 // Compact Play All Button
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.all(16.w),
-                      child: GlassCard(
-                        child: TextField(
-                          controller: _searchController,
-                          style: TextStyle(color: context.onSurfaceColor),
-                          decoration: InputDecoration(
-                            hintText: 'Search songs...',
-                            hintStyle: TextStyle(
-                              color: context.onSurfaceVariantColor,
-                            ),
-                            prefixIcon: Icon(
-                              Icons.search_rounded,
-                              color: context.onSurfaceVariantColor,
-                              size: 20.sp,
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(
+                     padding: EdgeInsets.symmetric(
+                       horizontal: 16.w,
+                       vertical: 8.h,
+                     ),
+                     child: Container(
+                       decoration: BoxDecoration(
+                         gradient: context.primaryGradient,
+                         borderRadius: BorderRadius.circular(12.r),
+                         boxShadow: [
+                           BoxShadow(
+                             color: context.primaryStart.withValues(alpha: 0.2),
+                             blurRadius: 8.r,
+                             offset: Offset(0, 2.h),
+                           ),
+                         ],
+                       ),
+                       child: Material(
+                         color: Colors.transparent,
+                         child: InkWell(
+                           borderRadius: BorderRadius.circular(12.r),
+                           onTap: _playAllSongs,
+                           child: Padding(
+                             padding: EdgeInsets.symmetric(
                               horizontal: 16.w,
                               vertical: 12.h,
                             ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // Play All Button
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16.w),
-                      child: GlassCard(
-                        child: ListTile(
-                          leading: Container(
-                            width: 50.w,
-                            height: 50.w,
-                            decoration: BoxDecoration(
-                              gradient: context.primaryGradient,
-                              borderRadius: BorderRadius.circular(25.r),
+                             child: Row(
+                               children: [
+                                 // Play Icon
+                                 Container(
+                                   width: 36.w,
+                                   height: 36.w,
+                                   decoration: BoxDecoration(
+                                     color: Colors.white.withValues(alpha: 0.2),
+                                     borderRadius: BorderRadius.circular(18.r),
+                                     border: Border.all(
+                                       color: Colors.white.withValues(
+                                         alpha: 0.3,
+                                       ),
+                                       width: 1,
+                                     ),
                             ),
                             child: Icon(
                               Icons.play_arrow_rounded,
                               color: Colors.white,
-                              size: 24.sp,
-                            ),
-                          ),
-                          title: Text(
-                            'Play All',
+                                     size: 18.sp,
+                                   ),
+                                 ),
+                                 SizedBox(width: 12.w),
+                                 // Text Content
+                                 Expanded(
+                                   child: Text(
+                                         'Play All (${widget.songCount} songs)',
                             style: TextStyle(
-                              color: context.onSurfaceColor,
+                                       color: Colors.white,
                               fontWeight: FontWeight.w600,
-                              fontSize: 16.sp,
-                              fontFamily: 'Poppins',
-                            ),
-                          ),
-                          subtitle: Text(
-                            'Play all ${widget.songCount} songs',
-                            style: TextStyle(
-                              color: context.onSurfaceVariantColor,
                               fontSize: 14.sp,
                               fontFamily: 'Poppins',
                             ),
                           ),
-                          trailing: Icon(
-                            Icons.shuffle_rounded,
-                            color: context.onSurfaceVariantColor,
-                            size: 20.sp,
-                          ),
-                          onTap: () {
-                            _playAllSongs();
-                          },
+                                 ),
+                               ],
+                             ),
+                           ),
+                         ),
                         ),
                       ),
                     ),
@@ -378,25 +437,47 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
                   SliverToBoxAdapter(child: SizedBox(height: 16.h)),
 
-                  // Songs List
+                // Enhanced Songs List
                   if (_filteredSongs.isEmpty)
                     SliverToBoxAdapter(
                       child: Center(
                         child: Padding(
-                          padding: EdgeInsets.all(32.w),
+                        padding: EdgeInsets.all(40.w),
                           child: Column(
                             children: [
-                              Icon(
+                            Container(
+                              width: 80.w,
+                              height: 80.w,
+                              decoration: BoxDecoration(
+                                color: context.onSurfaceVariantColor.withValues(
+                                  alpha: 0.1,
+                                ),
+                                borderRadius: BorderRadius.circular(40.r),
+                              ),
+                              child: Icon(
                                 Icons.music_off_rounded,
                                 color: context.onSurfaceVariantColor,
-                                size: 48.sp,
+                                size: 40.sp,
                               ),
-                              SizedBox(height: 16.h),
+                              ),
+                            SizedBox(height: 20.h),
                               Text(
                                 'No songs found',
                                 style: TextStyle(
                                   color: context.onSurfaceVariantColor,
-                                  fontSize: 16.sp,
+                                fontSize: 18.sp,
+                                fontFamily: 'Poppins',
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            SizedBox(height: 8.h),
+                            Text(
+                              'Try adjusting your search',
+                              style: TextStyle(
+                                color: context.onSurfaceVariantColor.withValues(
+                                  alpha: 0.7,
+                                ),
+                                fontSize: 14.sp,
                                   fontFamily: 'Poppins',
                                 ),
                               ),
@@ -409,31 +490,19 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                     SliverPadding(
                       padding: EdgeInsets.symmetric(horizontal: 16.w),
                       sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
+                      delegate: SliverChildBuilderDelegate((context, index) {
                             final song = _filteredSongs[index];
-                            final isSelected = song.id == _immediatelySelectedSongId;
+                        // No longer using local selection state - only bloc state
                             
                             return Padding(
-                              padding: EdgeInsets.only(bottom: 8.h),
-                            child: SongListItem(
-                              songTitle: song.title,
-                              artistName: song.artists.isNotEmpty ? song.artists.first : 'Unknown Artist',
-                              albumName: song.albums.isNotEmpty ? song.albums.first : 'Unknown Album',
-                              duration: song.duration,
-                              songId: song.id,
-                              isImmediatelySelected: isSelected,
-                              onTap: () {
-                                _playSong(song);
-                              },
-                              onOpenMusicPlayer: () {
-                                _playSong(song);
-                              },
-                            ),
-                            );
-                          },
-                          childCount: _filteredSongs.length,
-                        ),
+                          padding: EdgeInsets.only(bottom: 6.h),
+                          child: _buildEnhancedSongTile(
+                            song,
+                            false, // No longer using local selection state
+                            index + 1,
+                          ),
+                        );
+                      }, childCount: _filteredSongs.length),
                       ),
                     ),
 
@@ -444,43 +513,254 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
             },
           ),
         ),
+          // Custom floating music button
+          const CustomMusicFloatingButton(),
+        ],
       ),
     );
   }
 
-  Widget _buildStatItem({
-    required IconData icon,
-    required String label,
-  }) {
-    return Row(
+  Widget _buildStatItem({required IconData icon, required String label}) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          color: Colors.white.withValues(alpha: 0.9),
-          size: 16.sp,
-        ),
+          Icon(icon, color: Colors.white, size: 16.sp),
         SizedBox(width: 6.w),
         Text(
           label,
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.9),
-            fontSize: 14.sp,
+              color: Colors.white,
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'Poppins',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEnhancedSongTile(Song song, bool isSelected, int index) {
+    return BlocBuilder<MusicBloc, MusicState>(
+      buildWhen: (previous, current) {
+        final prevSongId = previous.myPlayerState.currentSongId;
+        final currSongId = current.myPlayerState.currentSongId;
+        final prevIsPlaying = previous.myPlayerState.isPlaying;
+        final currIsPlaying = current.myPlayerState.isPlaying;
+
+        return prevSongId != currSongId ||
+            prevIsPlaying != currIsPlaying ||
+            (prevSongId == song.id) != (currSongId == song.id);
+      },
+      builder: (context, state) {
+        final isCurrentlyPlaying =
+            state.myPlayerState.currentSongId == song.id &&
+            state.myPlayerState.isPlaying;
+        final isCurrentSong = state.myPlayerState.currentSongId == song.id;
+        
+        // CRITICAL: Only use bloc state for selection to ensure only one song is selected
+        // Remove the local _immediatelySelectedSongId logic to prevent multiple selections
+        final isSelectedSong = isCurrentSong;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: isSelectedSong
+                ? context.primaryStart.withValues(alpha: 0.12)
+                : context.cardColor.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(12.r),
+            border: Border.all(
+              color: isSelectedSong
+                  ? context.primaryStart.withValues(alpha: 0.4)
+                  : context.onSurfaceColor.withValues(alpha: 0.08),
+              width: 1.5,
+            ),
+            boxShadow: isSelectedSong
+                ? [
+                    BoxShadow(
+                      color: context.primaryStart.withValues(alpha: 0.15),
+                      blurRadius: 8.r,
+                      offset: Offset(0, 2.h),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12.r),
+              onTap: () => _playSong(song),
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                child: Row(
+                  children: [
+                    // Track Number or Album Art
+                    Container(
+                      width: 40.w,
+                      height: 40.w,
+                      decoration: BoxDecoration(
+                        color: isSelectedSong
+                            ? context.primaryStart.withValues(alpha: 0.2)
+                            : context.onSurfaceVariantColor.withValues(
+                                alpha: 0.1,
+                              ),
+                        borderRadius: BorderRadius.circular(8.r),
+                      ),
+                      child: song.albumArt != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(8.r),
+                              child: Image.file(
+                                File(song.albumArt!),
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    _buildTrackNumber(index),
+                              ),
+                            )
+                          : _buildTrackNumber(index),
+                    ),
+
+                    SizedBox(width: 12.w),
+
+                    // Song Info
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            song.title,
+                            style: TextStyle(
+                              color: isSelectedSong
+                                  ? context.primaryStart
+                                  : context.onSurfaceColor,
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: 'Poppins',
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          SizedBox(height: 3.h),
+                          Text(
+                            song.artists.isNotEmpty
+                                ? song.artists.first
+                                : 'Unknown Artist',
+                            style: TextStyle(
+                              color: isSelectedSong
+                                  ? context.primaryStart.withValues(alpha: 0.8)
+                                  : context.onSurfaceVariantColor,
+                              fontSize: 13.sp,
+                              fontWeight: FontWeight.w500,
+                              fontFamily: 'Poppins',
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    SizedBox(width: 12.w),
+
+                    // Duration and Play Button
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _formatDuration(song.duration),
+                          style: TextStyle(
+                            color: isSelectedSong
+                                ? context.primaryStart
+                                : context.onSurfaceVariantColor,
+                            fontSize: 13.sp,
             fontWeight: FontWeight.w500,
             fontFamily: 'Poppins',
           ),
-        ),
-      ],
+                        ),
+                        SizedBox(width: 12.w),
+                        _buildPlayButton(
+                          context,
+                          isCurrentlyPlaying,
+                          isSelectedSong,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
+  }
+
+  Widget _buildTrackNumber(int index) {
+    return Center(
+      child: Text(
+        index.toString(),
+        style: TextStyle(
+          color: context.onSurfaceVariantColor,
+          fontSize: 14.sp,
+          fontWeight: FontWeight.w600,
+          fontFamily: 'Poppins',
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlayButton(
+    BuildContext context,
+    bool isPlaying,
+    bool isSelected,
+  ) {
+    return Container(
+      width: 32.w,
+      height: 32.w,
+      decoration: BoxDecoration(
+        color: isSelected
+            ? context.primaryStart
+            : context.onSurfaceVariantColor.withValues(alpha: 0.2),
+        shape: BoxShape.circle,
+        boxShadow: isSelected
+            ? [
+                BoxShadow(
+                  color: context.primaryStart.withValues(alpha: 0.3),
+                  blurRadius: 6.r,
+                  offset: Offset(0, 2.h),
+                ),
+              ]
+            : null,
+      ),
+      child: Icon(
+        isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+        color: isSelected ? Colors.white : context.onSurfaceVariantColor,
+        size: 16.sp,
+      ),
+    );
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$minutes:$seconds';
   }
 
   void _playSong(Song song) {
     _logger.i("🎵 Playing song: ${song.title}");
     
-    // Immediately update selected song for instant feedback
-    setState(() {
-      _immediatelySelectedSongId = song.id;
-    });
+    // CRITICAL: Don't set local _immediatelySelectedSongId here
+    // Let the bloc state handle selection to prevent multiple songs being selected
+    // The bloc will update currentSongId and trigger didChangeDependencies()
 
     // Play the song
     context.read<MusicBloc>().add(
@@ -505,5 +785,166 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
         ),
       );
     }
+  }
+
+  void _showSortingMenu() {
+    SortingHelper.showSortingMenuWithCallback(
+      context,
+      onSortSelected: _applySortingToCurrentPlaylist,
+    );
+  }
+
+  void _applySortingToCurrentPlaylist(int sortingIndex) {
+    _logger.i('🔄 Applying sorting to current playlist with index: $sortingIndex');
+    
+    // Apply sorting to the current filtered songs using common helper
+    final sortedSongs = SortingHelper.applySorting(_filteredSongs, sortingIndex);
+    
+    // Update the filtered songs immediately
+    setState(() {
+      _filteredSongs = sortedSongs;
+    });
+
+    // Also update the bloc state for persistence
+    context.read<MusicBloc>().add(
+      MusicEvent.changeSortingOrder(
+        sortingIndex: sortingIndex,
+        sortingList: _filteredSongs.map((s) => s.id).toList(),
+        playlistSource: _getPlaylistSource(),
+      ),
+    );
+  }
+
+  void _showEditPlaylistDialog() {
+    final nameController = TextEditingController(text: widget.name);
+    final descriptionController = TextEditingController(text: widget.description ?? '');
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: context.cardColor,
+        title: Text(
+          'Edit Playlist',
+          style: TextStyle(color: context.onSurfaceColor),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              style: TextStyle(color: context.onSurfaceColor),
+              decoration: InputDecoration(
+                labelText: 'Playlist Name',
+                labelStyle: TextStyle(color: context.onSurfaceVariantColor),
+                border: const OutlineInputBorder(),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: context.onSurfaceVariantColor),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: context.primaryStart),
+                ),
+              ),
+            ),
+            SizedBox(height: 16.h),
+            TextField(
+              controller: descriptionController,
+              style: TextStyle(color: context.onSurfaceColor),
+              decoration: InputDecoration(
+                labelText: 'Description (Optional)',
+                labelStyle: TextStyle(color: context.onSurfaceVariantColor),
+                border: const OutlineInputBorder(),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: context.onSurfaceVariantColor),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: context.primaryStart),
+                ),
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (nameController.text.isNotEmpty) {
+                _logger.i('Updating playlist: ${nameController.text}');
+
+                context.read<MusicBloc>().add(
+                  MusicEvent.addOrUpdateMyPlayList(
+                    operation: MyPlaylistOperation.update,
+                    playlistId: widget.id,
+                    name: nameController.text,
+                    description: descriptionController.text,
+                  ),
+                );
+
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Playlist "${nameController.text}" updated!'),
+                    backgroundColor: context.primaryStart,
+                  ),
+                );
+              }
+            },
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeletePlaylistDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: context.cardColor,
+        title: Text(
+          'Delete Playlist',
+          style: TextStyle(color: context.onSurfaceColor),
+        ),
+        content: Text(
+          'Are you sure you want to delete "${widget.name}"? This action cannot be undone.',
+          style: TextStyle(color: context.onSurfaceVariantColor),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              _logger.i('Deleting playlist: ${widget.name}');
+
+              context.read<MusicBloc>().add(
+                MusicEvent.addOrUpdateMyPlayList(
+                  operation: MyPlaylistOperation.delete,
+                  playlistId: widget.id,
+                ),
+              );
+
+              Navigator.pop(context);
+              Navigator.pop(context); // Go back to previous screen
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Playlist "${widget.name}" deleted!'),
+                  backgroundColor: context.primaryStart,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
   }
 }

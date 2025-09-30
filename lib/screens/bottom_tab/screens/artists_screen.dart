@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../core/theme/theme_extension.dart';
-import '../../widgets/custom_tab_view_app_bar.dart';
+import '../widgets/custom_tab_view_app_bar.dart';
 import '../../../utils/logger/logger.dart';
 import '../../../utils/models/artist/artist_model.dart';
 import '../../../utils/models/song/song_model.dart';
 import '../../../utils/models/playlist_source/playlist_source_model.dart';
-import '../../playlist_detail_screen/playlist_detail_screen.dart';
 import 'bloc/music_bloc.dart';
 import '../widgets/album_artist_my_playlist_helper.dart';
 
@@ -228,13 +227,9 @@ class _ArtistsScreenState extends State<ArtistsScreen> {
   }
 
   void _navigateToArtistDetail(Artist artist, List<Song> artistSongs) {
-    AlbumArtistPlaylistHelper.navigateToDetail(
+    AlbumArtistPlaylistHelper.navigateToArtistDetail(
       context: context,
-      type: PlaylistDetailType.artist,
-      id: artist.id,
-      name: artist.name,
-      songCount: artistSongs.length,
-      bio: artist.bio,
+      artist: artist,
     );
   }
 }

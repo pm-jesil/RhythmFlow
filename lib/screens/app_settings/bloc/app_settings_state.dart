@@ -13,6 +13,9 @@ class AppSettingsState with _$AppSettingsState {
     required bool autoPlayNext,
     required bool showNotifications,
     required double playbackSpeed,
+    required int appBackgroundRefreshTimeGap,
+    String? userName,
+    String? nickName,
   }) = _Initial;
 
   factory AppSettingsState.initial() => AppSettingsState(
@@ -51,5 +54,8 @@ class AppSettingsState with _$AppSettingsState {
     autoPlayNext: true,
     showNotifications: true,
     playbackSpeed: 1.0,
+    appBackgroundRefreshTimeGap: 5, // Default 5 hours
+    userName: null,
+    nickName: null,
   );
 }

@@ -546,6 +546,74 @@ class AlbumArtistPlaylistHelper {
     );
   }
 
+  /// New object-based navigation methods
+  static void navigateToArtistDetail({
+    required BuildContext context,
+    required Artist artist,
+  }) {
+    final state = context.read<MusicBloc>().state;
+    final artistSongs = getArtistSongs(artist, state.allSongs);
+    
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => PlaylistDetailScreen(
+          type: PlaylistDetailType.artist,
+          id: artist.id,
+          name: artist.name,
+          description: artist.bio,
+          songCount: artistSongs.length,
+          songs: artistSongs,
+          coverImage: artist.image,
+        ),
+      ),
+    );
+  }
+
+  static void navigateToAlbumDetail({
+    required BuildContext context,
+    required Album album,
+  }) {
+    final state = context.read<MusicBloc>().state;
+    final albumSongs = getAlbumSongs(album, state.allSongs);
+    
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => PlaylistDetailScreen(
+          type: PlaylistDetailType.album,
+          id: album.id,
+          name: album.name,
+          description: album.description,
+          year: album.year?.toString(),
+          songCount: albumSongs.length,
+          songs: albumSongs,
+          coverImage: album.coverImage,
+        ),
+      ),
+    );
+  }
+
+  static void navigateToPlaylistDetail({
+    required BuildContext context,
+    required MyPlaylist playlist,
+  }) {
+    final state = context.read<MusicBloc>().state;
+    final playlistSongs = getPlaylistSongs(playlist, state.allSongs);
+    
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => PlaylistDetailScreen(
+          type: PlaylistDetailType.playlist,
+          id: playlist.id,
+          name: playlist.name,
+          description: playlist.description,
+          songCount: playlistSongs.length,
+          songs: playlistSongs,
+          coverImage: playlist.coverImage,
+        ),
+      ),
+    );
+  }
+
   /// Gets songs for an artist
   static List<Song> getArtistSongs(Artist artist, List<Song> allSongs) {
     try {

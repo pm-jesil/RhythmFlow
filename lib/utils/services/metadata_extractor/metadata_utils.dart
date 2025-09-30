@@ -31,78 +31,81 @@ class MetadataUtils {
 
   /// Safe extraction of duration with error handling
   static Duration extractDurationSafely(Tag? tag) {
-    try {
-      return extractDuration(tag);
-    } catch (e) {
-      MetadataExtractor._logger.w('Error extracting duration: $e');
-      return Duration.zero;
-    }
+    return SharedValidation.extractSafely(
+      () => extractDuration(tag),
+      Duration.zero,
+      'duration',
+    );
   }
 
   /// Extract genre from metadata with mapping
   static String? extractGenreSafely(Tag? tag) {
-    try {
-      final genre = cleanString(tag?.genre);
-      if (genre == null || genre.isEmpty) return null;
-      final numericGenre = int.tryParse(genre);
-      if (numericGenre != null && MetadataExtractor._genreMap.containsKey(numericGenre.toString())) {
-        return MetadataExtractor._genreMap[numericGenre.toString()];
-      }
-      var cleanGenre = genre
-          .replaceAll(RegExp(r'\s*\([^)]*\)'), '')
-          .replaceAll(RegExp(r'\s*\[[^\]]*\]'), '')
-          .split(RegExp(r'[;,/]'))
-          .first
-          .trim();
-      cleanGenre = cleanGenre
-          .split(' ')
-          .map((word) => word.isNotEmpty
-              ? word[0].toUpperCase() + word.substring(1).toLowerCase()
-              : word)
-          .join(' ');
-      return cleanGenre.isEmpty ? null : cleanGenre;
-    } catch (e) {
-      MetadataExtractor._logger.w('Error extracting genre: $e');
-      return null;
-    }
+    return SharedValidation.extractSafely(
+      () {
+        final genre = cleanString(tag?.genre);
+        if (genre == null || genre.isEmpty) return null;
+        final numericGenre = int.tryParse(genre);
+        if (numericGenre != null && MetadataExtractor._genreMap.containsKey(numericGenre.toString())) {
+          return MetadataExtractor._genreMap[numericGenre.toString()];
+        }
+        var cleanGenre = genre
+            .replaceAll(RegExp(r'\s*\([^)]*\)'), '')
+            .replaceAll(RegExp(r'\s*\[[^\]]*\]'), '')
+            .split(RegExp(r'[;,/]'))
+            .first
+            .trim();
+        cleanGenre = cleanGenre
+            .split(' ')
+            .map((word) => word.isNotEmpty
+                ? word[0].toUpperCase() + word.substring(1).toLowerCase()
+                : word)
+            .join(' ');
+        return cleanGenre.isEmpty ? null : cleanGenre;
+      },
+      null,
+      'genre',
+    );
   }
 
   /// Extract year from metadata
   static int? extractYearSafely(Tag? tag) {
-    try {
-      final year = tag?.year;
-      if (year != null && year > 1900 && year <= DateTime.now().year + 1) {
-        return year;
-      }
-      return null;
-    } catch (e) {
-      MetadataExtractor._logger.w('Error extracting year: $e');
-      return null;
-    }
+    return SharedValidation.extractSafely(
+      () {
+        final year = tag?.year;
+        if (year != null && year > 1900 && year <= DateTime.now().year + 1) {
+          return year;
+        }
+        return null;
+      },
+      null,
+      'year',
+    );
   }
 
   /// Extract track number from metadata
   static int? extractTrackNumberSafely(Tag? tag) {
-    try {
-      final track = tag?.trackNumber;
-      if (track != null && track > 0 && track <= 999) return track;
-      return null;
-    } catch (e) {
-      MetadataExtractor._logger.w('Error extracting track number: $e');
-      return null;
-    }
+    return SharedValidation.extractSafely(
+      () {
+        final track = tag?.trackNumber;
+        if (track != null && track > 0 && track <= 999) return track;
+        return null;
+      },
+      null,
+      'track number',
+    );
   }
 
   /// Extract disc number from metadata
   static int? extractDiscNumberSafely(Tag? tag) {
-    try {
-      final disc = tag?.discNumber;
-      if (disc != null && disc > 0 && disc <= 99) return disc;
-      return null;
-    } catch (e) {
-      MetadataExtractor._logger.w('Error extracting disc number: $e');
-      return null;
-    }
+    return SharedValidation.extractSafely(
+      () {
+        final disc = tag?.discNumber;
+        if (disc != null && disc > 0 && disc <= 99) return disc;
+        return null;
+      },
+      null,
+      'disc number',
+    );
   }
 
   /// Get file size

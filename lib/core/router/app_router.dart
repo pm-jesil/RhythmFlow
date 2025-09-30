@@ -1,53 +1,66 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:pmj_music_player/utils/models/song/song_model.dart';
 import '../../screens/bottom_tab/bottom_tab.dart';
 import '../../screens/music_player/music_player_screen.dart';
 import '../../screens/palying_queue_screen/playing_queue_screen.dart';
 import '../../screens/playlist_detail_screen/playlist_detail_screen.dart';
 import '../../screens/app_settings/settings_screen.dart';
+import '../../screens/app_settings/music_library_settings_screen.dart';
+import '../../screens/app_settings/profile_edit_screen.dart';
+import '../../screens/welcome_screen.dart';
+import '../../screens/app_settings/bloc/app_settings_bloc.dart';
 import '../../core/theme/theme_extension.dart';
-import '../../utils/logger/logger.dart';
+import '../../utils/models/artist/artist_model.dart';
+import '../../utils/models/album/album_model.dart';
+import '../../utils/models/my_playlist/my_playlist_model.dart';
 
 class AppRouter {
-  static final AppLogger _logger = AppLogger('AppRouter');
 
   static final router = GoRouter(
     initialLocation: '/',
     routes: [
-      // Main bottom tab screen
-      GoRoute(path: '/', builder: (context, state) => const BottomTab()),
+      // Main bottom tab screen with profile check
+      GoRoute(
+        path: '/', 
+        builder: (context, state) {
+          return BlocBuilder<AppSettingsBloc, AppSettingsState>(
+            builder: (context, appSettingsState) {
+              // Check if user profile is set
+              final isProfileSet = appSettingsState.userName != null && 
+                                   appSettingsState.nickName != null;
+              
+              return isProfileSet 
+                ? const BottomTab() 
+                : const WelcomeScreen();
+            },
+          );
+        },
+      ),
 
-      // Play song screen
       GoRoute(
         path: '/play/:songId',
         builder: (context, state) {
-          final songId = state.pathParameters['songId'] ?? '';
-          _logger.d('Navigate to play song: $songId');
           return const MusicPlayerScreen();
         },
       ),
 
-      // Play song screen without parameters (for direct navigation)
       GoRoute(
         path: '/play',
         builder: (context, state) {
-          final songData = state.extra as Map<String, dynamic>? ?? {};
-          _logger.d('Navigate to play song with data: ${songData['id']}');
           return const MusicPlayerScreen();
         },
       ),
 
-      // Playing Queue screen (UI label kept)
       GoRoute(
         path: '/playing-queue',
         builder: (context, state) {
-          _logger.d('Navigate to playing queue');
           return const PlayingQueueScreen();
         },
       ),
 
-      // Playlist Detail screen
       GoRoute(
         path: '/playlist-detail/:type/:id',
         builder: (context, state) {
@@ -55,27 +68,45 @@ class AppRouter {
           final id = state.pathParameters['id'] ?? '';
           final extra = state.extra as Map<String, dynamic>? ?? {};
 
-          _logger.d('Navigate to playlist detail: $type/$id');
+          final name = extra['name'] ?? 'Unknown';
+          final description = extra['description'];
+          final year = extra['year'];
+          final bio = extra['bio'];
+          final songCount = extra['songCount'] ?? 0;
+          final songs = extra['songs'] as List<Song>? ?? [];
+          final coverImage = extra['coverImage'];
 
           return PlaylistDetailScreen(
             type: _parseDetailType(type),
             id: id,
-            name: extra['name'] ?? 'Unknown',
-            description: extra['description'],
-            year: extra['year'],
-            bio: extra['bio'],
-            songCount: extra['songCount'] ?? 0,
-            albumCount: extra['albumCount'],
+            name: name,
+            description: description,
+            year: year,
+            bio: bio,
+            songCount: songCount,
+            songs: songs,
+            coverImage: coverImage,
           );
         },
       ),
 
-      // Settings screen
       GoRoute(
         path: '/settings',
         builder: (context, state) {
-          _logger.d('Navigate to settings');
           return const SettingsScreen();
+        },
+      ),
+
+      GoRoute(
+        path: '/settings/music-library',
+        builder: (context, state) {
+          return const MusicLibrarySettingsScreen();
+        },
+      ),
+      GoRoute(
+        path: '/settings/profile-edit',
+        builder: (context, state) {
+          return const ProfileEditScreen();
         },
       ),
     ],
@@ -148,12 +179,12 @@ class AppRouter {
         return PlaylistDetailType.album;
     }
   }
+
 }
 
 // Helper extension for navigation
 extension NavigationExtension on BuildContext {
   void navigateToHome() {
-    AppLogger('Navigation').d('Navigate to home');
     GoRouter.of(this).go('/');
   }
 
@@ -162,25 +193,14 @@ extension NavigationExtension on BuildContext {
   }
 
   void navigateToPlaySong(String songId) {
-    AppLogger('Navigation').d('Navigate to play song: $songId');
-    // Show modal instead of navigation
     MusicPlayerModal.showWithGetIt(this);
-
-    // AppLogger('Navigation').d('Navigate to Music Player 2');
-    // // Show Music Player 2 modal
-    // MusicPlayerModal2.showWithGetIt(this);
   }
 
   void navigateToPlaySongWithData(Map<String, dynamic> songData) {
-    AppLogger(
-      'Navigation',
-    ).d('Navigate to play song with data: ${songData['id']}');
-    // Show modal instead of navigation
     MusicPlayerModal.showWithGetIt(this);
   }
 
   void navigateToPlayingQueue() {
-    AppLogger('Navigation').d('Navigate to playing queue');
     GoRouter.of(this).push('/playing-queue');
   }
 
@@ -194,7 +214,6 @@ extension NavigationExtension on BuildContext {
     required int songCount,
     int? albumCount,
   }) {
-    AppLogger('Navigation').d('Navigate to playlist detail: ${type.name}/$id');
     GoRouter.of(this).push(
       '/playlist-detail/${type.name}/$id',
       extra: {
@@ -208,8 +227,29 @@ extension NavigationExtension on BuildContext {
     );
   }
 
+  // New object-based navigation methods
+  void navigateToArtistDetail(Artist artist) {
+    GoRouter.of(this).push(
+      '/playlist-detail/artist/${artist.id}',
+      extra: {'artist': artist},
+    );
+  }
+
+  void navigateToAlbumDetail(Album album) {
+    GoRouter.of(this).push(
+      '/playlist-detail/album/${album.id}',
+      extra: {'album': album},
+    );
+  }
+
+  void navigateToMyPlaylistDetail(MyPlaylist playlist) {
+    GoRouter.of(this).push(
+      '/playlist-detail/playlist/${playlist.id}',
+      extra: {'playlist': playlist},
+    );
+  }
+
   void goBack() {
-    AppLogger('Navigation').d('Navigate back');
     GoRouter.of(this).pop();
   }
 
@@ -218,7 +258,14 @@ extension NavigationExtension on BuildContext {
   }
 
   void navigateToSettings() {
-    AppLogger('Navigation').d('Navigate to settings');
     GoRouter.of(this).push('/settings');
+  }
+
+  void navigateToMusicLibrarySettings() {
+    GoRouter.of(this).push('/settings/music-library');
+  }
+
+  void navigateToProfileEdit() {
+    GoRouter.of(this).push('/settings/profile-edit');
   }
 }

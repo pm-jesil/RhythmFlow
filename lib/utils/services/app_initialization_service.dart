@@ -5,7 +5,7 @@ import 'fetch_songs.dart';
 import 'audio_service.dart';
 import '../../screens/bottom_tab/screens/bloc/music_bloc.dart';
 import '../../core/di/injection.dart';
-import '../models/playlist_source/playlist_source_model.dart';
+import '../../screens/widgets/playlist_source_helper.dart';
 
 class AppInitializationService {
   static final AppLogger _logger = AppLogger('AppInitializationService');
@@ -146,11 +146,6 @@ class AppInitializationService {
   }
 
 
-  /// Reset initialization state (useful for testing or re-initialization)
-  static void reset() {
-    _isInitialized = false;
-    _logger.i('🔄 Initialization state reset');
-  }
 
   /// Check if app is initialized
   static bool get isInitialized => _isInitialized;
@@ -181,7 +176,7 @@ class AppInitializationService {
         await audioService.loadSong(
           currentSong,
           playlistId: currentState.myPlayerState.playlistId,
-          playlistSource: _getPlaylistSourceFromId(currentState.myPlayerState.playlistId),
+          playlistSource: PlaylistSourceHelper.getPlaylistSourceFromId(currentState.myPlayerState.playlistId),
         );
         
         // Wait for song to be fully loaded, then seek to the saved position
@@ -200,23 +195,4 @@ class AppInitializationService {
     }
   }
   
-  /// Helper method to get playlist source from ID
-  static PlaylistSource? _getPlaylistSourceFromId(String? playlistId) {
-    if (playlistId == null) return null;
-    
-    if (playlistId == 'all_songs') {
-      return PlaylistSource.allSongs();
-    } else if (playlistId.startsWith('album_')) {
-      final albumId = playlistId.substring(6);
-      return PlaylistSource.album(albumId);
-    } else if (playlistId.startsWith('artist_')) {
-      final artistId = playlistId.substring(7);
-      return PlaylistSource.artist(artistId);
-    } else if (playlistId.startsWith('my_playlist_')) {
-      final myPlaylistId = playlistId.substring(12);
-      return PlaylistSource.myPlaylist(myPlaylistId);
-    }
-    
-    return null;
-  }
 }

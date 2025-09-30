@@ -18,6 +18,7 @@ part 'filename_parser.dart';
 part 'album_art_handler.dart';
 part 'metadata_utils.dart';
 part 'metadata_parser.dart';
+part 'shared_validation.dart';
 
 /// Professional metadata extractor for audio files using audiotags
 /// Supports ID3v1, ID3v2, APE, Vorbis, iTunes/MP4, FLAC, and other formats
@@ -25,10 +26,10 @@ class MetadataExtractor {
   static final _logger = AppLogger('MetadataExtractor');
   static bool _initialized = false;
 
-  /// Supported audio file extensions
+  /// Supported audio file extensions (matches app settings)
   static const List<String> _supportedExtensions = [
-    '.mp3', '.flac', '.m4a', '.mp4', '.aac', '.ogg', '.wav', '.wma', 
-    '.opus', '.aiff', '.m4p', '.3gp', '.amr'
+    '.mp3', '.m4a', '.aac', '.wav', '.flac', '.ogg', '.wma', '.opus',
+    '.aiff', '.alac', '.m4b', '.m4p', '.amr', '.3ga',
   ];
 
   /// ID3v1 genre mapping
@@ -63,7 +64,7 @@ class MetadataExtractor {
 
       // Request Android permissions
       if (Platform.isAndroid) {
-        final androidVersion = await _getAndroidVersion();
+        final androidVersion = await MetadataUtils.getAndroidVersion();
         _logger.d('Android version: $androidVersion');
 
         bool hasPermission = false;

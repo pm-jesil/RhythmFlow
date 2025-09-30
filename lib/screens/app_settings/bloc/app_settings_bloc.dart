@@ -19,6 +19,8 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
     on<_UpdateTheme>(_onUpdateTheme);
     on<_UpdateSleepTimer>(_onUpdateSleepTimer);
     on<_UpdatePlaybackSettings>(_onUpdatePlaybackSettings);
+    on<_UpdateBackgroundRefreshTimeGap>(_onUpdateBackgroundRefreshTimeGap);
+    on<_UpdateUserProfile>(_onUpdateUserProfile);
     
     // Initialize theme sync
     _initializeThemeSync();
@@ -136,6 +138,19 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
     ));
   }
 
+  void _onUpdateBackgroundRefreshTimeGap(_UpdateBackgroundRefreshTimeGap event, Emitter<AppSettingsState> emit) {
+    emit(state.copyWith(
+      appBackgroundRefreshTimeGap: event.hours,
+    ));
+  }
+
+  void _onUpdateUserProfile(_UpdateUserProfile event, Emitter<AppSettingsState> emit) {
+    emit(state.copyWith(
+      userName: event.userName,
+      nickName: event.nickName,
+    ));
+  }
+
   @override
   Map<String, dynamic>? toJson(AppSettingsState state) {
     try {
@@ -150,6 +165,9 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
         'autoPlayNext': state.autoPlayNext,
         'showNotifications': state.showNotifications,
         'playbackSpeed': state.playbackSpeed,
+        'appBackgroundRefreshTimeGap': state.appBackgroundRefreshTimeGap,
+        'userName': state.userName,
+        'nickName': state.nickName,
       };
     } catch (_) {
       return null; // skip persisting on serialization errors
@@ -185,6 +203,9 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
         autoPlayNext: json['autoPlayNext'] ?? true,
         showNotifications: json['showNotifications'] ?? true,
         playbackSpeed: (json['playbackSpeed'] ?? 1.0).toDouble(),
+        appBackgroundRefreshTimeGap: json['appBackgroundRefreshTimeGap'] ?? 5,
+        userName: json['userName'],
+        nickName: json['nickName'],
       );
     } catch (e) {
       return null;

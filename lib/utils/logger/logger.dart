@@ -4,7 +4,6 @@ class AppLogger {
   final String context;
   final Logger _logger;
   
-  // Static configuration for log levels
   static bool _enableTraceLogs = false;
   static bool _enableDebugLogs = true;
   static bool _enableInfoLogs = true;
@@ -22,16 +21,10 @@ class AppLogger {
             printEmojis: true,
             noBoxingByDefault: true,
           ),
-          filter: ProductionFilter(), // Only show logs in debug mode
+          filter: ProductionFilter(),
         );
 
   // Configuration methods
-  static void enableTraceLogs(bool enable) => _enableTraceLogs = enable;
-  static void enableDebugLogs(bool enable) => _enableDebugLogs = enable;
-  static void enableInfoLogs(bool enable) => _enableInfoLogs = enable;
-  static void enableWarningLogs(bool enable) => _enableWarningLogs = enable;
-  static void enableErrorLogs(bool enable) => _enableErrorLogs = enable;
-  static void enableFatalLogs(bool enable) => _enableFatalLogs = enable;
 
   // Trace logs - 🔍 (for detailed debugging)
   void t(dynamic message, {dynamic error, StackTrace? stackTrace}) {

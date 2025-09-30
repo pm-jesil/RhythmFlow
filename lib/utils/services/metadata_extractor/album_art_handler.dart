@@ -27,12 +27,11 @@ class AlbumArtHandler {
 
   /// Safe extraction of album art with error handling
   static Future<String?> extractAlbumArtSafely(String filePath, Tag? tag) async {
-    try {
-      return await extractAlbumArt(filePath, tag);
-    } catch (e) {
-      MetadataExtractor._logger.w('Error extracting album art: $e');
-      return null;
-    }
+    return await SharedValidation.extractSafely(
+      () async => await extractAlbumArt(filePath, tag),
+      null,
+      'album art',
+    );
   }
 
   /// Find external album art files in the same directory

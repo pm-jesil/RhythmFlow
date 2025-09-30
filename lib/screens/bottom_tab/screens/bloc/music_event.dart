@@ -3,8 +3,8 @@ part of 'music_bloc.dart';
 @freezed
 abstract class MusicEvent with _$MusicEvent {
   // Load events
-  const factory MusicEvent.loadAllSongs() = _LoadAllSongs;
-  const factory MusicEvent.loadAllSongsProgressive() = _LoadAllSongsProgressive;
+  const factory MusicEvent.loadAllSongs({bool? isForce}) = _LoadAllSongs;
+  const factory MusicEvent.loadAllSongsProgressive({bool? isForce}) = _LoadAllSongsProgressive;
 
   const factory MusicEvent.loadAlbums() = _LoadAlbums;
   const factory MusicEvent.loadAlbumsProgressive() = _LoadAlbumsProgressive;

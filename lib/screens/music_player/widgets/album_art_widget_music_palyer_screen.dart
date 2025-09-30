@@ -132,6 +132,14 @@ class _AlbumArtWidgetOnMusicPlayerScreenState extends State<AlbumArtWidgetOnMusi
 
     setState(() {
       _dragOffset += details.delta.dx;
+      
+      // Check if trying to swipe right (previous song) when completedSongs is empty
+      final musicState = context.read<MusicBloc>().state;
+      if (_dragOffset > 0 && musicState.myPlayerState.completedSongs.isEmpty) {
+        // Limit right swipe when no completed songs - provide resistance
+        _dragOffset = (_dragOffset * 0.3).clamp(0.0, 50.0); // Reduce sensitivity and limit distance
+      }
+      
       // Convert drag to arc angle (more sensitive for better control)
       _currentArcAngle = (_dragOffset / 200.0) * _arcAngleSpacing;
       // Clamp the angle to reasonable limits
@@ -152,6 +160,15 @@ class _AlbumArtWidgetOnMusicPlayerScreenState extends State<AlbumArtWidgetOnMusi
     if (shouldSwipe) {
       if (_dragOffset > 0) {
         // Swipe right - go to previous song
+        // Check if completedSongs is empty - if so, disable previous song swipe
+        final musicState = context.read<MusicBloc>().state;
+        
+        if (musicState.myPlayerState.completedSongs.isEmpty) {
+          _logger.i('🚫 Previous song swipe disabled - no completed songs (will seek current song to beginning)');
+          _resetToCenter();
+          return;
+        }
+        _logger.i('✅ Previous song swipe enabled - ${musicState.myPlayerState.completedSongs.length} completed songs available');
         _performSwipeAction(_previousSong, true);
       } else {
         // Swipe left - go to next song
@@ -261,24 +278,31 @@ class _AlbumArtWidgetOnMusicPlayerScreenState extends State<AlbumArtWidgetOnMusi
   }
 
   Widget _buildArcContainer() {
-    return Stack(
-      alignment: Alignment.center,
-      clipBehavior: Clip.none,
-      children: [
-        // Background arc indicator hidden for cleaner UI
-        // if (_isDragging) _buildArcIndicator(),
+    return BlocBuilder<MusicBloc, MusicState>(
+      builder: (context, state) {
+        final isPreviousDisabled = state.myPlayerState.completedSongs.isEmpty;
         
-        // Current album art
-        _buildAlbumAtAngle(widget.currentSong, _currentArcAngle, true),
-        
-        // Next album art (visible during left swipe)
-        if (_nextSong != null && _currentArcAngle < -0.1)
-          _buildAlbumAtAngle(_nextSong!, _currentArcAngle + _arcAngleSpacing, false),
-          
-        // Previous album art (visible during right swipe)
-        if (_previousSong != null && _currentArcAngle > 0.1)
-          _buildAlbumAtAngle(_previousSong!, _currentArcAngle - _arcAngleSpacing, false),
-      ],
+        return Stack(
+          alignment: Alignment.center,
+          clipBehavior: Clip.none,
+          children: [
+            // Background arc indicator hidden for cleaner UI
+            // if (_isDragging) _buildArcIndicator(),
+            
+            // Current album art
+            _buildAlbumAtAngle(widget.currentSong, _currentArcAngle, true),
+            
+            // Next album art (visible during left swipe)
+            if (_nextSong != null && _currentArcAngle < -0.1)
+              _buildAlbumAtAngle(_nextSong!, _currentArcAngle + _arcAngleSpacing, false),
+              
+            // Previous album art (visible during right swipe) - only if not disabled
+            if (_previousSong != null && _currentArcAngle > 0.1 && !isPreviousDisabled)
+              _buildAlbumAtAngle(_previousSong!, _currentArcAngle - _arcAngleSpacing, false),
+              
+          ],
+        );
+      },
     );
   }
 
@@ -380,4 +404,5 @@ class _AlbumArtWidgetOnMusicPlayerScreenState extends State<AlbumArtWidgetOnMusi
       ),
     );
   }
+
 }

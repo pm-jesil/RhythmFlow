@@ -2,21 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
-import 'package:pmj_music_player/core/constants/app_constants.dart';
 import 'package:pmj_music_player/screens/bottom_tab/widgets/album_artist_my_playlist_helper.dart';
 import '../../../core/theme/theme_extension.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../widgets/custom_3d_card.dart';
-import '../../widgets/custom_tab_view_app_bar.dart';
+import '../widgets/custom_tab_view_app_bar.dart';
 import '../../../core/router/app_router.dart';
 import '../../../utils/logger/logger.dart';
 import '../../../utils/models/song/song_model.dart';
 import '../../../utils/models/artist/artist_model.dart';
 import '../../../utils/models/album/album_model.dart';
 import '../../../utils/models/playlist_source/playlist_source_model.dart';
-import '../../playlist_detail_screen/playlist_detail_screen.dart';
 import 'bloc/music_bloc.dart';
 import '../../widgets/album_art_widget.dart';
 import '../bottom_tab.dart';
+import '../../app_settings/bloc/app_settings_bloc.dart';
+import '../../widgets/sorting_helper.dart';
 
 class ForYouScreen extends StatefulWidget {
   const ForYouScreen({super.key});
@@ -47,7 +48,6 @@ class _ForYouScreenState extends State<ForYouScreen> {
 
   // Additional spacing
   static const double _largeSpacing = 24.0;
-  static const double _extraLargeSpacing = 30.0;
   static const double _statCardHeight = 135.0;
 
   @override
@@ -58,26 +58,23 @@ class _ForYouScreenState extends State<ForYouScreen> {
 
   // Helper methods for data processing
   List<Song> _getMostPlayedSongs(List<Song> songs) {
-    return songs.where((song) => (song.playCount ?? 0) > 0).toList()
-      ..sort((a, b) => (b.playCount ?? 0).compareTo(a.playCount ?? 0));
+    final songsWithPlayCount = songs.where((song) => (song.playCount ?? 0) > 0).toList();
+    return SortingHelper.sortByPlayCount(songsWithPlayCount, ascending: false);
   }
 
   List<Song> _getRecentlyAddedSongs(List<Song> songs) {
-    return songs.where((song) => song.dateAdded != null).toList()..sort(
-      (a, b) => (b.dateAdded ?? DateTime(1970)).compareTo(
-        a.dateAdded ?? DateTime(1970),
-      ),
-    );
+    final songsWithDate = songs.where((song) => song.dateAdded != null).toList();
+    return SortingHelper.sortByDateAdded(songsWithDate, newestFirst: true);
   }
 
   List<Artist> _getTopArtists(List<Artist> artists) {
-    return artists.where((artist) => (artist.playCount ?? 0) > 0).toList()
-      ..sort((a, b) => (b.playCount ?? 0).compareTo(a.playCount ?? 0));
+    final artistsWithPlayCount = artists.where((artist) => (artist.playCount ?? 0) > 0).toList();
+    return SortingHelper.sortArtistsByPlayCount(artistsWithPlayCount, ascending: false);
   }
 
   List<Album> _getTopAlbums(List<Album> albums) {
-    return albums.where((album) => (album.playCount ?? 0) > 0).toList()
-      ..sort((a, b) => (b.playCount ?? 0).compareTo(a.playCount ?? 0));
+    final albumsWithPlayCount = albums.where((album) => (album.playCount ?? 0) > 0).toList();
+    return SortingHelper.sortAlbumsByPlayCount(albumsWithPlayCount, ascending: false);
   }
 
   // Helper methods for common UI components
@@ -309,57 +306,103 @@ class _ForYouScreenState extends State<ForYouScreen> {
   }
 
   Widget _buildAnimatedWelcomeSection() {
-    return Custom3DCard(
-      enableAnimation: true,
-      animationDuration: const Duration(milliseconds: 2000),
-      animationBegin: 0.98,
-      animationEnd: 1.02,
-      padding: EdgeInsets.symmetric(
-        horizontal: _sectionPadding.w,
-        vertical: _extraLargeSpacing.h,
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: EdgeInsets.all(_cardPadding.w),
-            decoration: BoxDecoration(
-              gradient: context.primaryGradient,
-              borderRadius: BorderRadius.circular(_borderRadius.r),
-            ),
-            child: Icon(
-              Icons.music_note_rounded,
-              color: Colors.white,
-              size: 24.sp,
-            ),
-          ),
-          SizedBox(width: _cardPadding.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Welcome to PMJ Music',
+    return BlocBuilder<AppSettingsBloc, AppSettingsState>(
+      builder: (context, appSettingsState) {
+        final nickName = appSettingsState.nickName ?? 'Music Lover';
+        final userName = appSettingsState.userName ?? 'User';
+
+        // Select quote based on current time and user name for variety
+        final now = DateTime.now();
+        final timeBasedSeed = now.millisecondsSinceEpoch;
+        final userBasedSeed = userName.hashCode.abs();
+        final combinedSeed = (timeBasedSeed + userBasedSeed) % AppConstants.musicQuotes.length;
+        final selectedQuote = AppConstants.musicQuotes[combinedSeed];
+
+        return Custom3DCard(
+          enableAnimation: true,
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(_cardPadding.w),
+                    decoration: BoxDecoration(
+                      gradient: context.primaryGradient,
+                      borderRadius: BorderRadius.circular(_borderRadius.r),
+                    ),
+                    child: Icon(
+                      Icons.waving_hand_rounded,
+                      color: Colors.white,
+                      size: 24.sp,
+                    ),
+                  ),
+                  SizedBox(width: _cardPadding.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Hi there, $nickName! 👋',
+                          style: TextStyle(
+                            color: context.onSurfaceColor,
+                            fontSize: 20.sp,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          'Your personal music companion...',
+                          style: TextStyle(
+                            color: context.onSurfaceVariantColor,
+                            fontSize: 12.sp,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 16.h),
+
+              // Music Quote Section
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(10.w),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      context.primaryStart.withOpacity(0.1),
+                      context.primaryEnd.withOpacity(0.1),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12.r),
+                  border: Border.all(
+                    color: context.primaryStart.withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  selectedQuote,
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     color: context.onSurfaceColor,
-                    fontSize: 20.sp,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 12.sp,
+                    fontStyle: FontStyle.italic,
                     fontFamily: 'Poppins',
+                    height: 1.4,
                   ),
                 ),
-                SizedBox(height: 4.h),
-                Text(
-                  'Discover your music journey',
-                  style: TextStyle(
-                    color: context.onSurfaceVariantColor,
-                    fontSize: 14.sp,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1016,24 +1059,16 @@ class _ForYouScreenState extends State<ForYouScreen> {
   }
 
   void _navigateToArtistDetail(Artist artist, List<Song> artistSongs) {
-    AlbumArtistPlaylistHelper.navigateToDetail(
+    AlbumArtistPlaylistHelper.navigateToArtistDetail(
       context: context,
-      type: PlaylistDetailType.artist,
-      id: artist.id,
-      name: artist.name,
-      songCount: artistSongs.length,
-      bio: artist.bio,
+      artist: artist,
     );
   }
 
   void _navigateToAlbumDetail(Album album, List<Song> albumSongs) {
-    AlbumArtistPlaylistHelper.navigateToDetail(
+    AlbumArtistPlaylistHelper.navigateToAlbumDetail(
       context: context,
-      type: PlaylistDetailType.album,
-      id: album.id,
-      name: album.name,
-      songCount: albumSongs.length,
-      bio: null,
+      album: album,
     );
   }
 
