@@ -113,22 +113,7 @@ class ArtistNameExtractor {
 
   /// Check if a string contains common artist separators
   static bool containsArtistSeparators(String text) {
-    final separators = ['&', ',', ';', '/', '\\', '+', 'x', '×', 'and', 'feat', 'featuring', 'ft'];
-    final lowerText = text.toLowerCase();
-    return separators.any((separator) => lowerText.contains(separator));
+    return SharedValidation.containsSeparators(text, 'artist');
   }
 
-  /// Check if a string contains featuring indicators
-  static bool containsFeaturing(String text) {
-    final featuring = ['feat', 'featuring', 'ft', 'with'];
-    final lowerText = text.toLowerCase();
-    return featuring.any((feat) => lowerText.contains(feat));
-  }
-
-  /// Check if a string contains collaboration indicators
-  static bool containsCollaboration(String text) {
-    final collaboration = ['x', '×', '&', 'and'];
-    final lowerText = text.toLowerCase();
-    return collaboration.any((collab) => lowerText.contains(collab));
-  }
 }

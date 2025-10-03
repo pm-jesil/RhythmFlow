@@ -421,7 +421,7 @@ class SongCleanupService {
     final longer = s1.length > s2.length ? s1 : s2;
     final shorter = s1.length > s2.length ? s2 : s1;
     
-    if (longer.length == 0) return 1.0;
+    if (longer.isEmpty) return 1.0;
     
     final editDistance = _levenshteinDistance(longer, shorter);
     return (longer.length - editDistance) / longer.length;
@@ -535,5 +535,128 @@ class SongCleanupService {
     
     _logger.i('🎉 Comprehensive duplicate removal completed: ${songs.length} → ${result.length} songs');
     return result;
+  }
+
+  // ==================== COMPREHENSIVE STATE CLEANUP ====================
+
+  /// Comprehensive cleanup for when songs are removed from device
+  /// This handles all possible locations where invalid song IDs might exist
+  static Map<String, dynamic> performComprehensiveCleanup({
+    required List<Song> allSongs,
+    required List<Album> albums,
+    required List<Artist> artists,
+    required List<MyPlaylist> playlists,
+    required MyPlayerStateModel playerState,
+    required List<String> invalidSongIds,
+  }) {
+    _logger.i('🧹 Starting comprehensive cleanup for ${invalidSongIds.length} invalid songs...');
+    
+    if (invalidSongIds.isEmpty) {
+      _logger.i('✅ No invalid songs to clean up');
+      return {
+        'allSongs': allSongs,
+        'albums': albums,
+        'artists': artists,
+        'playlists': playlists,
+        'playerState': playerState,
+        'songsRemoved': 0,
+        'albumsRemoved': 0,
+        'artistsRemoved': 0,
+        'playlistsUpdated': 0,
+      };
+    }
+
+    // Step 1: Remove invalid songs from allSongs
+    final cleanedAllSongs = allSongs.where((song) => !invalidSongIds.contains(song.id)).toList();
+    final songsRemoved = allSongs.length - cleanedAllSongs.length;
+    
+    // Step 2: Clean up player state
+    final cleanedPlayerState = cleanupPlayerState(playerState, invalidSongIds);
+    
+    // Step 3: Clean up albums
+    final cleanedAlbums = cleanupAlbums(albums, invalidSongIds);
+    final albumsRemoved = albums.length - cleanedAlbums.length;
+    
+    // Step 4: Clean up artists
+    final cleanedArtists = cleanupArtists(artists, invalidSongIds);
+    final artistsRemoved = artists.length - cleanedArtists.length;
+    
+    // Step 5: Clean up playlists
+    final cleanedPlaylists = cleanupMyPlaylists(playlists, invalidSongIds);
+    final playlistsUpdated = _countUpdatedPlaylists(playlists, cleanedPlaylists);
+    
+    _logger.i('✅ Comprehensive cleanup completed:');
+    _logger.i('   - Songs removed: $songsRemoved');
+    _logger.i('   - Albums removed: $albumsRemoved');
+    _logger.i('   - Artists removed: $artistsRemoved');
+    _logger.i('   - Playlists updated: $playlistsUpdated');
+    _logger.i('   - Player state cleaned: ${playerState != cleanedPlayerState}');
+    
+    return {
+      'allSongs': cleanedAllSongs,
+      'albums': cleanedAlbums,
+      'artists': cleanedArtists,
+      'playlists': cleanedPlaylists,
+      'playerState': cleanedPlayerState,
+      'songsRemoved': songsRemoved,
+      'albumsRemoved': albumsRemoved,
+      'artistsRemoved': artistsRemoved,
+      'playlistsUpdated': playlistsUpdated,
+    };
+  }
+
+  /// Count how many playlists were updated during cleanup
+  static int _countUpdatedPlaylists(List<MyPlaylist> original, List<MyPlaylist> cleaned) {
+    int updated = 0;
+    for (int i = 0; i < original.length && i < cleaned.length; i++) {
+      if (original[i].songIds.length != cleaned[i].songIds.length) {
+        updated++;
+      }
+    }
+    return updated;
+  }
+
+  /// Enhanced cleanup that also handles current song and queue scenarios
+  static Map<String, dynamic> performEnhancedCleanup({
+    required List<Song> allSongs,
+    required List<Album> albums,
+    required List<Artist> artists,
+    required List<MyPlaylist> playlists,
+    required MyPlayerStateModel playerState,
+    required List<String> invalidSongIds,
+  }) {
+    _logger.i('🔧 Starting enhanced cleanup for ${invalidSongIds.length} invalid songs...');
+    
+    // Perform comprehensive cleanup
+    final cleanupResult = performComprehensiveCleanup(
+      allSongs: allSongs,
+      albums: albums,
+      artists: artists,
+      playlists: playlists,
+      playerState: playerState,
+      invalidSongIds: invalidSongIds,
+    );
+    
+    // Additional checks for critical scenarios
+    final cleanedPlayerState = cleanupResult['playerState'] as MyPlayerStateModel;
+    
+    // Check if current song was removed and handle gracefully
+    if (cleanedPlayerState.currentSongId == null && playerState.currentSongId != null) {
+      _logger.w('⚠️ Current song was removed - player will be stopped');
+    }
+    
+    // Check if playing queue is empty after cleanup
+    if (cleanedPlayerState.currentPlayList.isEmpty && playerState.currentPlayList.isNotEmpty) {
+      _logger.w('⚠️ Playing queue is now empty after cleanup');
+    }
+    
+    // Check if any critical playlists are now empty
+    final cleanedPlaylists = cleanupResult['playlists'] as List<MyPlaylist>;
+    final emptyPlaylists = cleanedPlaylists.where((playlist) => playlist.songIds.isEmpty).length;
+    if (emptyPlaylists > 0) {
+      _logger.i('ℹ️ $emptyPlaylists playlists are now empty (preserved as per design)');
+    }
+    
+    return cleanupResult;
   }
 }

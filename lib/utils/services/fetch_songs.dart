@@ -1,11 +1,10 @@
 import 'dart:io';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 import '../models/song/song_model.dart';
 import '../logger/logger.dart';
 import 'metadata_extractor/metadata_extractor.dart';
 import 'format_utils.dart';
 import 'song_cleanup_service.dart';
+import 'permission_service.dart';
 
 class FetchSongsService {
   static final AppLogger _logger = AppLogger('FetchSongsService');
@@ -35,449 +34,314 @@ class FetchSongsService {
   static const Duration maxDuration = Duration(hours: 1);
 
 
-  /// Request all required permissions for song fetching
-  static Future<bool> requestAllRequiredPermissions() async {
-    _logger.i('Requesting all required permissions');
 
-    try {
-      // First check if permissions are already granted
-      final alreadyGranted = await _checkPermissions();
-      if (alreadyGranted) {
-        _logger.i('Permissions already granted');
-        return true;
-      }
-
-      // Check Android version for appropriate permissions
-      if (Platform.isAndroid) {
-        final androidVersion = await _getAndroidVersion();
-        _logger.d('Android version: $androidVersion');
-
-        if (androidVersion >= 33) {
-          // Android 13+ (API 33+)
-          return await _requestAndroid13Permissions();
-        } else if (androidVersion >= 30) {
-          // Android 11+ (API 30-32)
-          return await _requestAndroid11Permissions();
-        } else {
-          return await _requestLegacyAndroidPermissions();
-        }
-      } else if (Platform.isIOS) {
-        return await _requestIOSPermissions();
-      }
-
-      return false;
-    } catch (e) {
-      _logger.e('Error requesting permissions', error: e);
-      // If permission request fails, check if we already have permissions
-      _logger.i('Checking if permissions are already granted...');
-      try {
-        return await _checkPermissions();
-      } catch (checkError) {
-        _logger.e('Error checking permissions', error: checkError);
-        return false;
-      }
-    }
-  }
-
-  /// Fetch all songs from device folders
-  static Future<List<Song>> fetchAllSongs({List<String>? supportedFormats, Map<String, List<String>>? whitelistedFolders}) async {
-    _logger.i('Starting to fetch all songs');
-
-    try {
-      // Check permissions first
-      if (!await _checkPermissions()) {
-        _logger.w('Permissions not granted, cannot fetch songs');
-        return [];
-      }
-
-      final List<Song> allSongs = [];
-      final List<String> foldersToScan = await _getFoldersToScan(whitelistedFolders ?? {});
-
-      for (final folder in foldersToScan) {
-        _logger.d('Scanning folder: $folder');
-        final songs = await scanFolderForSongs(folder, supportedFormats: supportedFormats);
-        allSongs.addAll(songs);
-        _logger.d('Found ${songs.length} songs in $folder');
-      }
-
-      // Apply filters
-      final filteredSongs = _applyFilters(allSongs);
-      _logger.i('Total songs after filtering: ${filteredSongs.length}');
-
-      return filteredSongs;
-    } catch (e) {
-      _logger.e('Error fetching songs', error: e);
-      return [];
-    }
-  }
-
-  /// Fetch songs progressively with callback for each batch
+  /// OPTIMIZED: Fetch songs progressively with new flow and batch updates
   static Future<void> fetchAllSongsProgressive({
     required Function(List<Song>, bool, int) onProgress,
     List<String>? supportedFormats,
     Map<String, List<String>>? whitelistedFolders,
   }) async {
-    _logger.i('🚀 Starting progressive song fetching...');
+    _logger.i('🚀 Starting optimized progressive song fetching...');
 
     try {
-      // Check permissions first
-      if (!await _checkPermissions()) {
-        _logger.w('Permissions not granted, cannot fetch songs');
+      // Step 1: Get all song file paths first
+      final songPaths = await fetchSongsPath(
+        whitelistedFolders: whitelistedFolders,
+        supportedFormats: supportedFormats,
+      );
+
+      if (songPaths.isEmpty) {
+        _logger.w('⚠️ No song paths found');
         onProgress([], true, 0);
         return;
       }
 
+      _logger.i('📋 Found ${songPaths.length} song paths, starting progressive metadata extraction...');
+
+      // Step 2: Process metadata extraction in batches of 10
       final List<Song> allSongs = [];
-      final List<String> foldersToScan = await _getFoldersToScan(whitelistedFolders ?? {});
       const int batchSize = 10;
       int totalProcessed = 0;
 
-      for (final folder in foldersToScan) {
-        _logger.d('📁 Scanning folder: $folder');
+      for (int i = 0; i < songPaths.length; i += batchSize) {
+        final batch = songPaths.skip(i).take(batchSize).toList();
+        final batchNumber = (i ~/ batchSize) + 1;
+        final totalBatches = (songPaths.length / batchSize).ceil();
         
-        try {
-          final directory = Directory(folder);
-          if (!await directory.exists()) {
-            _logger.w('Folder does not exist: $folder');
-            continue;
-          }
+        _logger.d('🔄 Processing batch $batchNumber/$totalBatches: ${batch.length} files');
 
-          final List<Song> folderSongs = [];
-          int fileCount = 0;
+        final List<Song> batchSongs = [];
 
-          await for (final entity in directory.list(recursive: true)) {
-            if (entity is File) {
-              final song = await processFile(entity);
+        // Process each file in the batch
+        for (final filePath in batch) {
+          try {
+            final file = File(filePath);
+            if (await file.exists()) {
+              final song = await processFile(file, supportedFormats: supportedFormats);
               if (song != null) {
-                folderSongs.add(song);
-                fileCount++;
-                
-                // Send progress update every 10 songs
-                if (fileCount % batchSize == 0) {
-                  totalProcessed += batchSize;
-                  _logger.d('📀 Progress: $fileCount songs processed from $folder');
-                  
-                  // Apply filters to current batch
-                  final filteredBatch = _applyFilters(folderSongs);
-                  allSongs.addAll(filteredBatch);
-                  
-                  // Report progress
-                  onProgress(filteredBatch, false, totalProcessed);
-                  
-                  // Small delay to prevent UI blocking
-                  await Future.delayed(const Duration(milliseconds: 100));
-                }
+                batchSongs.add(song);
+                allSongs.add(song);
               }
             }
+          } catch (e) {
+            _logger.w('⚠️ Error processing file $filePath: $e');
           }
+        }
 
-          // Process remaining songs in the folder
-          if (fileCount % batchSize != 0) {
-            final remainingCount = fileCount % batchSize;
-            totalProcessed += remainingCount;
-            
-            final filteredRemaining = _applyFilters(folderSongs);
-            allSongs.addAll(filteredRemaining);
-            
-            _logger.d('📀 Final batch from $folder: $remainingCount songs');
-            onProgress(filteredRemaining, false, totalProcessed);
-          }
+        // Apply filters to current batch
+        final filteredBatch = _applyFilters(batchSongs);
+        totalProcessed += filteredBatch.length;
 
-          _logger.d('✅ Completed folder $folder: $fileCount songs');
-        } catch (e) {
-          _logger.e('❌ Error scanning folder: $folder', error: e);
+        // Report progress for this batch
+        final isComplete = (i + batchSize) >= songPaths.length;
+        onProgress(filteredBatch, isComplete, totalProcessed);
+
+        _logger.d('📀 Batch $batchNumber completed: ${filteredBatch.length} songs (Total: $totalProcessed)');
+
+        // Small delay to prevent UI blocking
+        if (!isComplete) {
+          await Future.delayed(const Duration(milliseconds: 100));
         }
       }
 
       // Final progress update
       _logger.i('🎵 Progressive fetching completed: ${allSongs.length} total songs');
-      onProgress([], true, allSongs.length);
+      onProgress([], true, totalProcessed);
       
     } catch (e) {
-      _logger.e('❌ Error in progressive song fetching', error: e);
+      _logger.e('❌ Error in optimized progressive song fetching', error: e);
       onProgress([], true, 0);
     }
   }
 
-  /// Fetch only new songs (not present in existing songs list)
-  static Future<List<Song>> fetchNewSongs(List<Song> existingSongs, {List<String>? supportedFormats, Map<String, List<String>>? whitelistedFolders}) async {
-    _logger.i(
-      'Starting to fetch new songs (excluding ${existingSongs.length} existing songs)',
-    );
+  /// OPTIMIZED: Fetch only new songs with new flow
+  /// Returns a map with 'newSongs' and 'invalidSongIds' for comprehensive cleanup
+  static Future<Map<String, dynamic>> fetchNewSongs(List<Song> existingSongs, {List<String>? supportedFormats, Map<String, List<String>>? whitelistedFolders}) async {
+    _logger.i('🆕 Starting optimized new songs fetch (excluding ${existingSongs.length} existing songs)');
 
     try {
-      // Check permissions first
-      if (!await _checkPermissions()) {
-        _logger.w('Permissions not granted, cannot fetch songs');
-        return [];
-      }
-
-      final List<Song> allSongs = [];
-      final List<String> foldersToScan = await _getFoldersToScan(whitelistedFolders ?? {});
-
-      for (final folder in foldersToScan) {
-        _logger.d('Scanning folder: $folder');
-        final songs = await scanFolderForSongs(folder, supportedFormats: supportedFormats);
-        allSongs.addAll(songs);
-        _logger.d('Found ${songs.length} songs in $folder');
-      }
-
-      // Apply filters
-      final filteredSongs = _applyFilters(allSongs);
-      _logger.i('Total songs after filtering: ${filteredSongs.length}');
-
-      // Filter out songs that already exist
-      final existingSongIds = existingSongs.map((song) => song.id).toSet();
-      final newSongs = filteredSongs
-          .where((song) => !existingSongIds.contains(song.id))
-          .toList();
-
-      _logger.i(
-        'Found ${newSongs.length} new songs out of ${filteredSongs.length} total songs',
+      // Step 1: Get all song file paths first
+      final songPaths = await fetchSongsPath(
+        whitelistedFolders: whitelistedFolders,
+        supportedFormats: supportedFormats,
       );
-      return newSongs;
+
+      if (songPaths.isEmpty) {
+        _logger.w('⚠️ No song paths found');
+        return {
+          'newSongs': <Song>[],
+          'invalidSongIds': <String>[],
+        };
+      }
+
+      _logger.i('📋 Found ${songPaths.length} song paths, checking for new songs...');
+
+      // Step 2: Validate existing song paths and create set for quick lookup
+      final validatedExistingSongs = await _validateExistingSongs(existingSongs);
+      final existingSongPaths = validatedExistingSongs.map((song) => song.path).toSet();
+      
+      // Find invalid songs that were removed from device
+      final invalidSongIds = existingSongs
+          .where((song) => !validatedExistingSongs.any((validSong) => validSong.id == song.id))
+          .map((song) => song.id)
+          .toList();
+      
+      if (invalidSongIds.isNotEmpty) {
+        _logger.w('⚠️ Found ${invalidSongIds.length} invalid songs that need cleanup: $invalidSongIds');
+      }
+      
+      final newSongPaths = songPaths.where((path) => !existingSongPaths.contains(path)).toList();
+
+      if (newSongPaths.isEmpty) {
+        _logger.i('✅ No new songs found');
+        return {
+          'newSongs': <Song>[],
+          'invalidSongIds': invalidSongIds,
+        };
+      }
+
+      _logger.i('🆕 Found ${newSongPaths.length} new song paths, extracting metadata...');
+
+      // Step 3: Process metadata extraction for new songs only
+      final List<Song> newSongs = [];
+      const int batchSize = 10;
+      
+      for (int i = 0; i < newSongPaths.length; i += batchSize) {
+        final batch = newSongPaths.skip(i).take(batchSize).toList();
+        _logger.d('🔄 Processing new songs batch ${(i ~/ batchSize) + 1}/${(newSongPaths.length / batchSize).ceil()}: ${batch.length} files');
+
+        // Process each file in the batch
+        for (final filePath in batch) {
+          try {
+            final file = File(filePath);
+            if (await file.exists()) {
+              final song = await processFile(file, supportedFormats: supportedFormats);
+              if (song != null) {
+                newSongs.add(song);
+              }
+            }
+          } catch (e) {
+            _logger.w('⚠️ Error processing new file $filePath: $e');
+          }
+        }
+
+        // Small delay to prevent UI blocking
+        if (i + batchSize < newSongPaths.length) {
+          await Future.delayed(const Duration(milliseconds: 50));
+        }
+      }
+
+      // Step 4: Apply filters to new songs
+      final filteredNewSongs = _applyFilters(newSongs);
+      _logger.i('✅ Found ${filteredNewSongs.length} new songs after filtering');
+
+      return {
+        'newSongs': filteredNewSongs,
+        'invalidSongIds': invalidSongIds,
+      };
     } catch (e) {
-      _logger.e('Error fetching new songs', error: e);
+      _logger.e('❌ Error in optimized new songs fetch', error: e);
+      return {
+        'newSongs': <Song>[],
+        'invalidSongIds': <String>[],
+      };
+    }
+  }
+
+
+  /// Get all folders recursively from whitelisted folders
+  /// This function creates a comprehensive list of all subdirectories
+  static Future<List<String>> getAllFoldersFromWhitelist(Map<String, List<String>> whitelistedFolders) async {
+    final List<String> allFolders = [];
+    
+    try {
+      // Get platform-specific whitelisted folders
+    final platform = Platform.isAndroid ? 'android' : 'ios';
+    final platformFolders = whitelistedFolders[platform] ?? [];
+      _logger.d('🔍 Processing whitelisted folders for $platform: $platformFolders');
+
+      // Process each whitelisted folder recursively
+      for (final whitelistFolder in platformFolders) {
+        final directory = Directory(whitelistFolder);
+      if (await directory.exists()) {
+          _logger.d('📁 Scanning whitelist folder: $whitelistFolder');
+          
+          // Add the whitelist folder itself
+          allFolders.add(whitelistFolder);
+          
+          // Recursively find all subdirectories
+          final subFolders = await _getAllSubdirectories(whitelistFolder);
+          allFolders.addAll(subFolders);
+          
+          _logger.d('📂 Found ${subFolders.length} subdirectories in $whitelistFolder');
+        } else {
+          _logger.w('⚠️ Whitelist folder does not exist: $whitelistFolder');
+        }
+      }
+
+      // Remove duplicates and sort
+      final uniqueFolders = allFolders.toSet().toList();
+      uniqueFolders.sort();
+      
+      _logger.i('✅ Total folders to scan: ${uniqueFolders.length}');
+      _logger.d('📋 All folders: $uniqueFolders');
+      
+      return uniqueFolders;
+    } catch (e) {
+      _logger.e('❌ Error getting folders from whitelist', error: e);
       return [];
     }
   }
 
-  /// Check if all required permissions are granted
-  static Future<bool> _checkPermissions() async {
-    if (Platform.isAndroid) {
-      final androidVersion = await _getAndroidVersion();
-
-      if (androidVersion >= 33) {
-        return await _checkAndroid13Permissions();
-      } else if (androidVersion >= 30) {
-        return await _checkAndroid11Permissions();
-      } else {
-        return await _checkLegacyAndroidPermissions();
-      }
-    } else if (Platform.isIOS) {
-      return await _checkIOSPermissions();
-    }
-
-    return false;
-  }
-
-  /// Get Android version
-  static Future<int> _getAndroidVersion() async {
+  /// Recursively get all subdirectories from a given folder
+  static Future<List<String>> _getAllSubdirectories(String folderPath) async {
+    final List<String> subdirectories = [];
+    
     try {
-      if (Platform.isAndroid) {
-        final androidInfo = await DeviceInfoPlugin().androidInfo;
-        return androidInfo.version.sdkInt;
+      final directory = Directory(folderPath);
+      await for (final entity in directory.list(recursive: true)) {
+        if (entity is Directory) {
+          subdirectories.add(entity.path);
+        }
       }
     } catch (e) {
-      _logger.e('Error getting Android version', error: e);
+      _logger.w('⚠️ Error scanning subdirectories in $folderPath: $e');
     }
-    return 0;
+    
+    return subdirectories;
   }
 
-  /// Request permissions for Android 11+ (API 30+)
-  static Future<bool> _requestAndroid11Permissions() async {
-    _logger.d('Requesting Android 11+ permissions');
+
+  /// PUBLIC FUNCTION: Fetch all song file paths from whitelisted folders
+  /// This function finds all audio files in the comprehensive folder list
+  static Future<List<String>> fetchSongsPath({
+    Map<String, List<String>>? whitelistedFolders,
+    List<String>? supportedFormats,
+  }) async {
+    _logger.i('🎵 Starting to fetch song paths from device...');
 
     try {
-      // For Android 11+, we need MANAGE_EXTERNAL_STORAGE for full access
-      // or use MediaStore API for media files only
-      final storagePermission = await _requestPermissionWithTimeout(
-        Permission.manageExternalStorage,
-      );
-
-      if (storagePermission.isGranted) {
-        _logger.i('MANAGE_EXTERNAL_STORAGE permission granted');
-        return true;
-      } else if (storagePermission.isDenied) {
-        _logger.w('MANAGE_EXTERNAL_STORAGE permission denied');
-        return false;
-      } else if (storagePermission.isPermanentlyDenied) {
-        _logger.w('MANAGE_EXTERNAL_STORAGE permission permanently denied');
-        await _showPermissionDialog(
-          'Storage Permission Required',
-          'This app needs access to your device storage to find and play music files. Please grant the permission in settings.',
-        );
-        return false;
+      // Check permissions first
+      if (!await PermissionService.hasAllRequiredPermissions()) {
+        _logger.w('❌ Permissions not granted, cannot fetch song paths');
+        return [];
       }
 
-      return false;
+      // Get comprehensive folder list from whitelist
+      final allFolders = await getAllFoldersFromWhitelist(whitelistedFolders ?? {});
+      if (allFolders.isEmpty) {
+        _logger.w('⚠️ No folders found in whitelist');
+        return [];
+      }
+
+      final List<String> allSongPaths = [];
+      final formats = supportedFormats ?? FormatUtils.defaultSupportedFormats;
+
+      _logger.i('🔍 Scanning ${allFolders.length} folders for audio files...');
+
+      // Process each folder to find audio files
+      for (final folder in allFolders) {
+        try {
+          final directory = Directory(folder);
+          if (!await directory.exists()) {
+            _logger.w('⚠️ Folder does not exist: $folder');
+            continue;
+          }
+
+          _logger.d('📁 Scanning folder: $folder');
+          int fileCount = 0;
+
+          await for (final entity in directory.list(recursive: false)) {
+            if (entity is File) {
+              final filePath = entity.path.toLowerCase();
+              
+              // Check if file is a supported audio format
+              if (formats.any((format) => filePath.endsWith(format))) {
+                // Skip video files
+                if (!videoFormats.any((format) => filePath.endsWith(format))) {
+                  allSongPaths.add(entity.path);
+                  fileCount++;
+                }
+              }
+            }
+          }
+
+          _logger.d('🎵 Found $fileCount audio files in $folder');
+        } catch (e) {
+          _logger.e('❌ Error scanning folder $folder', error: e);
+        }
+      }
+
+      // Remove duplicates and sort
+      final uniquePaths = allSongPaths.toSet().toList();
+      uniquePaths.sort();
+
+      _logger.i('✅ Found ${uniquePaths.length} unique audio files');
+      return uniquePaths;
     } catch (e) {
-      _logger.e('Error requesting Android 11+ permissions', error: e);
-      // If request fails, check if permission is already granted
-      try {
-        return await _checkAndroid11Permissions();
-      } catch (checkError) {
-        _logger.e('Error checking Android 11+ permissions', error: checkError);
-        return false;
-      }
+      _logger.e('❌ Error fetching song paths', error: e);
+      return [];
     }
-  }
-
-  /// Request permissions for Android 13+ (API 33+)
-  static Future<bool> _requestAndroid13Permissions() async {
-    _logger.d('Requesting Android 13+ permissions');
-
-    try {
-      // For Android 13+, we need READ_MEDIA_AUDIO for audio files
-      // Add timeout to prevent hanging
-      final audioPermission = await _requestPermissionWithTimeout(
-        Permission.audio,
-      );
-
-      if (audioPermission.isGranted) {
-        _logger.i('READ_MEDIA_AUDIO permission granted');
-        return true;
-      } else if (audioPermission.isDenied) {
-        _logger.w('READ_MEDIA_AUDIO permission denied');
-        return false;
-      } else if (audioPermission.isPermanentlyDenied) {
-        _logger.w('READ_MEDIA_AUDIO permission permanently denied');
-        await _showPermissionDialog(
-          'Audio Permission Required',
-          'This app needs access to your audio files to find and play music. Please grant the permission in settings.',
-        );
-        return false;
-      }
-
-      return false;
-    } catch (e) {
-      _logger.e('Error requesting Android 13+ permissions', error: e);
-      // If request fails, check if permission is already granted
-      try {
-        return await _checkAndroid13Permissions();
-      } catch (checkError) {
-        _logger.e('Error checking Android 13+ permissions', error: checkError);
-        return false;
-      }
-    }
-  }
-
-  /// Request legacy Android permissions (pre-Android 11)
-  static Future<bool> _requestLegacyAndroidPermissions() async {
-    _logger.d('Requesting legacy Android permissions');
-
-    try {
-      final storagePermission = await _requestPermissionWithTimeout(
-        Permission.storage,
-      );
-
-      if (storagePermission.isGranted) {
-        _logger.i('Storage permission granted');
-        return true;
-      } else if (storagePermission.isPermanentlyDenied) {
-        _logger.w('Storage permission permanently denied');
-        await _showPermissionDialog(
-          'Storage Permission Required',
-          'This app needs access to your device storage to find and play music files. Please grant the permission in settings.',
-        );
-      }
-
-      return false;
-    } catch (e) {
-      _logger.e('Error requesting legacy Android permissions', error: e);
-      // If request fails, check if permission is already granted
-      try {
-        return await _checkLegacyAndroidPermissions();
-      } catch (checkError) {
-        _logger.e(
-          'Error checking legacy Android permissions',
-          error: checkError,
-        );
-        return false;
-      }
-    }
-  }
-
-  /// Request iOS permissions
-  static Future<bool> _requestIOSPermissions() async {
-    _logger.d('Requesting iOS permissions');
-
-    // iOS doesn't require special permissions for accessing music files
-    // The files are accessible through the app's sandbox
-    _logger.i('iOS permissions not required for music access');
-    return true;
-  }
-
-  /// Check Android 11+ permissions
-  static Future<bool> _checkAndroid11Permissions() async {
-    final storagePermission = await Permission.manageExternalStorage.status;
-    return storagePermission.isGranted;
-  }
-
-  /// Check Android 13+ permissions
-  static Future<bool> _checkAndroid13Permissions() async {
-    final audioPermission = await Permission.audio.status;
-    return audioPermission.isGranted;
-  }
-
-  /// Check legacy Android permissions
-  static Future<bool> _checkLegacyAndroidPermissions() async {
-    final storagePermission = await Permission.storage.status;
-    return storagePermission.isGranted;
-  }
-
-  /// Check iOS permissions
-  static Future<bool> _checkIOSPermissions() async {
-    // iOS doesn't require special permissions for music access
-    return true;
-  }
-
-  /// Show permission dialog with settings option
-  static Future<void> _showPermissionDialog(
-    String title,
-    String message,
-  ) async {
-    // This method is called from the service layer
-    // The actual dialog should be shown from the UI layer
-    _logger.w('Permission Dialog: $title - $message');
-    _logger.i('User should be prompted to open settings from UI layer');
-  }
-
-  /// Request permission with timeout to prevent hanging
-  static Future<PermissionStatus> _requestPermissionWithTimeout(
-    Permission permission,
-  ) async {
-    try {
-      // Add a timeout of 10 seconds to prevent hanging
-      return await permission.request().timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          _logger.w(
-            'Permission request timed out for ${permission.toString()}',
-          );
-          return PermissionStatus.denied;
-        },
-      );
-    } catch (e) {
-      _logger.e(
-        'Error requesting permission ${permission.toString()}',
-        error: e,
-      );
-      return PermissionStatus.denied;
-    }
-  }
-
-  /// Get folders to scan for music files
-  static Future<List<String>> _getFoldersToScan(Map<String, List<String>> whitelistedFolders) async {
-    final List<String> folders = [];
-
-    // Use whitelisted folders from AppSettingsState
-    final platform = Platform.isAndroid ? 'android' : 'ios';
-    final platformFolders = whitelistedFolders[platform] ?? [];
-    folders.addAll(platformFolders);
-    _logger.d('Using whitelisted folders for $platform: $platformFolders');
-
-    // Filter out non-existent folders
-    final existingFolders = <String>[];
-    for (final folder in folders) {
-      final directory = Directory(folder);
-      if (await directory.exists()) {
-        existingFolders.add(folder);
-      }
-    }
-
-    _logger.d('Folders to scan: $existingFolders');
-    return existingFolders;
   }
 
   /// Scan a folder for music files
@@ -583,56 +447,21 @@ class FetchSongsService {
 
     // Then remove duplicates by title (exact or fuzzy matching)
     final uniqueSongs = _useFuzzyMatching 
-        ? _removeDuplicatesSongsFuzzy(basicFilteredSongs)
-        : _removeDuplicateSongsByTitle(basicFilteredSongs);
+        ? SongCleanupService.removeDuplicatesSongsFuzzy(basicFilteredSongs)
+        : SongCleanupService.removeDuplicateSongsByTitle(basicFilteredSongs);
     _logger.d('Songs after duplicate removal: ${uniqueSongs.length}');
 
     return uniqueSongs;
   }
 
-  /// Get list of supported audio formats
-  static List<String> getSupportedFormats() {
-    return List.from(FormatUtils.defaultSupportedFormats);
-  }
-
-  /// Remove duplicate songs by title, keeping the best version
-  static List<Song> _removeDuplicateSongsByTitle(List<Song> songs) {
-    return SongCleanupService.removeDuplicateSongsByTitle(songs);
-  }
 
 
-  /// Get filter settings
-  static Map<String, dynamic> getFilterSettings() {
-    return {
-      'minDuration': minDuration.inSeconds,
-      'maxDuration': maxDuration.inSeconds,
-      'supportedFormats': FormatUtils.defaultSupportedFormats,
-      'duplicateRemoval': true,
-      'fuzzyMatching': false, // Set to true for more aggressive duplicate detection
-    };
-  }
+
 
   /// Set duplicate detection mode
-  static bool _useFuzzyMatching = false;
+  static final bool _useFuzzyMatching = false;
 
 
-  /// Get duplicate removal statistics (for debugging/monitoring)
-  static Map<String, dynamic> getDuplicateRemovalStats(
-    List<Song> originalSongs,
-    List<Song> filteredSongs,
-  ) {
-    final duplicatesRemoved = originalSongs.length - filteredSongs.length;
-    final duplicatePercentage = originalSongs.isNotEmpty
-        ? (duplicatesRemoved / originalSongs.length * 100).toStringAsFixed(1)
-        : '0.0';
-
-    return {
-      'originalCount': originalSongs.length,
-      'filteredCount': filteredSongs.length,
-      'duplicatesRemoved': duplicatesRemoved,
-      'duplicatePercentage': '$duplicatePercentage%',
-    };
-  }
 
   /// Validate if file is a valid audio file using provided formats
   static Future<bool> _isValidAudioFileWithFormats(String filePath, List<String> supportedFormats) async {
@@ -680,9 +509,58 @@ class FetchSongsService {
     }
   }
 
-  /// Alternative: More aggressive duplicate detection using fuzzy matching
-  static List<Song> _removeDuplicatesSongsFuzzy(List<Song> songs) {
-    return SongCleanupService.removeDuplicatesSongsFuzzy(songs);
+
+  /// Validate existing songs to ensure their files still exist and are accessible
+  /// This prevents processing songs that have been moved, deleted, or are inaccessible
+  static Future<List<Song>> _validateExistingSongs(List<Song> existingSongs) async {
+    _logger.i('🔍 Validating ${existingSongs.length} existing songs...');
+    
+    final List<Song> validSongs = [];
+    final List<String> invalidPaths = [];
+    
+    for (final song in existingSongs) {
+      try {
+        final file = File(song.path);
+        
+        // Check if file exists
+        if (!await file.exists()) {
+          _logger.w('⚠️ Song file no longer exists: ${song.path}');
+          invalidPaths.add(song.path);
+          continue;
+        }
+        
+        // Check if file is accessible (can read basic properties)
+        try {
+          final stat = await file.stat();
+          if (stat.size < 1024) { // Less than 1KB is likely invalid
+            _logger.w('⚠️ Song file too small (${stat.size} bytes): ${song.path}');
+            invalidPaths.add(song.path);
+            continue;
+          }
+        } catch (e) {
+          _logger.w('⚠️ Cannot access song file: ${song.path} - $e');
+          invalidPaths.add(song.path);
+          continue;
+        }
+        
+        // File is valid, keep it
+        validSongs.add(song);
+        
+      } catch (e) {
+        _logger.w('⚠️ Error validating song: ${song.path} - $e');
+        invalidPaths.add(song.path);
+      }
+    }
+    
+    final removedCount = existingSongs.length - validSongs.length;
+    if (removedCount > 0) {
+      _logger.i('🗑️ Removed $removedCount invalid songs from existing list');
+      _logger.d('Invalid paths: $invalidPaths');
+    } else {
+      _logger.i('✅ All existing songs are still valid');
+    }
+    
+    return validSongs;
   }
 
 

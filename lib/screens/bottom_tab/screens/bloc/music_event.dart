@@ -3,14 +3,14 @@ part of 'music_bloc.dart';
 @freezed
 abstract class MusicEvent with _$MusicEvent {
   // Load events
-  const factory MusicEvent.loadAllSongs({bool? isForce}) = _LoadAllSongs;
-  const factory MusicEvent.loadAllSongsProgressive({bool? isForce}) = _LoadAllSongsProgressive;
-
-  const factory MusicEvent.loadAlbums() = _LoadAlbums;
-  const factory MusicEvent.loadAlbumsProgressive() = _LoadAlbumsProgressive;
-
-  const factory MusicEvent.loadArtists() = _LoadArtists;
-  const factory MusicEvent.loadArtistsProgressive() = _LoadArtistsProgressive;
+  const factory MusicEvent.fetchAndUpdateSongs({bool? isForce}) = _FetchAndUpdateSongs;
+  
+  // Unified metadata update event (replaces separate album/artist events)
+  const factory MusicEvent.fetchAndUpdateMetadata({
+    bool? includeAlbums,
+    bool? includeArtists,
+    bool? isProgressive,
+  }) = _FetchAndUpdateMetadata;
 
   const factory MusicEvent.loadMyPlaylists() = _LoadMyPlaylists;
 

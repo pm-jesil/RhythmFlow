@@ -41,6 +41,8 @@ dependencies:
   # Network & HTTP
   dio: ^5.9.0
   connectivity_plus: ^6.0.5
+  url_launcher: ^6.3.1
+  share_plus: ^10.0.2
 
   # File System & Permissions
   file_picker: ^10.3.2
@@ -75,7 +77,6 @@ dependencies:
   uuid: ^4.5.1
   crypto: ^3.0.3
   package_info_plus: ^8.0.2
-  device_calendar: ^4.1.0
 
   # Performance & Optimization
   flutter_cache_manager: ^3.3.1

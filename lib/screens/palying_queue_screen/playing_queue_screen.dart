@@ -7,6 +7,7 @@ import '../../../utils/models/song/song_model.dart';
 import '../bottom_tab/screens/bloc/music_bloc.dart';
 import '../widgets/album_art_widget.dart';
 import '../widgets/playlist_source_helper.dart';
+import '../../../core/widgets/app_custom.dart';
 
 class PlayingQueueScreen extends StatefulWidget {
   const PlayingQueueScreen({super.key});
@@ -174,7 +175,7 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
         // Fixed Current Playing Song
         if (currentSong != null)
           Container(
-            margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+            margin: EdgeInsets.symmetric(horizontal: 16.w),
             child: _buildCurrentPlayingTile(currentSong, state),
           ),
 
@@ -247,15 +248,22 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
   Widget _buildCurrentPlayingTile(Song song, MusicState state) {
     return Container(
       decoration: BoxDecoration(
-        color: context.primaryStart.withValues(alpha: 0.15),
+        color: context.primaryStart.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
-          color: context.primaryStart.withValues(alpha: 0.4),
-          width: 2,
+          color: context.primaryStart.withValues(alpha: 0.5),
+          width: 1.5.w,
         ),
         boxShadow: [
           BoxShadow(
-            color: context.primaryStart.withValues(alpha: 0.2),
+            color: context.primaryStart.withValues(alpha: 0.25),
+            blurRadius: 12.r,
+            offset: Offset(0, 4.h),
+          ),
+          BoxShadow(
+            color: context.isDark
+                ? Colors.black.withValues(alpha: 0.4)
+                : Colors.black.withValues(alpha: 0.1),
             blurRadius: 8.r,
             offset: Offset(0, 2.h),
           ),
@@ -277,7 +285,7 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
             );
           },
           child: Padding(
-            padding: EdgeInsets.all(16.w),
+            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
             child: Row(
               children: [
                 // Now Playing Icon
@@ -290,7 +298,7 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
                   ),
                   child: Icon(
                     Icons.play_arrow,
-                    color: Colors.white,
+                    color: context.onSurfaceColor,
                     size: 16.sp,
                   ),
                 ),
@@ -313,7 +321,7 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
                     ),
                   ],
                   defaultIcon: Icons.play_arrow,
-                  defaultIconSize: 24.0,
+                  defaultIconSize: 24.sp,
                 ),
 
                 SizedBox(width: 16.w),
@@ -388,14 +396,32 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
       margin: EdgeInsets.only(bottom: 8.h),
       decoration: BoxDecoration(
         color: isCurrentSong
-            ? context.primaryStart.withValues(alpha: 0.1)
-            : context.cardColor.withValues(alpha: 0.5),
+            ? context.isDark
+                  ? context.primaryStart.withValues(alpha: 0.15)
+                  : context.primaryStart.withValues(alpha: 0.15)
+            : context.isDark
+            ? context.onSurfaceColor.withValues(alpha: 0.08)
+            : context.cardColor,
         borderRadius: BorderRadius.circular(10.r),
         border: Border.all(
           color: isCurrentSong
-              ? context.primaryStart.withValues(alpha: 0.3)
-              : context.onSurfaceColor.withValues(alpha: 0.1),
+              ? context.isDark
+                    ? context.primaryStart.withValues(alpha: 0.4)
+                    : context.primaryStart.withValues(alpha: 0.4)
+              : context.isDark
+              ? context.onSurfaceColor.withValues(alpha: 0.08)
+              : context.onSurfaceColor.withValues(alpha: 0.08),
+          width: 1.w,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: context.isDark
+                ? Colors.black.withValues(alpha: 0.3)
+                : Colors.black.withValues(alpha: 0.05),
+            blurRadius: 4.r,
+            offset: Offset(0, 1.h),
+          ),
+        ],
       ),
       child: Material(
         color: Colors.transparent,
@@ -416,20 +442,21 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
             );
           },
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+            padding: EdgeInsets.symmetric(vertical: 8.h),
             child: Row(
               children: [
                 // Reorder Handle (only show if not current song and not first)
                 if (!isCurrentSong && index > 0)
                   Container(
-                    width: 32.w,
-                    height: 48.h,
+                    width: 35.w,
+                    height: 35.h,
+                    margin: EdgeInsets.symmetric(horizontal: 10.w),
                     decoration: BoxDecoration(
-                      color: context.primaryStart.withValues(alpha: 0.1),
+                      color: context.primaryStart.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(8.r),
                       border: Border.all(
-                        color: context.primaryStart.withValues(alpha: 0.2),
-                        width: 1,
+                        color: context.primaryStart.withValues(alpha: 0.25),
+                        width: 1.w,
                       ),
                     ),
                     child: Center(
@@ -461,7 +488,7 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
                   defaultIcon: isCurrentSong
                       ? Icons.play_arrow
                       : Icons.music_note,
-                  defaultIconSize: 20.0,
+                  defaultIconSize: 20.sp,
                 ),
 
                 SizedBox(width: 12.w),
@@ -522,7 +549,7 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
                   onPressed: () {
                     _removeSongFromQueue(context, song, state);
                   },
-                  icon: Icon(Icons.close, color: Colors.red, size: 20.sp),
+                  icon: Icon(Icons.close, color: context.error, size: 20.sp),
                   constraints: BoxConstraints(minWidth: 32.w, minHeight: 32.h),
                   padding: EdgeInsets.zero,
                 ),
@@ -535,53 +562,69 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
   }
 
   void _showQueueOptions(BuildContext context) {
-    showModalBottomSheet(
+    AppCustom.showBottomSheet(
       context: context,
-      backgroundColor: context.surfaceColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
-      ),
-      builder: (context) => Container(
-        padding: EdgeInsets.all(20.w),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: Icon(
-                Icons.shuffle,
-                color: context.primaryStart,
-                size: 24.sp,
-              ),
-              title: Text(
-                'Shuffle Queue',
-                style: TextStyle(
-                  color: context.onSurfaceColor,
-                  fontFamily: 'Poppins',
-                  fontSize: 16.sp,
-                ),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Implement shuffle queue
-              },
+      title: 'Queue Options',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: Icon(
+              Icons.shuffle,
+              color: context.primaryStart,
+              size: 24.sp,
             ),
-            ListTile(
-              leading: Icon(Icons.clear_all, color: Colors.red, size: 24.sp),
-              title: Text(
-                'Clear Queue',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontFamily: 'Poppins',
-                  fontSize: 16.sp,
-                ),
+            title: Text(
+              'Shuffle Queue',
+              style: TextStyle(
+                color: context.onSurfaceColor,
+                fontFamily: 'Poppins',
+                fontSize: 16.sp,
               ),
-              onTap: () {
-                Navigator.pop(context);
-                _clearQueue(context);
-              },
             ),
-          ],
-        ),
+            onTap: () {
+              Navigator.pop(context);
+              final currentPlayList = context
+                  .read<MusicBloc>()
+                  .state
+                  .myPlayerState
+                  .currentPlayList;
+              // Create a new shuffled list (shuffle() returns void, so we need to copy first)
+              final shuffledQueue = List<String>.from(currentPlayList);
+              shuffledQueue.shuffle();
+
+              context.read<MusicBloc>().add(
+                MusicEvent.updateMusicBlocState(
+                  newState: context.read<MusicBloc>().state.copyWith(
+                    myPlayerState: context
+                        .read<MusicBloc>()
+                        .state
+                        .myPlayerState
+                        .copyWith(
+                          currentPlayList: shuffledQueue,
+                          isShuffle: true,
+                        ),
+                  ),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.clear_all, color: context.error, size: 24.sp),
+            title: Text(
+              'Clear Queue',
+              style: TextStyle(
+                color: context.error,
+                fontFamily: 'Poppins',
+                fontSize: 16.sp,
+              ),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              _clearQueue(context);
+            },
+          ),
+        ],
       ),
     );
   }
@@ -672,58 +715,27 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
     );
   }
 
-
   void _clearQueue(BuildContext context) {
-    showDialog(
+    AppCustom.showConfirm(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: context.surfaceColor,
-        title: Text(
-          'Clear Queue',
-          style: TextStyle(
-            color: context.onSurfaceColor,
-            fontFamily: 'Poppins',
-            fontWeight: FontWeight.w600,
-            fontSize: 18.sp,
-          ),
-        ),
-        content: Text(
-          'Are you sure you want to clear the playing queue?',
-          style: TextStyle(
-            color: context.onSurfaceVariantColor,
-            fontFamily: 'Poppins',
-            fontSize: 14.sp,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: context.onSurfaceVariantColor,
-                fontFamily: 'Poppins',
-                fontSize: 14.sp,
-              ),
+      title: 'Clear Queue',
+      message: 'Are you sure you want to clear the playing queue?',
+      confirmText: 'Clear',
+      cancelText: 'Cancel',
+      confirmColor: context.error,
+      onConfirm: () {
+        context.read<MusicBloc>().add(
+          MusicEvent.updateMusicBlocState(
+            newState: context.read<MusicBloc>().state.copyWith(
+              myPlayerState: context
+                  .read<MusicBloc>()
+                  .state
+                  .myPlayerState
+                  .copyWith(currentPlayList: [], completedSongs: []),
             ),
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // TODO: Implement clear queue
-            },
-            child: Text(
-              'Clear',
-              style: TextStyle(
-                color: Colors.red,
-                fontFamily: 'Poppins',
-                fontWeight: FontWeight.w600,
-                fontSize: 14.sp,
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

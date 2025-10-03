@@ -136,7 +136,11 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
                           errorMessage: 'Failed to load albums',
                           onRetry: () {
                             context.read<MusicBloc>().add(
-                              const MusicEvent.loadAlbums(),
+                              const MusicEvent.fetchAndUpdateMetadata(
+                                includeAlbums: true,
+                                includeArtists: false,
+                                isProgressive: false,
+                              ),
                             );
                           },
                         )

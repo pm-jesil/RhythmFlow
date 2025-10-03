@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:pmj_music_player/core/constants/app_enums.dart';
+import 'package:pmj_music_player/screens/music_player/widgets/album_art_widget_music_palyer_screen.dart';
 import 'dart:ui';
 import 'dart:async';
 
@@ -14,54 +15,10 @@ import 'package:pmj_music_player/utils/models/song/song_model.dart';
 import 'package:pmj_music_player/utils/services/audio_service.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:get_it/get_it.dart';
-import 'widgets/album_art_widget_music_palyer_screen.dart';
 import 'widgets/playlist_selection_popup.dart';
 import '../widgets/custom_scrolling_text.dart';
-
-// Main Music Player Screen (now just a placeholder since we use modal)
-class MusicPlayerScreen extends StatelessWidget {
-  const MusicPlayerScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    // This screen is no longer used since we use modal popup
-    // But keeping it for backward compatibility
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(gradient: context.backgroundGradient),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.music_note,
-                size: 64,
-                color: context.onSurfaceColor.withValues(alpha: 0.5),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Music Player',
-                style: TextStyle(
-                  color: context.onSurfaceColor,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Use the popup player instead',
-                style: TextStyle(
-                  color: context.onSurfaceColor.withValues(alpha: 0.7),
-                  fontSize: 16,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
+import '../../core/widgets/app_custom.dart';
+import '../app_settings/bloc/app_settings_bloc.dart';
 
 // Popup Music Player Modal
 class MusicPlayerModal extends StatefulWidget {
@@ -104,6 +61,15 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
   StreamSubscription<Duration>? _positionSubscription;
   StreamSubscription<Duration>? _durationSubscription;
   Timer? _syncTimer;
+
+  // Sliding options variables
+  double _optionsSlideOffset = 0.0;
+  int _currentSlideIndex = 0;
+  bool _showAllOptions = false;
+  bool _isDragging = false;
+  double _dragStartOffset = 0.0;
+  double _totalDragDistance = 0.0;
+  final double _dragThreshold = 30.0;
 
   // Getter for easy access to audio service
   AudioService get audioService => widget.audioService;
@@ -295,7 +261,9 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                         Navigator.of(context).pop(),
                                     icon: Icon(
                                       Icons.keyboard_arrow_down,
-                                      color: context.onSurfaceColor,
+                                      color: context.isDark
+                                          ? context.onSurfaceColor
+                                          : Colors.white70,
                                       size: 28.sp,
                                     ),
                                   ),
@@ -315,14 +283,16 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                             Icon(
                                               Icons.queue_music,
                                               color: context.primaryStart,
-                                              size: 18.sp,
+                                              size: 22.sp,
                                             ),
                                             SizedBox(width: 8.w),
                                             Text(
                                               'Playing queue',
                                               style: TextStyle(
-                                                color: context.onSurfaceColor,
-                                                fontSize: 14.sp,
+                                                color: context.isDark
+                                                    ? context.onSurfaceColor
+                                                    : Colors.white,
+                                                fontSize: 18.sp,
                                                 fontWeight: FontWeight.w600,
                                                 fontFamily: 'Poppins',
                                               ),
@@ -332,14 +302,6 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                           ],
                                         ),
                                       ),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    onPressed: () {},
-                                    icon: Icon(
-                                      Icons.more_vert,
-                                      color: context.onSurfaceColor,
-                                      size: 24.sp,
                                     ),
                                   ),
                                 ],
@@ -401,11 +363,16 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                                   .copyWith(
                                                     activeTrackColor:
                                                         context.primaryStart,
-                                                    inactiveTrackColor: context
-                                                        .onSurfaceColor
-                                                        .withValues(
-                                                          alpha: 0.15,
-                                                        ),
+                                                    inactiveTrackColor:
+                                                        context.isDark
+                                                        ? context.onSurfaceColor
+                                                              .withValues(
+                                                                alpha: 0.15,
+                                                              )
+                                                        : Colors.white
+                                                              .withValues(
+                                                                alpha: 0.15,
+                                                              ),
                                                     thumbColor:
                                                         context.primaryStart,
                                                     trackHeight: 2.h,
@@ -451,8 +418,12 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                               Text(
                                                 _formatDuration(_totalDuration),
                                                 style: TextStyle(
-                                                  color: context.onSurfaceColor
-                                                      .withValues(alpha: 0.8),
+                                                  color: context.isDark
+                                                      ? context.onSurfaceColor
+                                                            .withValues(
+                                                              alpha: 0.8,
+                                                            )
+                                                      : Colors.white,
                                                   fontSize: 12.sp,
                                                   fontWeight: FontWeight.w600,
                                                   fontFamily: 'Poppins',
@@ -495,8 +466,6 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                               },
                                               size: 45.w,
                                             ),
-
-                                            SizedBox(width: 10.w),
 
                                             // Enhanced Play/Pause Button - Optimized for immediate response
                                             GestureDetector(
@@ -607,8 +576,6 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                               ),
                                             ),
 
-                                            SizedBox(width: 10.w),
-
                                             // Next Button
                                             _buildEnhancedControlButton(
                                               icon: Icons.skip_next,
@@ -648,40 +615,287 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                       ],
                                     ),
                                   ),
-                                  SizedBox(height: 10.h),
-                                  SizedBox(
-                                    height: 40.h,
-                                    width: double.infinity,
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceEvenly,
+                                  SizedBox(height: 15.h),
+                                  // Right-aligned Sliding Bottom Options Section with Swipe Gestures
+                                  Container(
+                                    height: 50.h,
+                                    margin: EdgeInsets.only(
+                                      left: 20.w,
+                                    ), // Only left margin, no right margin
+                                    child: Stack(
                                       children: [
-                                        // Favorite Button
-                                        _buildSecondaryControlButton(
-                                          icon: Icons.favorite_border,
-                                          activeIcon: Icons.favorite,
-                                          onPressed: () {
-                                            _toggleFavorite(
-                                              context,
-                                              currentSong,
-                                            );
-                                          },
-                                          isActive: _isFavorite(currentSong),
-                                          size: 40.w,
+                                        // Playing Queue Button - Positioned on the left
+                                        AnimatedPositioned(
+                                          duration: const Duration(
+                                            milliseconds: 300,
+                                          ),
+                                          curve: Curves.easeOutCubic,
+                                          left: _showAllOptions
+                                              ? -60.w
+                                              : 0.w, // Move left when expanded, show when collapsed
+                                          child: AnimatedOpacity(
+                                            duration: const Duration(
+                                              milliseconds: 300,
+                                            ),
+                                            opacity: _showAllOptions
+                                                ? 0.0
+                                                : 1.0,
+                                            child: Container(
+                                              width: 40.r,
+                                              height: 40.r,
+                                              margin: EdgeInsets.only(
+                                                left: 10.w,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                  colors: [
+                                                    context.isDark
+                                                        ? context.primaryStart
+                                                              .withValues(
+                                                                alpha: 0.15,
+                                                              )
+                                                        : Colors.white
+                                                              .withValues(
+                                                                alpha: 0.15,
+                                                              ),
+                                                    context.isDark
+                                                        ? context.primaryStart
+                                                              .withValues(
+                                                                alpha: 0.08,
+                                                              )
+                                                        : Colors.white
+                                                              .withValues(
+                                                                alpha: 0.08,
+                                                              ),
+                                                  ],
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(22.r),
+                                                border: Border.all(
+                                                  color: context.isDark
+                                                      ? context.primaryStart
+                                                            .withValues(
+                                                              alpha: 0.3,
+                                                            )
+                                                      : Colors.white.withValues(
+                                                          alpha: 0.3,
+                                                        ),
+                                                  width: 1.w,
+                                                ),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: context.isDark
+                                                        ? context.primaryStart
+                                                              .withValues(
+                                                                alpha: 0.2,
+                                                              )
+                                                        : Colors.white
+                                                              .withValues(
+                                                                alpha: 0.2,
+                                                              ),
+                                                    blurRadius: 8.r,
+                                                    offset: Offset(0, 2.h),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: IconButton(
+                                                onPressed: () {
+                                                  // Navigate to playing queue screen
+                                                  context
+                                                      .navigateToPlayingQueue();
+                                                },
+                                                icon: Icon(
+                                                  Icons.queue_music,
+                                                  color: context.isDark
+                                                      ? context.primaryStart
+                                                      : Colors.white,
+                                                  size: 20.sp,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
                                         ),
 
-                                        SizedBox(width: 20.w),
+                                        // Main Options Container - Positioned on the right
+                                        AnimatedPositioned(
+                                          duration: _isDragging
+                                              ? const Duration(
+                                                  milliseconds: 0,
+                                                ) // No animation during drag
+                                              : const Duration(
+                                                  milliseconds: 300,
+                                                ), // Smooth animation when snapping
+                                          curve: _isDragging
+                                              ? Curves
+                                                    .linear // Linear during drag
+                                              : Curves
+                                                    .easeOutCubic, // Smooth cubic curve for snapping
+                                          right: _optionsSlideOffset,
+                                          child: GestureDetector(
+                                            onPanStart: (details) {
+                                              // Start of drag gesture
+                                              _handleDragStart();
+                                            },
+                                            onPanUpdate: (details) {
+                                              // Handle horizontal drag gestures
+                                              _handleDragGesture(
+                                                details.delta.dx,
+                                              );
+                                            },
+                                            onPanEnd: (details) {
+                                              // Handle drag end
+                                              _handleDragEnd(
+                                                details
+                                                    .velocity
+                                                    .pixelsPerSecond
+                                                    .dx,
+                                              );
+                                            },
+                                            onTap: () {
+                                              // Single tap to toggle expand/collapse
+                                              _toggleExpandCollapse();
+                                            },
+                                            child: Container(
+                                              height: 45.h,
+                                              width: _showAllOptions
+                                                  ? MediaQuery.of(
+                                                          context,
+                                                        ).size.width -
+                                                        20
+                                                            .w // Full width minus left margin when expanded
+                                                  : 140.w, // Show 3 icons initially (2 + arrow)
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                  colors: [
+                                                    context.onSurfaceColor
+                                                        .withValues(
+                                                          alpha: 0.08,
+                                                        ),
+                                                    context.onSurfaceColor
+                                                        .withValues(
+                                                          alpha: 0.04,
+                                                        ),
+                                                  ],
+                                                ),
+                                                borderRadius: BorderRadius.only(
+                                                  bottomLeft: Radius.circular(
+                                                    22.r,
+                                                  ),
+                                                  topLeft: Radius.circular(
+                                                    22.r,
+                                                  ),
+                                                ),
+                                                border: Border.all(
+                                                  color: context.onSurfaceColor
+                                                      .withValues(alpha: 0.1),
+                                                  width: 1.w,
+                                                ),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: context.isDark
+                                                        ? Colors.black
+                                                              .withValues(
+                                                                alpha: 0.3,
+                                                              )
+                                                        : Colors.black
+                                                              .withValues(
+                                                                alpha: 0.2,
+                                                              ),
+                                                    blurRadius: 8.r,
+                                                    offset: Offset(0, 2.h),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceEvenly,
+                                                children: [
+                                                  // Left Arrow Button (part of main container) - Dynamic appearance
+                                                  _buildDynamicLeftButton(
+                                                    isExpanded: _showAllOptions,
+                                                    onPressed: () {
+                                                      if (_showAllOptions) {
+                                                        // If expanded, collapse back to 3 icons
+                                                        _collapseOptions();
+                                                      } else {
+                                                        // If collapsed, expand to show all options
+                                                        _slideOptionsLeft();
+                                                      }
+                                                    },
+                                                  ),
 
-                                        // Create Playlist Button
-                                        _buildSecondaryControlButton(
-                                          icon: Icons.playlist_add,
-                                          onPressed: () {
-                                            _showCreatePlaylistDialog(
-                                              context,
-                                              currentSong,
-                                            );
-                                          },
-                                          size: 40.w,
+                                                  // Favorite Button
+                                                  _buildCompactBottomButton(
+                                                    icon: Icons.favorite_border,
+                                                    activeIcon: Icons.favorite,
+                                                    onPressed: () {
+                                                      _toggleFavorite(
+                                                        context,
+                                                        currentSong,
+                                                      );
+                                                    },
+                                                    isActive: _isFavorite(
+                                                      currentSong,
+                                                    ),
+                                                  ),
+
+                                                  // Playlist Button
+                                                  _buildCompactBottomButton(
+                                                    icon: Icons.playlist_add,
+                                                    onPressed: () {
+                                                      _showCreatePlaylistDialog(
+                                                        context,
+                                                        currentSong,
+                                                      );
+                                                    },
+                                                  ),
+
+                                                  // Playback Settings Button (hidden initially)
+                                                  if (_showAllOptions)
+                                                    _buildCompactBottomButton(
+                                                      icon: Icons.speed,
+                                                      onPressed: () {
+                                                        _showPlaybackSpeedDialog(
+                                                          context,
+                                                        );
+                                                      },
+                                                    ),
+
+                                                  // Sleep Timer Button (hidden initially)
+                                                  if (_showAllOptions)
+                                                    _buildCompactBottomButton(
+                                                      icon: Icons.bedtime,
+                                                      onPressed: () {
+                                                        _showSleepTimerDialog(
+                                                          context,
+                                                        );
+                                                      },
+                                                    ),
+
+                                                  // Auto Play Button (hidden initially)
+                                                  if (_showAllOptions)
+                                                    _buildCompactBottomButton(
+                                                      icon: Icons
+                                                          .play_circle_outline,
+                                                      activeIcon: Icons
+                                                          .play_circle_filled,
+                                                      onPressed: () {
+                                                        _toggleAutoplay(
+                                                          context,
+                                                        );
+                                                      },
+                                                      isActive:
+                                                          _isAutoplayEnabled(),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -724,10 +938,12 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
           children: [
             CustomScrollingText(
               text: currentSong.title,
-              color: context.onSurfaceColor,
+              color: context.isDark ? context.onSurfaceColor : Colors.white,
               fontSize: 18.sp,
               fontWeight: FontWeight.w700,
-              cardWidth: MediaQuery.of(context).size.width - 40.w, // Account for padding
+              cardWidth:
+                  MediaQuery.of(context).size.width -
+                  40.w, // Account for padding
               isTitleScrolling: true,
               height: 24.h,
               textAlign: TextAlign.center,
@@ -738,7 +954,9 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
             Text(
               currentSong.artists.join(', '),
               style: TextStyle(
-                color: context.onSurfaceColor.withValues(alpha: 0.8),
+                color: context.isDark
+                    ? context.onSurfaceColor.withValues(alpha: 0.8)
+                    : Colors.white,
                 fontSize: 13.sp,
                 fontWeight: FontWeight.w500,
                 letterSpacing: 0.3,
@@ -821,29 +1039,43 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      context.primaryStart.withValues(alpha: 0.3),
-                      context.primaryEnd.withValues(alpha: 0.2),
+                      context.isDark
+                          ? context.primaryStart.withValues(alpha: 0.3)
+                          : Colors.white.withValues(alpha: 0.3),
+                      context.isDark
+                          ? context.primaryEnd.withValues(alpha: 0.2)
+                          : Colors.white.withValues(alpha: 0.2),
                     ],
                   )
                 : LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      context.onSurfaceColor.withValues(alpha: 0.15),
-                      context.onSurfaceColor.withValues(alpha: 0.05),
+                      context.isDark
+                          ? context.onSurfaceColor.withValues(alpha: 0.15)
+                          : Colors.white.withValues(alpha: 0.15),
+                      context.isDark
+                          ? context.onSurfaceColor.withValues(alpha: 0.05)
+                          : Colors.white.withValues(alpha: 0.05),
                     ],
                   ),
             borderRadius: BorderRadius.circular((37.w / 2).r),
             border: Border.all(
               color: isActive
-                  ? context.primaryStart.withValues(alpha: 0.6)
-                  : context.onSurfaceColor.withValues(alpha: 0.3),
+                  ? context.isDark
+                        ? context.primaryStart.withValues(alpha: 0.6)
+                        : Colors.white.withValues(alpha: 0.6)
+                  : context.isDark
+                  ? context.onSurfaceColor.withValues(alpha: 0.3)
+                  : Colors.white.withValues(alpha: 0.3),
               width: 1.5.w,
             ),
             boxShadow: [
               BoxShadow(
                 color: isActive
-                    ? context.primaryStart.withValues(alpha: 0.2)
+                    ? context.isDark
+                          ? context.primaryStart.withValues(alpha: 0.2)
+                          : Colors.white.withValues(alpha: 0.2)
                     : context.isDark
                     ? Colors.black.withValues(alpha: 0.2)
                     : Colors.black.withValues(alpha: 0.08),
@@ -855,9 +1087,7 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
           child: Center(
             child: Icon(
               icon,
-              color: isActive
-                  ? context.primaryStart
-                  : context.onSurfaceColor.withValues(alpha: 0.9),
+              color: isActive ? context.primaryStart : Colors.white,
               size: (37.w * 0.5).sp,
             ),
           ),
@@ -895,15 +1125,23 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    context.onSurfaceColor.withValues(alpha: 0.15),
-                    context.onSurfaceColor.withValues(alpha: 0.05),
+                    context.isDark
+                        ? context.onSurfaceColor.withValues(alpha: 0.15)
+                        : Colors.white.withValues(alpha: 0.15),
+                    context.isDark
+                        ? context.onSurfaceColor.withValues(alpha: 0.05)
+                        : Colors.white.withValues(alpha: 0.05),
                   ],
                 ),
           borderRadius: BorderRadius.circular((size / 2).r),
           border: Border.all(
             color: isActive
-                ? context.primaryStart.withValues(alpha: 0.6)
-                : context.onSurfaceColor.withValues(alpha: 0.3),
+                ? context.isDark
+                      ? context.primaryStart.withValues(alpha: 0.6)
+                      : Colors.white.withValues(alpha: 0.6)
+                : context.isDark
+                ? context.onSurfaceColor.withValues(alpha: 0.3)
+                : Colors.white.withValues(alpha: 0.3),
             width: 1.5.w,
           ),
           // Simplified shadow for better performance
@@ -924,7 +1162,9 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
             icon,
             color: isActive
                 ? context.primaryStart
-                : context.onSurfaceColor.withValues(alpha: 0.9),
+                : context.isDark
+                ? context.onSurfaceColor.withValues(alpha: 0.9)
+                : Colors.white,
             size: (size * 0.5).sp,
           ),
         ),
@@ -937,6 +1177,165 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
     final minutes = twoDigits(duration.inMinutes.remainder(60));
     final seconds = twoDigits(duration.inSeconds.remainder(60));
     return '$minutes:$seconds';
+  }
+
+  /// Format duration for sleep timer (minutes to human readable format)
+  String _formatSleepTimerDuration(int minutes) {
+    if (minutes < 60) {
+      return '${minutes}m';
+    } else {
+      final hours = minutes ~/ 60;
+      final remainingMinutes = minutes % 60;
+      if (remainingMinutes == 0) {
+        return '${hours}h';
+      } else {
+        return '${hours}h ${remainingMinutes}m';
+      }
+    }
+  }
+
+  // ==================== APP SETTINGS HELPER METHODS ====================
+
+  void _updatePlaybackSettings(
+    bool autoPlayNext,
+    bool showNotifications,
+    double playbackSpeed,
+  ) {
+    context.read<AppSettingsBloc>().add(
+      AppSettingsEvent.updatePlaybackSettings(
+        autoPlayNext: autoPlayNext,
+        showNotifications: showNotifications,
+        playbackSpeed: playbackSpeed,
+      ),
+    );
+  }
+
+  void _updateSleepTimer(int minutes, bool isEnabled) {
+    context.read<AppSettingsBloc>().add(
+      AppSettingsEvent.updateSleepTimer(minutes: minutes, isEnabled: isEnabled),
+    );
+  }
+
+  Widget _buildNativeSliderTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required double value,
+    required double min,
+    required double max,
+    required int divisions,
+    required ValueChanged<double> onChanged,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: context.primaryStart, size: 22.sp),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: context.onSurfaceColor,
+          fontSize: 16.sp,
+          fontWeight: FontWeight.w400,
+          fontFamily: 'Poppins',
+        ),
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            subtitle,
+            style: TextStyle(
+              color: context.onSurfaceVariantColor,
+              fontSize: 14.sp,
+              fontFamily: 'Poppins',
+            ),
+          ),
+          SizedBox(height: 8.h),
+          Slider(
+            value: value,
+            min: min,
+            max: max,
+            divisions: divisions,
+            onChanged: onChanged,
+            activeColor: context.primaryStart,
+            inactiveColor: context.onSurfaceVariantColor.withValues(alpha: 0.3),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build native switch tile for settings
+  Widget _buildNativeSwitchTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: context.surfaceColor.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: context.onSurfaceColor.withValues(alpha: 0.1),
+          width: 1.w,
+        ),
+      ),
+      child: SwitchListTile(
+        secondary: Icon(icon, color: context.primaryStart, size: 22.sp),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: context.onSurfaceColor,
+            fontSize: 16.sp,
+            fontWeight: FontWeight.w400,
+            fontFamily: 'Poppins',
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(
+            color: context.onSurfaceVariantColor,
+            fontSize: 14.sp,
+            fontFamily: 'Poppins',
+          ),
+        ),
+        value: value,
+        onChanged: onChanged,
+        activeColor: context.primaryStart,
+        inactiveThumbColor: context.onSurfaceColor.withValues(alpha: 0.3),
+        inactiveTrackColor: context.onSurfaceColor.withValues(alpha: 0.1),
+      ),
+    );
+  }
+
+  /// Toggle autoplay setting (simple on/off)
+  void _toggleAutoplay(BuildContext context) {
+    HapticFeedback.lightImpact();
+    final isEnabled = _isAutoplayEnabled();
+
+    // Toggle the autoplay setting
+    context.read<AppSettingsBloc>().add(
+      AppSettingsEvent.updatePlaybackSettings(
+        autoPlayNext: !isEnabled,
+        showNotifications: context
+            .read<AppSettingsBloc>()
+            .state
+            .showNotifications,
+        playbackSpeed: context.read<AppSettingsBloc>().state.playbackSpeed,
+      ),
+    );
+
+    _logger.i('🔄 Autoplay toggled: ${!isEnabled}');
+
+    AppCustom.success(
+      context,
+      'Auto Play ${!isEnabled ? 'enabled' : 'disabled'}',
+    );
+  }
+
+  /// Check if autoplay is enabled
+  bool _isAutoplayEnabled() {
+    return context.read<AppSettingsBloc>().state.autoPlayNext;
   }
 
   /// Handle seeking without haptic feedback
@@ -1081,13 +1480,74 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
     return clampedValue;
   }
 
-  /// Build secondary control button for favorite and create playlist
-  Widget _buildSecondaryControlButton({
+  /// Build dynamic left button that changes appearance based on expanded state
+  Widget _buildDynamicLeftButton({
+    required bool isExpanded,
+    required VoidCallback onPressed,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onPressed();
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        width: 35.w,
+        height: 35.w,
+        margin: EdgeInsets.symmetric(horizontal: 1.w),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              context.isDark
+                  ? context.onSurfaceColor.withValues(alpha: 0.1)
+                  : Colors.white.withValues(alpha: 0.1),
+              context.isDark
+                  ? context.onSurfaceColor.withValues(alpha: 0.05)
+                  : Colors.white.withValues(alpha: 0.05),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(17.r),
+          border: Border.all(
+            color: context.isDark
+                ? context.onSurfaceColor.withValues(alpha: 0.2)
+                : Colors.white.withValues(alpha: 0.2),
+            width: 1.w,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: context.isDark
+                  ? Colors.black.withValues(alpha: 0.2)
+                  : Colors.black.withValues(alpha: 0.05),
+              blurRadius: 3.r,
+              offset: Offset(0, 1.h),
+            ),
+          ],
+        ),
+        child: Center(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: Icon(
+              isExpanded ? Icons.arrow_forward_ios : Icons.arrow_back_ios,
+              key: ValueKey(isExpanded ? 'forward' : 'back'),
+              color: context.isDark
+                  ? context.onSurfaceColor.withValues(alpha: 0.8)
+                  : Colors.white,
+              size: 16.sp,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Build compact bottom button for sliding options
+  Widget _buildCompactBottomButton({
     required IconData icon,
     IconData? activeIcon,
     required VoidCallback onPressed,
     bool isActive = false,
-    double size = 40,
   }) {
     return GestureDetector(
       onTap: () {
@@ -1096,41 +1556,58 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        width: size,
-        height: size,
+        width: 35.w, // Reduced size
+        height: 35.w, // Reduced size
+        margin: EdgeInsets.symmetric(horizontal: 1.w),
         decoration: BoxDecoration(
           gradient: isActive
               ? LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    context.primaryStart.withValues(alpha: 0.2),
-                    context.primaryEnd.withValues(alpha: 0.15),
+                    context.isDark
+                        ? context.primaryStart.withValues(alpha: 0.2)
+                        : Colors.white.withValues(alpha: 0.2),
+                    context.isDark
+                        ? context.primaryEnd.withValues(alpha: 0.15)
+                        : Colors.white.withValues(alpha: 0.15),
                   ],
                 )
               : LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    context.onSurfaceColor.withValues(alpha: 0.1),
-                    context.onSurfaceColor.withValues(alpha: 0.05),
+                    context.isDark
+                        ? context.onSurfaceColor.withValues(alpha: 0.1)
+                        : Colors.white.withValues(alpha: 0.1),
+                    context.isDark
+                        ? context.onSurfaceColor.withValues(alpha: 0.05)
+                        : Colors.white.withValues(alpha: 0.05),
                   ],
                 ),
-          borderRadius: BorderRadius.circular((size / 2).r),
+          borderRadius: BorderRadius.circular(
+            17.r,
+          ), // Adjusted for smaller size
           border: Border.all(
             color: isActive
-                ? context.primaryStart.withValues(alpha: 0.5)
-                : context.onSurfaceColor.withValues(alpha: 0.2),
+                ? context.isDark
+                      ? context.primaryStart.withValues(alpha: 0.4)
+                      : Colors.white.withValues(alpha: 0.4)
+                : context.isDark
+                ? context.onSurfaceColor.withValues(alpha: 0.2)
+                : Colors.white.withValues(alpha: 0.2),
             width: 1.w,
           ),
           boxShadow: [
             BoxShadow(
               color: isActive
-                  ? context.primaryStart.withValues(alpha: 0.15)
+                  ? context.isDark
+                        ? context.primaryStart.withValues(alpha: 0.2)
+                        : Colors.white.withValues(alpha: 0.2)
                   : context.isDark
-                  ? Colors.black.withValues(alpha: 0.15)
+                  ? Colors.black.withValues(alpha: 0.2)
                   : Colors.black.withValues(alpha: 0.05),
-              blurRadius: 4.r,
+              blurRadius: 3.r, // Reduced blur
               offset: Offset(0, 1.h),
             ),
           ],
@@ -1139,13 +1616,195 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
           child: Icon(
             isActive && activeIcon != null ? activeIcon : icon,
             color: isActive
-                ? context.primaryStart
-                : context.onSurfaceColor.withValues(alpha: 0.8),
-            size: (size * 0.5).sp,
+                ? context.isDark
+                      ? context.primaryStart
+                      : Colors.white
+                : context.isDark
+                ? context.onSurfaceColor.withValues(alpha: 0.8)
+                : Colors.white,
+            size: 16.sp, // Reduced icon size
           ),
         ),
       ),
     );
+  }
+
+  /// Handle drag start with enhanced initialization
+  void _handleDragStart() {
+    _isDragging = true;
+    _dragStartOffset = _optionsSlideOffset;
+    _totalDragDistance = 0.0;
+    _logger.i('🖱️ Drag gesture started at offset: $_dragStartOffset');
+  }
+
+  /// Handle horizontal drag gestures with enhanced responsiveness
+  void _handleDragGesture(double deltaX) {
+    _totalDragDistance += deltaX.abs(); // Track total drag distance
+
+    if (_showAllOptions) {
+      // Smooth dragging when all options are visible
+      final newOffset = _dragStartOffset + deltaX;
+      final maxOffset = 0.0;
+      final minOffset = -(MediaQuery.of(context).size.width - 20.w - 140.w);
+
+      // Apply smooth clamping with resistance at edges
+      final clampedOffset = _applySmoothClamping(
+        newOffset,
+        minOffset,
+        maxOffset,
+      );
+
+      setState(() {
+        _optionsSlideOffset = clampedOffset;
+      });
+    } else {
+      // Enhanced expansion logic based on drag direction and distance
+      if (_totalDragDistance > _dragThreshold) {
+        if (deltaX < 0) {
+          // Drag left to expand and show more options
+          _expandAndShowOptions();
+        } else if (deltaX > 0) {
+          // Drag right - could be used for other actions in the future
+          _logger.i('🖱️ Dragged right - no action defined');
+        }
+      }
+    }
+  }
+
+  /// Expand options and show all icons
+  void _expandAndShowOptions() {
+    setState(() {
+      _showAllOptions = true;
+      _optionsSlideOffset = 0.0;
+      _isDragging = false;
+      _totalDragDistance = 0.0;
+    });
+    _logger.i('🖱️ Expanded options - all icons now visible');
+  }
+
+  /// Apply smooth clamping with resistance at edges
+  double _applySmoothClamping(double value, double min, double max) {
+    if (value < min) {
+      // Apply resistance when dragging beyond left edge
+      final overshoot = min - value;
+      return min - (overshoot * 0.3); // 30% resistance
+    } else if (value > max) {
+      // Apply resistance when dragging beyond right edge
+      final overshoot = value - max;
+      return max + (overshoot * 0.3); // 30% resistance
+    }
+    return value;
+  }
+
+  /// Handle drag end with enhanced snapping logic
+  void _handleDragEnd(double velocity) {
+    _isDragging = false;
+
+    if (_showAllOptions) {
+      const velocityThreshold = 60.0;
+      const snapDistance = 40.0;
+
+      // Check if user made a significant drag gesture
+      if (_totalDragDistance > _dragThreshold) {
+        if (velocity.abs() > velocityThreshold) {
+          // Fast swipe - velocity-based snapping
+          if (velocity > 0) {
+            // Swipe right - go to previous position
+            _smoothSlideToPosition(_currentSlideIndex + 1);
+          } else {
+            // Swipe left - go to next position
+            _smoothSlideToPosition(_currentSlideIndex - 1);
+          }
+        } else {
+          // Slow drag - position-based snapping
+          final currentOffset = _optionsSlideOffset;
+
+          if (currentOffset < -snapDistance) {
+            _smoothSlideToPosition(_currentSlideIndex - 1);
+          } else if (currentOffset > snapDistance) {
+            _smoothSlideToPosition(_currentSlideIndex + 1);
+          } else {
+            // Snap back to current position
+            _smoothSlideToPosition(_currentSlideIndex);
+          }
+        }
+      } else {
+        // Small drag - snap back to current position
+        _smoothSlideToPosition(_currentSlideIndex);
+      }
+    } else {
+      // If not expanded and drag was too small, reset
+      if (_totalDragDistance < _dragThreshold) {
+        _logger.i('🖱️ Small drag gesture - no action taken');
+      }
+    }
+
+    // Reset drag tracking
+    _totalDragDistance = 0.0;
+  }
+
+  /// Smooth slide to specific position with animation
+  void _smoothSlideToPosition(int targetIndex) {
+    // Clamp target index to valid range
+    final clampedIndex = targetIndex.clamp(0, 2);
+
+    if (clampedIndex != _currentSlideIndex) {
+      setState(() {
+        _currentSlideIndex = clampedIndex;
+        _optionsSlideOffset = _currentSlideIndex * -60.w;
+      });
+      _logger.i('🎯 Smooth sliding to position: $clampedIndex');
+    } else {
+      // Snap back to current position
+      _snapToCurrentPosition();
+    }
+  }
+
+  /// Toggle expand/collapse on single tap
+  void _toggleExpandCollapse() {
+    if (_showAllOptions) {
+      _collapseOptions();
+    } else {
+      _expandAndShowOptions();
+    }
+  }
+
+  /// Snap to current position
+  void _snapToCurrentPosition() {
+    setState(() {
+      _optionsSlideOffset = _currentSlideIndex * -60.w;
+    });
+  }
+
+  /// Collapse options back to initial 3-icon state
+  void _collapseOptions() {
+    setState(() {
+      _showAllOptions = false;
+      _currentSlideIndex = 0;
+      _optionsSlideOffset = 0.0;
+    });
+    _logger.i('🔽 Collapsing options back to 3-icon state');
+  }
+
+  /// Slide options to the left (auto-expand to show all options)
+  void _slideOptionsLeft() {
+    if (!_showAllOptions) {
+      // Auto-expand to show all options
+      setState(() {
+        _showAllOptions = true;
+        _optionsSlideOffset = 0.0; // Right-aligned, no offset initially
+      });
+      _logger.i('⬅️ Auto-expanding to show all options');
+    } else {
+      // Manual slide left
+      if (_currentSlideIndex > 0) {
+        setState(() {
+          _currentSlideIndex--;
+          _optionsSlideOffset = _currentSlideIndex * -60.w;
+        });
+        _logger.i('⬅️ Sliding options left to index: $_currentSlideIndex');
+      }
+    }
   }
 
   /// Check if song is favorite
@@ -1174,17 +1833,9 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
       ),
     );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _isFavorite(song) ? 'Removed from favorites' : 'Added to favorites',
-          style: TextStyle(color: Colors.white, fontFamily: 'Poppins'),
-        ),
-        backgroundColor: context.primaryStart,
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
-      ),
+    AppCustom.success(
+      context,
+      _isFavorite(song) ? 'Removed from favorites' : 'Added to favorites',
     );
   }
 
@@ -1192,12 +1843,92 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
   void _showCreatePlaylistDialog(BuildContext context, Song song) {
     HapticFeedback.lightImpact();
     _logger.i('📝 Show playlist selection popup for song: ${song.title}');
-    
-    showModalBottomSheet(
+
+    AppCustom.showBottomSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => PlaylistSelectionPopup(song: song),
+      child: PlaylistSelectionPopup(song: song),
+    );
+  }
+
+  /// Show playback speed dialog with only progress bar
+  void _showPlaybackSpeedDialog(BuildContext context) {
+    HapticFeedback.lightImpact();
+    _logger.i('⚡ Show playback speed dialog');
+
+    AppCustom.showBottomSheet(
+      context: context,
+      title: 'Playback Speed',
+      height: 230.h,
+      child: BlocBuilder<AppSettingsBloc, AppSettingsState>(
+        builder: (context, settingsState) {
+          return _buildNativeSliderTile(
+            icon: Icons.speed_rounded,
+            title: 'Playback Speed',
+            subtitle: '${settingsState.playbackSpeed.toStringAsFixed(1)}x',
+            value: settingsState.playbackSpeed,
+            min: 0.5,
+            max: 2.0,
+            divisions: 15,
+            onChanged: (value) => _updatePlaybackSettings(
+              settingsState.autoPlayNext,
+              settingsState.showNotifications,
+              value,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Show sleep timer dialog with toggle and progress bar
+  void _showSleepTimerDialog(BuildContext context) {
+    HapticFeedback.lightImpact();
+    _logger.i('😴 Show sleep timer dialog');
+
+    AppCustom.showBottomSheet(
+      context: context,
+      title: 'Sleep Timer',
+      height: 330.h,
+      child: BlocBuilder<AppSettingsBloc, AppSettingsState>(
+        builder: (context, settingsState) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Sleep Timer Toggle Switch
+              _buildNativeSwitchTile(
+                icon: Icons.bedtime_rounded,
+                title: 'Sleep Timer',
+                subtitle: settingsState.isSleepTimerEnabled
+                    ? 'Timer is active'
+                    : 'Timer is disabled',
+                value: settingsState.isSleepTimerEnabled,
+                onChanged: (value) =>
+                    _updateSleepTimer(settingsState.sleepTimerMinutes, value),
+              ),
+
+              // Only show slider when timer is enabled
+              if (settingsState.isSleepTimerEnabled) ...[
+                SizedBox(height: 16.h),
+                _buildNativeSliderTile(
+                  icon: Icons.timer_rounded,
+                  title: 'Timer Duration',
+                  subtitle: _formatSleepTimerDuration(
+                    settingsState.sleepTimerMinutes,
+                  ),
+                  value: settingsState.sleepTimerMinutes.toDouble(),
+                  min: 5,
+                  max: 120,
+                  divisions: 23,
+                  onChanged: (value) => _updateSleepTimer(
+                    value.round(),
+                    settingsState.isSleepTimerEnabled,
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
+      ),
     );
   }
 }

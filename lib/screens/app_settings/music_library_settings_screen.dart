@@ -5,11 +5,10 @@ import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import '../../../core/theme/theme_extension.dart';
 import '../../../utils/logger/logger.dart';
-import '../../../utils/models/song/song_model.dart';
-import '../../../utils/services/format_utils.dart';
-import '../../../utils/services/fetch_songs.dart';
+import '../../../utils/services/permission_service.dart';
 import 'bloc/app_settings_bloc.dart';
 import '../../../screens/bottom_tab/screens/bloc/music_bloc.dart';
+import '../../../core/widgets/app_custom.dart';
 
 class MusicLibrarySettingsScreen extends StatefulWidget {
   const MusicLibrarySettingsScreen({super.key});
@@ -84,11 +83,9 @@ class _MusicLibrarySettingsScreenState extends State<MusicLibrarySettingsScreen>
           builder: (context, musicState) {
             return ListView(
               children: [
-                _buildWhitelistSection(appSettingsState),
-                SizedBox(height: 32.h),
-                _buildRefreshSection(appSettingsState),
-                SizedBox(height: 32.h),
-                _buildManualFetchSection(appSettingsState, musicState),
+                _buildMusicFoldersSection(appSettingsState),
+                SizedBox(height: 24.h),
+                _buildLibraryManagementSection(appSettingsState, musicState),
                 SizedBox(height: 80.h),
               ],
             );
@@ -100,46 +97,41 @@ class _MusicLibrarySettingsScreenState extends State<MusicLibrarySettingsScreen>
 
   // ==================== SECTION BUILDERS ====================
   
-  Widget _buildWhitelistSection(AppSettingsState state) {
+  Widget _buildMusicFoldersSection(AppSettingsState state) {
     return Column(
       children: [
         _buildSectionHeader('Music Folders'),
-        _buildWhitelistSettings(state),
+        _buildMusicFoldersSettings(state),
       ],
     );
   }
 
-  Widget _buildRefreshSection(AppSettingsState state) {
+  Widget _buildLibraryManagementSection(AppSettingsState state, MusicState musicState) {
     return Column(
       children: [
         _buildSectionHeader('Library Management'),
-        _buildRefreshSettings(state),
+        _buildLibraryManagementSettings(state, musicState),
       ],
     );
   }
 
-  Widget _buildManualFetchSection(AppSettingsState state, MusicState musicState) {
-    return Column(
-      children: [
-        _buildSectionHeader('Add Music Manually'),
-        _buildManualFetchSettings(state, musicState),
-      ],
-    );
-  }
 
   // ==================== SECTION HEADERS ====================
   
   Widget _buildSectionHeader(String title) {
     return Padding(
       padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
-      child: Text(
-        title.toUpperCase(),
-        style: TextStyle(
-          color: context.onSurfaceVariantColor,
-          fontSize: 13.sp,
-          fontWeight: FontWeight.w500,
-          fontFamily: 'Poppins',
-          letterSpacing: 0.5,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          title.toUpperCase(),
+          style: TextStyle(
+            color: context.onSurfaceVariantColor,
+            fontSize: 13.sp,
+            fontWeight: FontWeight.w500,
+            fontFamily: 'Poppins',
+            letterSpacing: 0.5,
+          ),
         ),
       ),
     );
@@ -147,23 +139,33 @@ class _MusicLibrarySettingsScreenState extends State<MusicLibrarySettingsScreen>
 
   // ==================== SETTINGS SECTIONS ====================
   
-  Widget _buildWhitelistSettings(AppSettingsState state) {
+  Widget _buildMusicFoldersSettings(AppSettingsState state) {
     final platform = Platform.isAndroid ? 'android' : 'ios';
     final folders = state.whiteListFolder[platform] ?? [];
+    final canAddMore = folders.length < 6;
     
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16.w),
       decoration: BoxDecoration(
         color: context.surfaceColor,
-        borderRadius: BorderRadius.circular(10.r),
+        borderRadius: BorderRadius.circular(12.r),
+        boxShadow: [
+          BoxShadow(
+            color: context.onSurfaceColor.withValues(alpha: 0.05),
+            blurRadius: 8.r,
+            offset: Offset(0, 2.h),
+          ),
+        ],
       ),
       child: Column(
         children: [
           _buildNativeActionTile(
             icon: Icons.folder_open_rounded,
             title: 'Add Folder',
-            subtitle: 'Select folder from device storage',
-            onTap: _addFolder,
+            subtitle: canAddMore 
+                ? 'Select folder from device storage (${folders.length}/6)'
+                : 'Maximum 6 folders allowed (${folders.length}/6)',
+            onTap: canAddMore ? _addFolder : null,
           ),
           if (folders.isNotEmpty) ...[
             _buildDivider(),
@@ -173,76 +175,53 @@ class _MusicLibrarySettingsScreenState extends State<MusicLibrarySettingsScreen>
             _buildDivider(),
             _buildEmptyStateTile(),
           ],
+          if (!canAddMore) ...[
+            _buildDivider(),
+            _buildMaxFoldersReachedTile(),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildRefreshSettings(AppSettingsState state) {
-    return BlocBuilder<MusicBloc, MusicState>(
-      builder: (context, musicState) {
-        final isFetching = musicState.appSettingsFetchSong;
-        
-        return Container(
-          margin: EdgeInsets.symmetric(horizontal: 16.w),
-          decoration: BoxDecoration(
-            color: context.surfaceColor,
-            borderRadius: BorderRadius.circular(10.r),
-          ),
-          child: Column(
-            children: [
-              _buildNativeActionTile(
-                icon: Icons.refresh_rounded,
-                title: 'Refresh Music Library',
-                subtitle: 'Scan all music folders for songs',
-                onTap: isFetching ? null : _refreshAllSongs,
-                isLoading: isFetching,
-              ),
-              _buildDivider(),
-              _buildNativeInfoTile(
-                icon: Icons.info_rounded,
-                title: 'Last Refresh',
-                subtitle: state.lastUpdateMusicLibrary != null 
-                    ? _formatLastUpdate(state.lastUpdateMusicLibrary!)
-                    : 'Never',
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildManualFetchSettings(AppSettingsState state, MusicState musicState) {
+  Widget _buildLibraryManagementSettings(AppSettingsState state, MusicState musicState) {
     final isFetching = musicState.appSettingsFetchSong;
     
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16.w),
       decoration: BoxDecoration(
         color: context.surfaceColor,
-        borderRadius: BorderRadius.circular(10.r),
+        borderRadius: BorderRadius.circular(12.r),
+        boxShadow: [
+          BoxShadow(
+            color: context.onSurfaceColor.withValues(alpha: 0.05),
+            blurRadius: 8.r,
+            offset: Offset(0, 2.h),
+          ),
+        ],
       ),
       child: Column(
         children: [
           _buildNativeActionTile(
-            icon: Icons.file_open_rounded,
-            title: 'Add Specific Files',
-            subtitle: 'Select individual audio files',
-            onTap: isFetching ? null : _fetchSpecificFiles,
+            icon: Icons.refresh_rounded,
+            title: 'Refresh Library',
+            subtitle: 'Scan all music folders for songs',
+            onTap: isFetching ? null : _refreshAllSongs,
             isLoading: isFetching,
           ),
           _buildDivider(),
-          _buildNativeActionTile(
-            icon: Icons.folder_rounded,
-            title: 'Add from Folder',
-            subtitle: 'Select a specific folder to scan',
-            onTap: isFetching ? null : _fetchFromFolder,
-            isLoading: isFetching,
+          _buildNativeInfoTile(
+            icon: Icons.info_rounded,
+            title: 'Last Refresh',
+            subtitle: state.lastUpdateMusicLibrary != null 
+                ? _formatLastUpdate(state.lastUpdateMusicLibrary!)
+                : 'Never',
           ),
         ],
       ),
     );
   }
+
 
   // ==================== TILE BUILDERS ====================
   
@@ -301,6 +280,33 @@ class _MusicLibrarySettingsScreenState extends State<MusicLibrarySettingsScreen>
       ),
       subtitle: Text(
         'Tap "Add Folder" to add music folders',
+        style: TextStyle(
+          color: context.onSurfaceVariantColor,
+          fontSize: 14.sp,
+          fontFamily: 'Poppins',
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMaxFoldersReachedTile() {
+    return ListTile(
+      leading: Icon(
+        Icons.warning_rounded,
+        color: Colors.orange,
+        size: 22.sp,
+      ),
+      title: Text(
+        'Maximum folders reached',
+        style: TextStyle(
+          color: Colors.orange,
+          fontSize: 16.sp,
+          fontWeight: FontWeight.w500,
+          fontFamily: 'Poppins',
+        ),
+      ),
+      subtitle: Text(
+        'Remove a folder to add a new one (6/6)',
         style: TextStyle(
           color: context.onSurfaceVariantColor,
           fontSize: 14.sp,
@@ -393,11 +399,9 @@ class _MusicLibrarySettingsScreenState extends State<MusicLibrarySettingsScreen>
 
   Widget _buildDivider() {
     return Divider(
-      height: 1,
+      color: context.onSurfaceVariantColor.withValues(alpha: 0.1),
+      height: 1.h,
       thickness: 0.5,
-      color: context.onSurfaceVariantColor.withValues(alpha: 0.2),
-      indent: 16.w,
-      endIndent: 16.w,
     );
   }
 
@@ -405,6 +409,15 @@ class _MusicLibrarySettingsScreenState extends State<MusicLibrarySettingsScreen>
   
   Future<void> _addFolder() async {
     try {
+      // Check if we can add more folders
+      final platform = Platform.isAndroid ? 'android' : 'ios';
+      final currentFolders = context.read<AppSettingsBloc>().state.whiteListFolder[platform] ?? [];
+      
+      if (currentFolders.length >= 6) {
+        AppCustom.warning(context, 'Maximum 6 folders allowed. Remove a folder to add a new one.');
+        return;
+      }
+      
       _logger.i('📁 Opening folder picker...');
       
       String? selectedDirectory = await FilePicker.platform.getDirectoryPath(
@@ -414,7 +427,6 @@ class _MusicLibrarySettingsScreenState extends State<MusicLibrarySettingsScreen>
       if (selectedDirectory != null) {
         _logger.i('📁 Selected folder: $selectedDirectory');
         
-        final platform = Platform.isAndroid ? 'android' : 'ios';
         context.read<AppSettingsBloc>().add(
           AppSettingsEvent.updateWhiteListFolder(
             platform: platform,
@@ -423,13 +435,13 @@ class _MusicLibrarySettingsScreenState extends State<MusicLibrarySettingsScreen>
           ),
         );
         
-        _showSnackBar('Folder added successfully', isSuccess: true);
+        AppCustom.success(context, 'Folder added successfully');
       } else {
         _logger.i('📁 No folder selected');
       }
     } catch (e) {
       _logger.e('❌ Error selecting folder: $e');
-      _showSnackBar('Error selecting folder', isSuccess: false);
+      AppCustom.error(context, 'Error selecting folder');
     }
   }
 
@@ -445,215 +457,65 @@ class _MusicLibrarySettingsScreenState extends State<MusicLibrarySettingsScreen>
       ),
     );
     
-    _showSnackBar('Folder removed successfully', isSuccess: true);
+    AppCustom.success(context, 'Folder removed successfully');
   }
 
   Future<void> _refreshAllSongs() async {
+    _logger.i('🔄 Starting full song refresh (force refresh)...');
+    
     try {
-      _logger.i('🔄 Starting full song refresh (force refresh)...');
-      _showSnackBar('Refreshing songs...', isSuccess: true);
+      // Check permissions first
+      final hasPermissions = await PermissionService.hasAllRequiredPermissions();
       
-      // Trigger music bloc to refresh all songs with force flag
-      context.read<MusicBloc>().add(const MusicEvent.loadAllSongsProgressive(isForce: true));
-      
-      // Update last refresh time
-      context.read<AppSettingsBloc>().add(
-        AppSettingsEvent.updateLastMusicLibraryUpdate(
-          timestamp: DateTime.now(),
-        ),
-      );
-      
-      _logger.i('✅ Force song refresh initiated successfully');
-      _showSnackBar('Force song refresh initiated', isSuccess: true);
-      
-    } catch (e) {
-      _logger.e('❌ Error refreshing songs: $e');
-      _showSnackBar('Error refreshing songs', isSuccess: false);
-    }
-  }
-
-  Future<void> _fetchSpecificFiles() async {
-    try {
-      _logger.i('📁 Opening file picker for specific files...');
-      
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.audio,
-        allowMultiple: true,
-        dialogTitle: 'Select Audio Files',
-      );
-      
-      if (result != null && result.files.isNotEmpty) {
-        _logger.i('📁 Selected ${result.files.length} files');
+      if (hasPermissions) {
+        _logger.i('✅ Permissions granted, proceeding with refresh');
+        AppCustom.info(context, 'Refreshing songs...');
         
-        // Process selected files
-        final filePaths = result.files
-            .where((file) => file.path != null)
-            .map((file) => file.path!)
-            .toList();
+        // Trigger music bloc to refresh all songs with force flag
+        context.read<MusicBloc>().add(const MusicEvent.fetchAndUpdateSongs(isForce: true));
         
-        if (filePaths.isNotEmpty) {
-          _showSnackBar('Processing ${filePaths.length} files...', isSuccess: true);
-          
-          // Process the selected files using FetchSongsService
-          try {
-            // Set the fetch flag to true for manual operations
-            context.read<MusicBloc>().add(
-              MusicEvent.updateMusicBlocState(
-                newState: context.read<MusicBloc>().state.copyWith(
-                  appSettingsFetchSong: true,
-                ),
-              ),
-            );
-            
-            final songs = <Song>[];
-            for (final filePath in filePaths) {
-              final file = File(filePath);
-              if (await file.exists()) {
-                // Use the metadata extractor directly
-                final song = await FetchSongsService.processFile(file, supportedFormats: FormatUtils.getSupportedFormats(context));
-                if (song != null) {
-                  songs.add(song);
-                }
-              }
-            }
-            
-            if (songs.isNotEmpty) {
-              // Add songs to music bloc
-              context.read<MusicBloc>().add(
-                MusicEvent.updateMusicBlocState(
-                  newState: context.read<MusicBloc>().state.copyWith(
-                    allSongs: [...context.read<MusicBloc>().state.allSongs, ...songs],
-                    appSettingsFetchSong: false,
-                  ),
-                ),
-              );
-              
-              // Refresh albums and artists
-              context.read<MusicBloc>().refreshAlbumsAndArtists();
-              
-              _logger.i('✅ ${songs.length} files processed successfully');
-              _showSnackBar('${songs.length} files added to library', isSuccess: true);
-            } else {
-              _showSnackBar('No valid audio files found', isSuccess: false);
-              
-              // Set flag to false even when no songs found
-              context.read<MusicBloc>().add(
-                MusicEvent.updateMusicBlocState(
-                  newState: context.read<MusicBloc>().state.copyWith(
-                    appSettingsFetchSong: false,
-                  ),
-                ),
-              );
-            }
-          } catch (e) {
-            _logger.e('❌ Error processing files: $e');
-            _showSnackBar('Error processing files', isSuccess: false);
-            
-            // Set flag to false on error
-            context.read<MusicBloc>().add(
-              MusicEvent.updateMusicBlocState(
-                newState: context.read<MusicBloc>().state.copyWith(
-                  appSettingsFetchSong: false,
-                ),
-              ),
-            );
-          }
-        } else {
-          _showSnackBar('No valid files selected', isSuccess: false);
-        }
-      } else {
-        _logger.i('📁 No files selected');
-      }
-    } catch (e) {
-      _logger.e('❌ Error fetching specific files: $e');
-      _showSnackBar('Error processing files', isSuccess: false);
-    }
-  }
-
-  Future<void> _fetchFromFolder() async {
-    try {
-      _logger.i('📁 Opening folder picker for manual fetch...');
-      
-      String? selectedDirectory = await FilePicker.platform.getDirectoryPath(
-        dialogTitle: 'Select Folder to Scan',
-      );
-      
-      if (selectedDirectory != null) {
-        _logger.i('📁 Selected folder for manual fetch: $selectedDirectory');
-        
-        _showSnackBar('Scanning folder...', isSuccess: true);
-        
-        // Set the fetch flag to true for manual operations
-        context.read<MusicBloc>().add(
-          MusicEvent.updateMusicBlocState(
-            newState: context.read<MusicBloc>().state.copyWith(
-              appSettingsFetchSong: true,
-            ),
+        // Update last refresh time
+        context.read<AppSettingsBloc>().add(
+          AppSettingsEvent.updateLastMusicLibraryUpdate(
+            timestamp: DateTime.now(),
           ),
         );
         
-        // Scan the selected folder for songs
-        try {
-          final songs = await FetchSongsService.scanFolderForSongs(selectedDirectory, supportedFormats: FormatUtils.getSupportedFormats(context));
+        _logger.i('✅ Force song refresh initiated successfully');
+        AppCustom.success(context, 'Force song refresh initiated');
+      } else {
+        _logger.w('❌ Permissions not granted, requesting permissions');
+        
+        // Request permissions with user-friendly dialog
+        final granted = await PermissionService.requestAllRequiredPermissions(context);
+        
+        if (granted) {
+          _logger.i('✅ Permissions granted after request, proceeding with refresh');
+          AppCustom.info(context, 'Refreshing songs...');
           
-          if (songs.isNotEmpty) {
-            // Add songs to music bloc
-            context.read<MusicBloc>().add(
-              MusicEvent.updateMusicBlocState(
-                newState: context.read<MusicBloc>().state.copyWith(
-                  allSongs: [...context.read<MusicBloc>().state.allSongs, ...songs],
-                  appSettingsFetchSong: false,
-                ),
-              ),
-            );
-            
-            // Refresh albums and artists
-            context.read<MusicBloc>().refreshAlbumsAndArtists();
-            
-            _logger.i('✅ Folder scanned successfully: ${songs.length} songs found');
-            _showSnackBar('${songs.length} songs added from folder', isSuccess: true);
-          } else {
-            _showSnackBar('No songs found in folder', isSuccess: false);
-            
-            // Set flag to false even when no songs found
-            context.read<MusicBloc>().add(
-              MusicEvent.updateMusicBlocState(
-                newState: context.read<MusicBloc>().state.copyWith(
-                  appSettingsFetchSong: false,
-                ),
-              ),
-            );
-          }
-        } catch (e) {
-          _logger.e('❌ Error scanning folder: $e');
-          _showSnackBar('Error scanning folder', isSuccess: false);
+          // Trigger music bloc to refresh all songs with force flag
+          context.read<MusicBloc>().add(const MusicEvent.fetchAndUpdateSongs(isForce: true));
           
-          // Set flag to false on error
-          context.read<MusicBloc>().add(
-            MusicEvent.updateMusicBlocState(
-              newState: context.read<MusicBloc>().state.copyWith(
-                appSettingsFetchSong: false,
-              ),
+          // Update last refresh time
+          context.read<AppSettingsBloc>().add(
+            AppSettingsEvent.updateLastMusicLibraryUpdate(
+              timestamp: DateTime.now(),
             ),
           );
+          
+          _logger.i('✅ Force song refresh initiated successfully');
+          AppCustom.success(context, 'Force song refresh initiated');
+        } else {
+          _logger.w('❌ Permissions denied, showing permission required dialog');
+          await PermissionService.showPermissionRequiredDialog(context);
         }
-      } else {
-        _logger.i('📁 No folder selected for manual fetch');
       }
     } catch (e) {
-      _logger.e('❌ Error fetching from folder: $e');
-      _showSnackBar('Error scanning folder', isSuccess: false);
-      
-      // Set flag to false on error
-      context.read<MusicBloc>().add(
-        MusicEvent.updateMusicBlocState(
-          newState: context.read<MusicBloc>().state.copyWith(
-            appSettingsFetchSong: false,
-          ),
-        ),
-      );
+      _logger.e('❌ Error refreshing songs: $e');
+      AppCustom.error(context, 'Error refreshing songs');
     }
   }
+
 
   // ==================== UTILITY METHODS ====================
   
@@ -679,25 +541,4 @@ class _MusicLibrarySettingsScreenState extends State<MusicLibrarySettingsScreen>
     }
   }
 
-  void _showSnackBar(String message, {required bool isSuccess}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 14.sp,
-            fontFamily: 'Poppins',
-          ),
-        ),
-        backgroundColor: isSuccess ? Colors.green : Colors.red,
-        duration: const Duration(seconds: 3),
-        behavior: SnackBarBehavior.floating,
-        margin: EdgeInsets.all(16.w),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.r),
-        ),
-      ),
-    );
-  }
 }

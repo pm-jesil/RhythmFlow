@@ -109,23 +109,6 @@ Future<Song?> _extractMetadataCore(String filePath) async {
   }
 }
 
-/// Main metadata extraction function that orchestrates all the specialized extractors
-Future<Song?> _extractMetadataWithRetry(String filePath, {int maxRetries = 2}) async {
-  for (int attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await _extractMetadataCore(filePath);
-    } catch (e) {
-      if (attempt == maxRetries) {
-        MetadataExtractor._logger.e('Failed to extract metadata after $maxRetries attempts: $filePath - $e');
-        return null;
-      } else {
-        MetadataExtractor._logger.w('Attempt ${attempt + 1} failed for $filePath, retrying... - $e');
-        await Future.delayed(Duration(milliseconds: 100 * (attempt + 1)));
-      }
-    }
-  }
-  return null;
-}
 
 /// Legacy function wrappers for backward compatibility
 
@@ -134,9 +117,6 @@ Future<bool> _isValidAudioFile(String filePath) async {
 }
 
 
-bool _isAudioFile(String filePath) {
-  return MetadataUtils.isAudioFile(filePath);
-}
 
 Future<String> _generateSongId(String filePath) async {
   return MetadataUtils.generateSongId(filePath);
@@ -273,9 +253,6 @@ Future<String?> _extractAlbumArtSafely(String filePath, Tag? tag) async {
   return AlbumArtHandler.extractAlbumArtSafely(filePath, tag);
 }
 
-Future<String?> _extractAlbumArt(String filePath, Tag? tag) async {
-  return AlbumArtHandler.extractAlbumArt(filePath, tag);
-}
 
 Future<String?> _findExternalAlbumArt(String filePath) async {
   return AlbumArtHandler.findExternalAlbumArt(filePath);
@@ -292,5 +269,3 @@ Future<DateTime> _getFileCreationDate(String filePath) async {
 
 
 // Functions moved to SharedValidation class to eliminate duplications
-
-

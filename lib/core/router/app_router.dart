@@ -43,14 +43,14 @@ class AppRouter {
       GoRoute(
         path: '/play/:songId',
         builder: (context, state) {
-          return const MusicPlayerScreen();
+          return const Scaffold(body: Center(child: Text('Use modal player instead')));
         },
       ),
 
       GoRoute(
         path: '/play',
         builder: (context, state) {
-          return const MusicPlayerScreen();
+          return const Scaffold(body: Center(child: Text('Use modal player instead')));
         },
       ),
 

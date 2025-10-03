@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../core/theme/theme_extension.dart';
-import '../core/constants/app_constants.dart';
 import '../screens/app_settings/bloc/app_settings_bloc.dart';
 import 'package:go_router/go_router.dart';
 

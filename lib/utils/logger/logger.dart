@@ -4,12 +4,12 @@ class AppLogger {
   final String context;
   final Logger _logger;
   
-  static bool _enableTraceLogs = false;
-  static bool _enableDebugLogs = true;
-  static bool _enableInfoLogs = true;
-  static bool _enableWarningLogs = true;
-  static bool _enableErrorLogs = true;
-  static bool _enableFatalLogs = true;
+  static const bool _enableTraceLogs = false;
+  static const bool _enableDebugLogs = true;
+  static const bool _enableInfoLogs = true;
+  static const bool _enableWarningLogs = true;
+  static const bool _enableErrorLogs = true;
+  static const bool _enableFatalLogs = true;
 
   AppLogger(this.context)
       : _logger = Logger(

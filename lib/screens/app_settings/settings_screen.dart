@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_bloc.dart';
 import '../../../core/router/app_router.dart';
 import 'bloc/app_settings_bloc.dart';
+import '../../../core/widgets/app_custom.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -61,13 +62,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return ListView(
           children: [
             _buildProfileSection(state),
-            SizedBox(height: 32.h),
+            SizedBox(height: 24.h),
             _buildAppearanceSection(state),
-            SizedBox(height: 32.h),
-            _buildPlaybackSection(state),
-            SizedBox(height: 32.h),
-            _buildSleepTimerSection(state),
-            SizedBox(height: 32.h),
+            SizedBox(height: 24.h),
+            _buildMusicSection(state),
+            SizedBox(height: 24.h),
             _buildAdvancedSection(state),
             SizedBox(height: 80.h),
           ],
@@ -84,27 +83,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Widget _buildMusicSection(AppSettingsState state) {
+    return Column(
+      children: [
+        _buildSectionHeader('Music & Playback'),
+        _buildMusicSettings(state),
+      ],
+    );
+  }
+
   Widget _buildAppearanceSection(AppSettingsState state) {
     return Column(
       children: [_buildSectionHeader('Appearance'), _buildThemeSettings(state)],
-    );
-  }
-
-  Widget _buildPlaybackSection(AppSettingsState state) {
-    return Column(
-      children: [
-        _buildSectionHeader('Playback'),
-        _buildPlaybackSettings(state),
-      ],
-    );
-  }
-
-  Widget _buildSleepTimerSection(AppSettingsState state) {
-    return Column(
-      children: [
-        _buildSectionHeader('Sleep Timer'),
-        _buildSleepTimerSettings(state),
-      ],
     );
   }
 
@@ -122,14 +112,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildSectionHeader(String title) {
     return Padding(
       padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
-      child: Text(
-        title.toUpperCase(),
-        style: TextStyle(
-          color: context.onSurfaceVariantColor,
-          fontSize: 13.sp,
-          fontWeight: FontWeight.w500,
-          fontFamily: 'Poppins',
-          letterSpacing: 0.5,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          title.toUpperCase(),
+          style: TextStyle(
+            color: context.onSurfaceVariantColor,
+            fontSize: 13.sp,
+            fontWeight: FontWeight.w500,
+            fontFamily: 'Poppins',
+            letterSpacing: 0.5,
+          ),
         ),
       ),
     );
@@ -144,12 +137,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       margin: EdgeInsets.symmetric(horizontal: 16.w),
       decoration: BoxDecoration(
         color: context.surfaceColor,
-        borderRadius: BorderRadius.circular(10.r),
+        borderRadius: BorderRadius.circular(12.r),
+        boxShadow: [
+          BoxShadow(
+            color: context.onSurfaceColor.withValues(alpha: 0.05),
+            blurRadius: 8.r,
+            offset: Offset(0, 2.h),
+          ),
+        ],
       ),
       child: Column(
         children: [
           _buildProfileTile(
-            icon: Icons.face_rounded,
+            icon: Icons.person_rounded,
             title: 'Profile',
             subtitle: nickName,
             onTap: () => _navigateToProfileEdit(),
@@ -159,58 +159,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildThemeSettings(AppSettingsState state) {
+  Widget _buildMusicSettings(AppSettingsState state) {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16.w),
       decoration: BoxDecoration(
         color: context.surfaceColor,
-        borderRadius: BorderRadius.circular(10.r),
-      ),
-      child: Column(
-        children: [
-          _buildNativeSwitchTile(
-            icon: Icons.dark_mode_rounded,
-            title: 'Dark Mode',
-            value: state.isDarkMode ?? false,
-            onChanged: (state.followSystemTheme == true)
-                ? null
-                : (value) => _updateTheme(value, state.followSystemTheme),
-            enabled: state.followSystemTheme != true,
-          ),
-          if (state.followSystemTheme == true)
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: Text(
-                'Dark mode is controlled by system settings',
-                style: TextStyle(
-                  color: context.onSurfaceVariantColor,
-                  fontSize: 12.sp,
-                  fontStyle: FontStyle.italic,
-                  fontFamily: 'Poppins',
-                ),
-              ),
-            ),
-          _buildDivider(),
-          _buildNativeSwitchTile(
-            icon: Icons.settings_suggest_rounded,
-            title: 'Follow System',
-            value: state.followSystemTheme ?? true,
-            onChanged: (value) => _updateFollowSystem(value),
+        borderRadius: BorderRadius.circular(12.r),
+        boxShadow: [
+          BoxShadow(
+            color: context.onSurfaceColor.withValues(alpha: 0.05),
+            blurRadius: 8.r,
+            offset: Offset(0, 2.h),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildPlaybackSettings(AppSettingsState state) {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16.w),
-      decoration: BoxDecoration(
-        color: context.surfaceColor,
-        borderRadius: BorderRadius.circular(10.r),
-      ),
       child: Column(
         children: [
+          _buildNativeActionTile(
+            icon: Icons.music_note_rounded,
+            title: 'Music Library',
+            subtitle: 'Manage your music collection',
+            onTap: _navigateToFetchSongsSettings,
+          ),
+          _buildDivider(),
           _buildNativeSwitchTile(
             icon: Icons.skip_next_rounded,
             title: 'Auto Play Next',
@@ -247,20 +218,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               value,
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSleepTimerSettings(AppSettingsState state) {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16.w),
-      decoration: BoxDecoration(
-        color: context.surfaceColor,
-        borderRadius: BorderRadius.circular(10.r),
-      ),
-      child: Column(
-        children: [
+          _buildDivider(),
           _buildNativeSwitchTile(
             icon: Icons.bedtime_rounded,
             title: 'Sleep Timer',
@@ -287,24 +245,76 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Widget _buildThemeSettings(AppSettingsState state) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16.w),
+      decoration: BoxDecoration(
+        color: context.surfaceColor,
+        borderRadius: BorderRadius.circular(12.r),
+        boxShadow: [
+          BoxShadow(
+            color: context.onSurfaceColor.withValues(alpha: 0.05),
+            blurRadius: 8.r,
+            offset: Offset(0, 2.h),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _buildNativeSwitchTile(
+            icon: Icons.dark_mode_rounded,
+            title: 'Dark Mode',
+            value: state.isDarkMode ?? false,
+            onChanged: (state.followSystemTheme == true)
+                ? null
+                : (value) => _updateTheme(value, state.followSystemTheme),
+            enabled: state.followSystemTheme != true,
+          ),
+          if (state.followSystemTheme == true)
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.w),
+              child: Text(
+                'Dark mode is controlled by system settings',
+                style: TextStyle(
+                  color: context.onSurfaceVariantColor,
+                  fontSize: 12.sp,
+                  fontStyle: FontStyle.italic,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+            ),
+          _buildDivider(),
+          _buildNativeSwitchTile(
+            icon: Icons.settings_suggest_rounded,
+            title: 'Follow System Theme',
+            value: state.followSystemTheme ?? true,
+            onChanged: (value) => _updateFollowSystem(value),
+          ),
+        ],
+      ),
+    );
+  }
+
+
   Widget _buildAdvancedSettings(AppSettingsState state) {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16.w),
       decoration: BoxDecoration(
         color: context.surfaceColor,
-        borderRadius: BorderRadius.circular(10.r),
+        borderRadius: BorderRadius.circular(12.r),
+        boxShadow: [
+          BoxShadow(
+            color: context.onSurfaceColor.withValues(alpha: 0.05),
+            blurRadius: 8.r,
+            offset: Offset(0, 2.h),
+          ),
+        ],
       ),
       child: Column(
         children: [
-          _buildNativeActionTile(
-            icon: Icons.music_note_rounded,
-            title: 'Fetch Songs Settings',
-            onTap: _navigateToFetchSongsSettings,
-          ),
-          _buildDivider(),
           _buildNativeSliderTile(
             icon: Icons.refresh_rounded,
-            title: 'Background Refresh Interval',
+            title: 'Background Refresh',
             subtitle: '${state.appBackgroundRefreshTimeGap} hours',
             value: state.appBackgroundRefreshTimeGap.toDouble(),
             min: 1,
@@ -316,7 +326,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildDivider(),
           _buildNativeActionTile(
             icon: Icons.restore_rounded,
-            title: 'Reset to Defaults',
+            title: 'Reset Settings',
+            subtitle: 'Restore all settings to default',
             onTap: _showResetDialog,
           ),
           _buildDivider(),
@@ -517,6 +528,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildNativeActionTile({
     required IconData icon,
     required String title,
+    String? subtitle,
     required VoidCallback onTap,
   }) {
     return ListTile(
@@ -530,6 +542,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           fontFamily: 'Poppins',
         ),
       ),
+      subtitle: subtitle != null
+          ? Text(
+              subtitle,
+              style: TextStyle(
+                color: context.onSurfaceVariantColor,
+                fontSize: 14.sp,
+                fontFamily: 'Poppins',
+              ),
+            )
+          : null,
       trailing: Icon(
         Icons.arrow_forward_ios_rounded,
         color: context.onSurfaceVariantColor,
@@ -593,59 +615,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // ==================== DIALOGS ====================
 
   void _showResetDialog() {
-    showDialog(
+    AppCustom.showResetConfirm(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: context.cardColor,
-        title: Text(
-          'Reset Settings',
-          style: TextStyle(
-            color: context.onSurfaceColor,
-            fontFamily: 'Poppins',
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        content: Text(
-          'Are you sure you want to reset all settings to their default values? This action cannot be undone.',
-          style: TextStyle(
-            color: context.onSurfaceVariantColor,
-            fontFamily: 'Poppins',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: context.onSurfaceVariantColor,
-                fontFamily: 'Poppins',
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              context.read<AppSettingsBloc>().add(
-                AppSettingsEvent.resetToDefaults(),
-              );
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Settings reset to defaults'),
-                  backgroundColor: context.primaryStart,
-                ),
-              );
-            },
-            child: Text(
-              'Reset',
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
+      itemName: 'Settings',
+      customMessage: 'This will reset all settings to default values while preserving your profile information and theme preferences.',
+      onConfirm: () async {
+        try {
+          // Reset to default settings (preserving user name, nickname, and theme)
+          context.read<AppSettingsBloc>().add(
+            AppSettingsEvent.resetToDefaults(),
+          );
+          
+          // Show success message
+          AppCustom.showSettingsSavedToast(context);
+          
+          // Close the dialog
+          Navigator.of(context).pop();
+        } catch (e) {
+          // Handle any errors during reset
+          AppCustom.error(context, 'Error resetting settings: $e');
+          Navigator.of(context).pop();
+        }
+      },
     );
   }
 
@@ -659,12 +650,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }) {
     return ListTile(
       leading: Container(
-        padding: EdgeInsets.all(8.w),
+        padding: EdgeInsets.all(10.w),
         decoration: BoxDecoration(
-          color: context.primaryStart.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8.r),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              context.primaryStart.withValues(alpha: 0.15),
+              context.primaryStart.withValues(alpha: 0.08),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(12.r),
         ),
-        child: Icon(icon, color: context.primaryStart, size: 20.sp),
+        child: Icon(icon, color: context.primaryStart, size: 22.sp),
       ),
       title: Text(
         title,

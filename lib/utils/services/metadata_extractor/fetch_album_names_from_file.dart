@@ -4,7 +4,7 @@ part of 'metadata_extractor.dart';
 class AlbumNameExtractor {
   /// Extract albums from metadata tags with fallback to filename parsing
   static List<String> extractAlbums(Tag? tag, String filePath) {
-    final album = _cleanString(tag?.album);
+    final album = MetadataUtils.cleanString(tag?.album);
     if (album != null && album.isNotEmpty) {
       return splitAlbums(album);
     }
@@ -118,7 +118,7 @@ class AlbumNameExtractor {
 
     final cleaned = <String>{};
     for (final p in parts) {
-      final c = _cleanString(p);
+      final c = MetadataUtils.cleanString(p);
       if (c != null && c.isNotEmpty && c.toLowerCase() != 'unknown album') {
         cleaned.add(c);
       }
@@ -142,8 +142,6 @@ class AlbumNameExtractor {
 
   /// Check if a string contains common album separators
   static bool containsAlbumSeparators(String text) {
-    final separators = ['&', ',', ';', '/', '\\', '+', 'and'];
-    final lowerText = text.toLowerCase();
-    return separators.any((separator) => lowerText.contains(separator));
+    return SharedValidation.containsSeparators(text, 'album');
   }
 }

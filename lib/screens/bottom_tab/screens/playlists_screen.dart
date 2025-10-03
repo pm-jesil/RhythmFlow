@@ -12,6 +12,7 @@ import 'bloc/music_bloc.dart';
 import '../widgets/glass_card.dart';
 import '../../widgets/album_art_widget.dart';
 import '../widgets/album_artist_my_playlist_helper.dart';
+import '../../../core/widgets/app_custom.dart';
 
 class PlaylistsScreen extends StatefulWidget {
   const PlaylistsScreen({super.key});
@@ -335,12 +336,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                 );
 
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Playlist "${nameController.text}" created!'),
-                    backgroundColor: context.primaryStart,
-                  ),
-                );
+                AppCustom.showPlaylistCreatedToast(context, nameController.text);
               }
             },
             child: const Text('Create'),

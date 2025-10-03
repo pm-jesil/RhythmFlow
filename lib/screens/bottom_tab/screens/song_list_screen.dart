@@ -11,6 +11,9 @@ import '../../../core/router/app_router.dart';
 import 'bloc/music_bloc.dart';
 import '../widgets/song_list_item.dart';
 import '../widgets/song_list_widget.dart';
+import '../../../utils/services/permission_service.dart';
+import '../../../core/widgets/app_custom.dart';
+import '../widgets/song_context_menu_actions.dart';
 
 class SongListScreen extends StatefulWidget {
   const SongListScreen({super.key});
@@ -29,6 +32,11 @@ class _SongListScreenState extends State<SongListScreen> {
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
+    
+    // Request all required permissions on first entry
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      PermissionService.requestAllRequiredPermissionsComprehensive(context);
+    });
   }
 
   @override
@@ -59,10 +67,10 @@ class _SongListScreenState extends State<SongListScreen> {
       newFilteredSongs = currentSongs.where((song) {
         final title = song.title.toLowerCase();
         if (title.contains(query)) return true;
-        
+
         final artists = song.artists.join(', ').toLowerCase();
         if (artists.contains(query)) return true;
-        
+
         final albums = song.albums.join(', ').toLowerCase();
         return albums.contains(query);
       }).toList();
@@ -99,6 +107,63 @@ class _SongListScreenState extends State<SongListScreen> {
     setState(() {});
   }
 
+  void _handleMenuAction(
+    String action,
+    String songId,
+    String songTitle,
+    String artistName,
+    String albumName,
+  ) {
+    SongContextMenuActions.handleMenuAction(
+      context: context,
+      action: action,
+      songId: songId,
+      songTitle: songTitle,
+      artistName: artistName,
+      albumName: albumName,
+    );
+  }
+
+
+  /// Handle fetch songs from storage with permission check
+  Future<void> _handleFetchSongsFromStorage() async {
+    _logger.i('🎵 User requested to fetch songs from storage');
+
+    try {
+      // Check permissions first
+      final hasPermissions =
+          await PermissionService.hasAllRequiredPermissions();
+
+      if (hasPermissions) {
+        _logger.i('✅ Permissions granted, proceeding with fetch');
+        context.read<MusicBloc>().add(const MusicEvent.fetchAndUpdateSongs());
+      } else {
+        _logger.w('❌ Permissions not granted, requesting permissions');
+
+        // Request permissions with user-friendly dialog
+        final granted = await PermissionService.requestAllRequiredPermissions(
+          context,
+        );
+
+        if (granted) {
+          _logger.i(
+            '✅ Permissions granted after request, proceeding with fetch',
+          );
+          context.read<MusicBloc>().add(const MusicEvent.fetchAndUpdateSongs());
+        } else {
+          _logger.w('❌ Permissions denied, showing permission required dialog');
+          await PermissionService.showPermissionRequiredDialog(context);
+        }
+      }
+    } catch (e) {
+      _logger.e('❌ Error handling fetch songs request: $e');
+      // Show error message to user
+      if (mounted) {
+        AppCustom.error(context, 'Error checking permissions: $e');
+      }
+    }
+  }
+
   void _showSortingMenu() {
     SongListWidget.showSortingMenu(context);
   }
@@ -108,7 +173,8 @@ class _SongListScreenState extends State<SongListScreen> {
     return BlocListener<MusicBloc, MusicState>(
       listenWhen: (previous, current) {
         // Only listen when song ID actually changes
-        return previous.myPlayerState.currentSongId != current.myPlayerState.currentSongId;
+        return previous.myPlayerState.currentSongId !=
+            current.myPlayerState.currentSongId;
       },
       listener: (context, musicState) {
         // No longer needed - bloc state changes automatically trigger rebuilds
@@ -118,8 +184,8 @@ class _SongListScreenState extends State<SongListScreen> {
         buildWhen: (previous, current) {
           // Only rebuild when songs list or loading state changes
           return previous.allSongs.length != current.allSongs.length ||
-                 previous.isSongListLoading != current.isSongListLoading ||
-                 previous.isSongListError != current.isSongListError;
+              previous.isSongListLoading != current.isSongListLoading ||
+              previous.isSongListError != current.isSongListError;
         },
         builder: (context, musicState) {
           // Update filtered songs when music state changes (including sorting)
@@ -145,11 +211,18 @@ class _SongListScreenState extends State<SongListScreen> {
                         // Floating shuffle button
                         BlocBuilder<MusicBloc, MusicState>(
                           builder: (context, state) {
-                            final showMiniPlayer = state.myPlayerState.currentSongId != null;
+                            final showMiniPlayer =
+                                state.myPlayerState.currentSongId != null;
                             // Position above pop-up music player when visible, otherwise above bottom tab
-                            final bottomPosition = showMiniPlayer 
-                                ? MediaQuery.of(context).padding.bottom + 16.h + 60.h + 16.h + 70.h + 16.h // Above pop-up music player
-                                : MediaQuery.of(context).padding.bottom + 16.h + 60.h + 16.h; // Above bottom tab
+                            final bottomPosition = showMiniPlayer
+                                ? MediaQuery.of(context).padding.bottom +
+                                      16.h +
+                                      60.h +
+                                      16.h +
+                                      60.h 
+                                : MediaQuery.of(context).padding.bottom +
+                                      16.h +
+                                      60.h ;
 
                             return Positioned(
                               bottom: bottomPosition,
@@ -179,18 +252,23 @@ class _SongListScreenState extends State<SongListScreen> {
                                             _filteredSongs[DateTime.now()
                                                     .millisecondsSinceEpoch %
                                                 _filteredSongs.length];
-            context.read<MusicBloc>().add(
-              MusicEvent.toggleShuffle(
-                isShuffle: true,
-                isAutoStart: true,
-                currentPlayList: _filteredSongs.map((song) => song.id).toList(),
-                playlistSource: PlaylistSource.allSongs(),
-              ),
-            );
+                                        context.read<MusicBloc>().add(
+                                          MusicEvent.toggleShuffle(
+                                            isShuffle: true,
+                                            isAutoStart: true,
+                                            currentPlayList: _filteredSongs
+                                                .map((song) => song.id)
+                                                .toList(),
+                                            playlistSource:
+                                                PlaylistSource.allSongs(),
+                                          ),
+                                        );
                                         context.read<MusicBloc>().add(
                                           MusicEvent.playOrPauseSong(
                                             songId: randomSong.id,
-                                            currentPlayList: _filteredSongs.map((song) => song.id).toList(),
+                                            currentPlayList: _filteredSongs
+                                                .map((song) => song.id)
+                                                .toList(),
                                           ),
                                         );
                                       }
@@ -199,7 +277,9 @@ class _SongListScreenState extends State<SongListScreen> {
                                       width: 56.w,
                                       height: 56.w,
                                       decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(28.r),
+                                        borderRadius: BorderRadius.circular(
+                                          28.r,
+                                        ),
                                       ),
                                       child: Icon(
                                         Icons.shuffle,
@@ -225,9 +305,7 @@ class _SongListScreenState extends State<SongListScreen> {
     );
   }
 
-
   Widget _buildContent(MusicState musicState) {
-
     if (musicState.isSongListLoading && musicState.allSongs.isEmpty) {
       return Center(
         child: Column(
@@ -287,9 +365,7 @@ class _SongListScreenState extends State<SongListScreen> {
             ),
             SizedBox(height: 16.h),
             ElevatedButton(
-              onPressed: () {
-                context.read<MusicBloc>().add(const MusicEvent.loadAllSongsProgressive());
-              },
+              onPressed: () => _handleFetchSongsFromStorage(),
               child: const Text('Retry'),
             ),
           ],
@@ -321,14 +397,17 @@ class _SongListScreenState extends State<SongListScreen> {
                 return Padding(
                   padding: EdgeInsets.only(bottom: 8.h),
                   child: SongListItem(
-                    key: ValueKey(song.id), // Use song ID as key for better performance
+                    key: ValueKey(
+                      song.id,
+                    ), // Use song ID as key for better performance
                     songTitle: song.title,
                     artistName: song.artists.join(', '),
                     albumName: song.albums.join(', '),
                     duration: song.duration,
                     albumArtPath: song.albumArt,
                     songId: song.id,
-                    isImmediatelySelected: false, // CRITICAL: Don't use local state for selection
+                    isImmediatelySelected:
+                        false, // CRITICAL: Don't use local state for selection
                     onTap: () {
                       HapticFeedback.lightImpact();
 
@@ -343,7 +422,9 @@ class _SongListScreenState extends State<SongListScreen> {
                       context.read<MusicBloc>().add(
                         MusicEvent.playOrPauseSong(
                           songId: song.id,
-                          currentPlayList: _filteredSongs.map((song) => song.id).toList(),
+                          currentPlayList: _filteredSongs
+                              .map((song) => song.id)
+                              .toList(),
                         ),
                       );
                     },
@@ -355,37 +436,53 @@ class _SongListScreenState extends State<SongListScreen> {
                       // CRITICAL: Don't set local selection state here
                       // Let the bloc state handle selection to prevent multiple songs being selected
 
-                      _logger.d("🎵 Tapping song: ${song.title} | Current: ${musicState.myPlayerState.currentSongId}");
+                      _logger.d(
+                        "🎵 Tapping song: ${song.title} | Current: ${musicState.myPlayerState.currentSongId}",
+                      );
 
                       // Always use playOrPauseSong - it handles all cases internally
                       // Pass allSongs to maintain proper order in currentPlayList
                       context.read<MusicBloc>().add(
                         MusicEvent.playOrPauseSong(
                           songId: song.id,
-                          currentPlayList: _filteredSongs.map((song) => song.id).toList(),
-                          playlistSource: PlaylistSource.allSongs(), // Indicate this is from all songs screen
+                          currentPlayList: _filteredSongs
+                              .map((song) => song.id)
+                              .toList(),
+                          playlistSource:
+                              PlaylistSource.allSongs(), // Indicate this is from all songs screen
                         ),
                       );
 
                       // Navigate to music player screen
                       context.navigateToPlaySong('');
                     },
+                    onMenuAction:
+                        (action, songId, songTitle, artistName, albumName) {
+                          _handleMenuAction(
+                            action,
+                            songId,
+                            songTitle,
+                            artistName,
+                            albumName,
+                          );
+                        },
                   ),
                 );
               },
               childCount: _filteredSongs.length,
               // Performance optimizations
-              addAutomaticKeepAlives: false, // Don't keep items alive when scrolled away
-              addRepaintBoundaries: true, // Add repaint boundaries for better performance
-              addSemanticIndexes: false, // Disable semantic indexes for better performance
+              addAutomaticKeepAlives:
+                  false, // Don't keep items alive when scrolled away
+              addRepaintBoundaries:
+                  true, // Add repaint boundaries for better performance
+              addSemanticIndexes:
+                  false, // Disable semantic indexes for better performance
             ),
           ),
         ),
 
         // Bottom padding for navigation
-        SliverToBoxAdapter(
-          child: SizedBox(height: 100.h),
-        ),
+        SliverToBoxAdapter(child: SizedBox(height: 100.h)),
       ],
     );
   }
@@ -419,9 +516,7 @@ class _SongListScreenState extends State<SongListScreen> {
           ),
           SizedBox(height: 32.h),
           ElevatedButton.icon(
-            onPressed: () {
-              context.read<MusicBloc>().add(const MusicEvent.loadAllSongsProgressive());
-            },
+            onPressed: () => _handleFetchSongsFromStorage(),
             icon: const Icon(Icons.sync),
             label: const Text('Fetch Songs from Storage'),
             style: ElevatedButton.styleFrom(

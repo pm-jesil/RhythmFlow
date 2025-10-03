@@ -10,6 +10,7 @@ import '../../utils/models/song/song_model.dart';
 import '../bottom_tab/screens/bloc/music_bloc.dart';
 import '../widgets/sorting_helper.dart';
 import '../widgets/custom_music_floating_button.dart';
+import '../../core/widgets/app_custom.dart';
 
 enum PlaylistDetailType { album, artist, playlist }
 
@@ -884,12 +885,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                 );
 
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Playlist "${nameController.text}" updated!'),
-                    backgroundColor: context.primaryStart,
-                  ),
-                );
+                AppCustom.success(context, 'Playlist "${nameController.text}" updated!');
               }
             },
             child: const Text('Update'),
@@ -900,51 +896,23 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   }
 
   void _showDeletePlaylistDialog() {
-    showDialog(
+    AppCustom.showDeleteConfirm(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: context.cardColor,
-        title: Text(
-          'Delete Playlist',
-          style: TextStyle(color: context.onSurfaceColor),
-        ),
-        content: Text(
-          'Are you sure you want to delete "${widget.name}"? This action cannot be undone.',
-          style: TextStyle(color: context.onSurfaceVariantColor),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              _logger.i('Deleting playlist: ${widget.name}');
+      itemName: 'Playlist',
+      customMessage: 'Are you sure you want to delete "${widget.name}"? This action cannot be undone.',
+      onConfirm: () {
+        _logger.i('Deleting playlist: ${widget.name}');
 
-              context.read<MusicBloc>().add(
-                MusicEvent.addOrUpdateMyPlayList(
-                  operation: MyPlaylistOperation.delete,
-                  playlistId: widget.id,
-                ),
-              );
-
-              Navigator.pop(context);
-              Navigator.pop(context); // Go back to previous screen
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Playlist "${widget.name}" deleted!'),
-                  backgroundColor: context.primaryStart,
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Delete'),
+        context.read<MusicBloc>().add(
+          MusicEvent.addOrUpdateMyPlayList(
+            operation: MyPlaylistOperation.delete,
+            playlistId: widget.id,
           ),
-        ],
-      ),
+        );
+
+        Navigator.pop(context); // Go back to previous screen
+        AppCustom.showPlaylistDeletedToast(context, widget.name);
+      },
     );
   }
 }

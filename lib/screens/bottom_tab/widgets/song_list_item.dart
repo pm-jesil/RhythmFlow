@@ -5,6 +5,7 @@ import '../../../core/theme/theme_extension.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../screens/bloc/music_bloc.dart';
 import '../../widgets/album_art_widget.dart';
+import 'song_context_menu.dart';
 
 class SongListItem extends StatefulWidget {
   final String songTitle;
@@ -16,6 +17,7 @@ class SongListItem extends StatefulWidget {
   final VoidCallback onOpenMusicPlayer;
   final String songId;
   final bool isImmediatelySelected;
+  final Function(String action, String songId, String songTitle, String artistName, String albumName)? onMenuAction;
 
   const SongListItem({
     super.key,
@@ -28,6 +30,7 @@ class SongListItem extends StatefulWidget {
     required this.onOpenMusicPlayer,
     required this.songId,
     this.isImmediatelySelected = false,
+    this.onMenuAction,
   });
 
   @override
@@ -38,7 +41,9 @@ class _SongListItemState extends State<SongListItem>
     with TickerProviderStateMixin {
   late AnimationController _waveController;
   late AnimationController _pulseController;
+  late AnimationController _scaleController;
   late List<Animation<double>> _waveAnimations;
+  late Animation<double> _scaleAnimation;
 
   @override
   void initState() {
@@ -52,6 +57,18 @@ class _SongListItemState extends State<SongListItem>
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 1000),
       vsync: this,
+    );
+    
+    _scaleController = AnimationController(
+      duration: const Duration(milliseconds: 120),
+      vsync: this,
+    );
+    
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.88).animate(
+      CurvedAnimation(
+        parent: _scaleController,
+        curve: Curves.elasticOut,
+      ),
     );
     
     // Create wave animations for 3 bars
@@ -78,6 +95,7 @@ class _SongListItemState extends State<SongListItem>
   void dispose() {
     _waveController.dispose();
     _pulseController.dispose();
+    _scaleController.dispose();
     super.dispose();
   }
 
@@ -96,6 +114,44 @@ class _SongListItemState extends State<SongListItem>
   void _handlePlayButtonTap() {
     HapticFeedback.lightImpact();
     widget.onTap();
+  }
+
+  void _handleLongPress() {
+    HapticFeedback.mediumImpact();
+    _showContextMenu();
+  }
+
+  void _handleLongPressStart() {
+    HapticFeedback.lightImpact();
+    _scaleController.forward();
+  }
+
+  void _handleLongPressEnd() {
+    _scaleController.reverse();
+  }
+
+  void _handleLongPressCancel() {
+    _scaleController.reverse();
+  }
+
+  void _showContextMenu() {
+    final RenderBox renderBox = context.findRenderObject() as RenderBox;
+    final position = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+    
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (context) => SongContextMenu(
+        songTitle: widget.songTitle,
+        artistName: widget.artistName,
+        albumName: widget.albumName,
+        songId: widget.songId,
+        position: position,
+        size: size,
+        onMenuAction: widget.onMenuAction,
+      ),
+    );
   }
 
   void _controlAnimations(bool isPlaying, bool isCurrentSong) {
@@ -138,24 +194,42 @@ class _SongListItemState extends State<SongListItem>
         _controlAnimations(isCurrentlyPlaying, isCurrentSong);
         final isSelected = isCurrentSong;
 
-        return Container(
-          decoration: BoxDecoration(
-            color: isSelected 
-                ? context.primaryStart.withValues(alpha: 0.1)
-                : context.cardColor.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(10.r), // Slightly reduced border radius
-            border: Border.all(
-              color: isSelected 
-                  ? context.primaryStart.withValues(alpha: 0.3)
-                  : context.onSurfaceColor.withValues(alpha: 0.1),
-            ),
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(10.r),
-              onTap: _handleTileTap,
-              child: Padding(
+        return AnimatedBuilder(
+          animation: _scaleAnimation,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: _scaleAnimation.value,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isSelected 
+                      ? context.primaryStart.withValues(alpha: 0.1)
+                      : context.cardColor.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(10.r),
+                  border: Border.all(
+                    color: isSelected 
+                        ? context.primaryStart.withValues(alpha: 0.3)
+                        : context.onSurfaceColor.withValues(alpha: 0.1),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1 + (1 - _scaleAnimation.value) * 0.1),
+                      blurRadius: 8 + (1 - _scaleAnimation.value) * 4,
+                      offset: Offset(0, 2 + (1 - _scaleAnimation.value) * 2),
+                    ),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                    child: GestureDetector(
+                    onTap: _handleTileTap,
+                    onLongPress: _handleLongPress,
+                    onLongPressStart: (_) => _handleLongPressStart(),
+                    onLongPressEnd: (_) => _handleLongPressEnd(),
+                    onLongPressCancel: () => _handleLongPressCancel(),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(10.r),
+                      onTap: _handleTileTap,
+                      child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h), // Reduced padding
                 child: Row(
                   children: [
@@ -249,9 +323,13 @@ class _SongListItemState extends State<SongListItem>
                     ),
                   ],
                 ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );

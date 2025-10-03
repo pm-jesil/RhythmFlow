@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../utils/logger/logger.dart';
+import '../../core/theme/theme_extension.dart';
 
 class PermissionDialog extends StatelessWidget {
   final String title;
@@ -21,18 +23,36 @@ class PermissionDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(title),
+      backgroundColor: context.surfaceColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16.r),
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: context.onSurfaceColor,
+          fontSize: 18.sp,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(message),
+          Text(
+            message,
+            style: TextStyle(
+              color: context.onSurfaceVariantColor,
+              fontSize: 14.sp,
+            ),
+          ),
           if (settingsMessage != null) ...[
-            const SizedBox(height: 16),
+            SizedBox(height: 16.h),
             Text(
               settingsMessage!,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              style: TextStyle(
+                color: context.onSurfaceVariantColor,
+                fontSize: 12.sp,
               ),
             ),
           ],
@@ -42,12 +62,28 @@ class PermissionDialog extends StatelessWidget {
         if (onCancelPressed != null)
           TextButton(
             onPressed: onCancelPressed,
-            child: const Text('Cancel'),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: context.onSurfaceVariantColor,
+                fontSize: 14.sp,
+              ),
+            ),
           ),
         if (onSettingsPressed != null)
           ElevatedButton(
             onPressed: onSettingsPressed,
-            child: const Text('Open Settings'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: context.primaryStart,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+            ),
+            child: Text(
+              'Open Settings',
+              style: TextStyle(fontSize: 14.sp),
+            ),
           ),
       ],
     );

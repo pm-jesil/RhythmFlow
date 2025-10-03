@@ -129,7 +129,11 @@ class _ArtistsScreenState extends State<ArtistsScreen> {
                           errorMessage: 'Failed to load artists',
                           onRetry: () {
                             context.read<MusicBloc>().add(
-                              const MusicEvent.loadArtists(),
+                              const MusicEvent.fetchAndUpdateMetadata(
+                                includeAlbums: false,
+                                includeArtists: true,
+                                isProgressive: false,
+                              ),
                             );
                           },
                         )

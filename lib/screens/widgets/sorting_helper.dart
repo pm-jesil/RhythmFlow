@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/theme/theme_extension.dart';
+import '../../core/widgets/app_custom.dart';
 import '../../utils/models/playlist_source/playlist_source_model.dart';
 import '../../utils/models/song/song_model.dart';
 import '../../utils/models/artist/artist_model.dart';
@@ -13,49 +14,23 @@ class SortingHelper {
   static void showSortingMenu(BuildContext context) {
     final currentSortingIndex = context.read<MusicBloc>().state.sortingIndex;
 
-    showModalBottomSheet(
+    AppCustom.showBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: context.surfaceColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 8),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: context.onSurfaceVariantColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Sort Songs',
-              style: TextStyle(
-                color: context.onSurfaceColor,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ...MusicBloc.sortingOptions.asMap().entries.map((entry) {
-              final index = entry.key;
-              final title = entry.value;
-              return _buildSortOption(
-                context,
-                title,
-                index,
-                currentSortingIndex,
-              );
-            }),
-            const SizedBox(height: 20),
-          ],
-        ),
+      title: 'Sort Songs',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ...MusicBloc.sortingOptions.asMap().entries.map((entry) {
+            final index = entry.key;
+            final title = entry.value;
+            return _buildSortOption(
+              context,
+              title,
+              index,
+              currentSortingIndex,
+            );
+          }),
+        ],
       ),
     );
   }
@@ -67,50 +42,24 @@ class SortingHelper {
   }) {
     final currentSortingIndex = context.read<MusicBloc>().state.sortingIndex;
 
-    showModalBottomSheet(
+    AppCustom.showBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: context.surfaceColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 8),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: context.onSurfaceVariantColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Sort Songs',
-              style: TextStyle(
-                color: context.onSurfaceColor,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ...MusicBloc.sortingOptions.asMap().entries.map((entry) {
-              final index = entry.key;
-              final title = entry.value;
-              return _buildSortOptionWithCallback(
-                context,
-                title,
-                index,
-                currentSortingIndex,
-                onSortSelected,
-              );
-            }),
-            const SizedBox(height: 20),
-          ],
-        ),
+      title: 'Sort Songs',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ...MusicBloc.sortingOptions.asMap().entries.map((entry) {
+            final index = entry.key;
+            final title = entry.value;
+            return _buildSortOptionWithCallback(
+              context,
+              title,
+              index,
+              currentSortingIndex,
+              onSortSelected,
+            );
+          }),
+        ],
       ),
     );
   }

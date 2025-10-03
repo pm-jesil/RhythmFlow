@@ -248,7 +248,6 @@ void main() {
       bool appSettingsFetchSong = true;
       bool isSongListLoading = true;
       bool isSongListError = false;
-      List<Song> allSongs = [];
 
       // During refresh
       expect(appSettingsFetchSong, true);

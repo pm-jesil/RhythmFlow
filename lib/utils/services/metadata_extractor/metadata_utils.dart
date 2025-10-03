@@ -253,18 +253,4 @@ class MetadataUtils {
         return true;
     }
   }
-
-  /// Get Android version for platform-specific operations
-  static Future<int> getAndroidVersion() async {
-    try {
-      if (Platform.isAndroid) {
-        final deviceInfo = DeviceInfoPlugin();
-        final androidInfo = await deviceInfo.androidInfo;
-        return androidInfo.version.sdkInt;
-      }
-    } catch (e) {
-      MetadataExtractor._logger.e('Error getting Android version', error: e);
-    }
-    return 0;
-  }
 }

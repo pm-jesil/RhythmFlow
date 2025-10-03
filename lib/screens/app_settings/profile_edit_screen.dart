@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../core/theme/theme_extension.dart';
 import 'bloc/app_settings_bloc.dart';
+import '../../../core/widgets/app_custom.dart';
 
 class ProfileEditScreen extends StatefulWidget {
   const ProfileEditScreen({super.key});
@@ -376,43 +377,13 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       );
 
       // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Profile updated successfully!',
-            style: TextStyle(
-              color: Colors.white,
-              fontFamily: 'Poppins',
-            ),
-          ),
-          backgroundColor: context.success,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8.r),
-          ),
-        ),
-      );
+      AppCustom.success(context, 'Profile updated successfully!');
 
       // Navigate back
       Navigator.of(context).pop();
     } catch (e) {
       // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Failed to update profile. Please try again.',
-            style: TextStyle(
-              color: Colors.white,
-              fontFamily: 'Poppins',
-            ),
-          ),
-          backgroundColor: context.error,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8.r),
-          ),
-        ),
-      );
+      AppCustom.error(context, 'Failed to update profile. Please try again.');
     } finally {
       if (mounted) {
         setState(() {

@@ -1,5 +1,13 @@
 part of 'metadata_extractor.dart';
 
+/// Extension to capitalize strings
+extension StringCapitalize on String {
+  String capitalize() {
+    if (isEmpty) return this;
+    return this[0].toUpperCase() + substring(1).toLowerCase();
+  }
+}
+
 /// Shared validation utilities to eliminate duplications across metadata extractor files
 class SharedValidation {
   /// Enhanced validation for artist names
@@ -60,6 +68,37 @@ class SharedValidation {
     
     // Accept if it's a reasonable length and doesn't contain problematic patterns
     return text.length >= 2 && text.length <= 100 && !containsProblematicPatterns(text);
+  }
+
+  /// Unified validation function with type flag
+  static bool isValidMetadataName(String text, String metadataType) {
+    switch (metadataType.toLowerCase()) {
+      case 'artist':
+        return isValidArtistName(text);
+      case 'album':
+        return isValidAlbumName(text);
+      case 'song':
+        return isValidSongTitle(text);
+      default:
+        return text.length >= 2 && text.length <= 100 && !containsProblematicPatterns(text);
+    }
+  }
+
+  /// Unified separator detection with type flag
+  static bool containsSeparators(String text, String metadataType) {
+    final lowerText = text.toLowerCase();
+    
+    switch (metadataType.toLowerCase()) {
+      case 'artist':
+        final artistSeparators = ['&', ',', ';', '/', '\\', '+', 'x', '×', 'and', 'feat', 'featuring', 'ft', 'with', 'vs'];
+        return artistSeparators.any((separator) => lowerText.contains(separator));
+      case 'album':
+        final albumSeparators = ['&', ',', ';', '/', '\\', '+', 'and'];
+        return albumSeparators.any((separator) => lowerText.contains(separator));
+      default:
+        final defaultSeparators = ['&', ',', ';', '/', '\\', '+', 'and'];
+        return defaultSeparators.any((separator) => lowerText.contains(separator));
+    }
   }
 
   /// Check for song-specific indicators
@@ -141,7 +180,7 @@ class SharedValidation {
 
     final cleaned = <String>{};
     for (final p in parts) {
-      final c = _cleanString(p);
+      final c = MetadataUtils.cleanString(p);
       if (c != null && c.isNotEmpty && c.toLowerCase() != 'unknown artist') {
         cleaned.add(c);
       }
@@ -160,6 +199,33 @@ class SharedValidation {
     } catch (e) {
       MetadataExtractor._logger.w('Error extracting $errorContext: $e');
       return fallbackValue;
+    }
+  }
+
+  /// Unified metadata extraction with type flag
+  static List<String> extractMetadataSafely(
+    Tag? tag,
+    String filePath,
+    String metadataType, {
+    String Function(Tag?)? extractor,
+    List<String> Function(String)? fallbackExtractor,
+  }) {
+    try {
+      if (tag != null && extractor != null) {
+        final result = extractor(tag);
+        if (result.isNotEmpty) {
+          return [result];
+        }
+      }
+      
+      if (fallbackExtractor != null) {
+        return fallbackExtractor(filePath);
+      }
+      
+      return ['Unknown ${metadataType.capitalize()}'];
+    } catch (e) {
+      MetadataExtractor._logger.w('Error extracting $metadataType: $e');
+      return ['Unknown ${metadataType.capitalize()}'];
     }
   }
 
@@ -201,7 +267,7 @@ class SharedValidation {
         if (folderName.isNotEmpty && !_isCommonMusicFolderName(folderName)) {
           // Check if folder name looks like the metadata type
           if (isLikelyFunction(folderName)) {
-            return _cleanString(folderName) ?? 'Unknown $metadataType';
+            return MetadataUtils.cleanString(folderName) ?? 'Unknown $metadataType';
           }
         }
       }
@@ -260,15 +326,12 @@ class SharedValidation {
 
   // Helper functions for the generic functions
   static String _cleanFilename(String fileName) {
-    return fileName
-        .replaceAll(RegExp(r'[^\w\s\u00C0-\u017F\u0400-\u04FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF]'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
+    return FilenameParser.cleanFilename(fileName);
   }
 
   /// Public clean filename function
   static String cleanFilename(String fileName) {
-    return _cleanFilename(fileName);
+    return FilenameParser.cleanFilename(fileName);
   }
 
   static bool _isCommonMusicFolderName(String folderName) {

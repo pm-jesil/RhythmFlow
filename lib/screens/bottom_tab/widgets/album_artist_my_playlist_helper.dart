@@ -345,7 +345,7 @@ class AlbumArtistPlaylistHelper {
                 fontFamily: 'Poppins',
               ),
               textAlign: TextAlign.left,
-              maxLines: 2,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
 

@@ -146,6 +146,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
         ),
         SizedBox(height: _itemSpacing.h),
         Custom3DCard(
+          width: double.infinity,
           enableAnimation: true,
           animationDelay: animationDelay,
           padding: EdgeInsets.all(_sectionPadding.w),
@@ -377,13 +378,13 @@ class _ForYouScreenState extends State<ForYouScreen> {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      context.primaryStart.withOpacity(0.1),
-                      context.primaryEnd.withOpacity(0.1),
+                      context.primaryStart.withValues(alpha: 0.1),
+                      context.primaryEnd.withValues(alpha: 0.1),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(12.r),
                   border: Border.all(
-                    color: context.primaryStart.withOpacity(0.2),
+                    color: context.primaryStart.withValues(alpha: 0.2),
                     width: 1,
                   ),
                 ),
@@ -732,7 +733,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
         SizedBox(height: _itemSpacing.h),
         // Use horizontal scrollable row
         SizedBox(
-          height: 190.h, // Fixed height for the horizontal scroll
+          height: 205.h, // Fixed height for the horizontal scroll
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: topArtists.take(6).length,
@@ -773,7 +774,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
         SizedBox(height: _itemSpacing.h),
         // Use horizontal scrollable row
         SizedBox(
-          height: 190.h, // Fixed height for the horizontal scroll
+          height: 205.h, // Fixed height for the horizontal scroll
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: topAlbums.take(6).length,
@@ -1013,7 +1014,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
     final hasSongs = songCount > 0;
 
     return AlbumArtistPlaylistHelper.buildCard(
-      height: 190.h,
+      // height: 190.h,
       width: 140.w,
       boxShadow: [],
       margin: EdgeInsets.only(right: 10.w),

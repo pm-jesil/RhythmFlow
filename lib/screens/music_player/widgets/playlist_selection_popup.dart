@@ -8,6 +8,7 @@ import '../../../../utils/models/my_playlist/my_playlist_model.dart';
 import '../../../core/theme/theme_extension.dart';
 import '../../../core/constants/app_enums.dart';
 import '../../bottom_tab/screens/bloc/music_bloc.dart';
+import '../../../core/widgets/app_custom.dart';
 
 /// Comprehensive playlist selection popup widget
 class PlaylistSelectionPopup extends StatefulWidget {
@@ -48,60 +49,11 @@ class _PlaylistSelectionPopupState extends State<PlaylistSelectionPopup> {
   Widget build(BuildContext context) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.6,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            context.surfaceColor,
-            context.surfaceColor.withValues(alpha: 0.95),
-          ],
-        ),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
-        border: Border.all(
-          color: context.onSurfaceColor.withValues(alpha: 0.1),
-          width: 0.5.w,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: context.isDark
-                ? Colors.black.withValues(alpha: 0.4)
-                : Colors.black.withValues(alpha: 0.15),
-            blurRadius: 20.r,
-            offset: Offset(0, -5.h),
-          ),
-          BoxShadow(
-            color: context.primaryStart.withValues(alpha: 0.1),
-            blurRadius: 30.r,
-            offset: Offset(0, -2.h),
-          ),
-        ],
-      ),
       child: Column(
         children: [
-          // Fixed Header Section
-          // Handle bar
-          Container(
-            margin: EdgeInsets.symmetric(vertical: 8.h),
-            width: 40.w,
-            height: 4.h,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [
-                  context.onSurfaceColor.withValues(alpha: 0.3),
-                  context.primaryStart.withValues(alpha: 0.2),
-                  context.onSurfaceColor.withValues(alpha: 0.3),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(2.r),
-            ),
-          ),
-
           // Header
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
+            padding: EdgeInsets.symmetric(vertical: 4.h),
             child: Row(
               children: [
                 Icon(
@@ -128,7 +80,6 @@ class _PlaylistSelectionPopupState extends State<PlaylistSelectionPopup> {
                     color: context.onSurfaceVariantColor,
                     size: 22.sp,
                   ),
-                  padding: EdgeInsets.all(4.w),
                   constraints: BoxConstraints(minWidth: 32.w, minHeight: 32.h),
                 ),
               ],
@@ -143,7 +94,6 @@ class _PlaylistSelectionPopupState extends State<PlaylistSelectionPopup> {
                 children: [
                   // Create playlist expansion tile
                   Container(
-                    margin: EdgeInsets.symmetric(horizontal: 16.w),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
@@ -439,49 +389,52 @@ class _PlaylistSelectionPopupState extends State<PlaylistSelectionPopup> {
 
                       return Column(
                         children: [
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16.w),
-                            child: Row(
-                              children: [
-                                Text(
-                                  'Available Playlists',
-                                  style: TextStyle(
-                                    color: context.onSurfaceColor,
-                                    fontSize: 14.sp,
-                                    fontWeight: FontWeight.w600,
-                                    fontFamily: 'Poppins',
+                          Row(
+                            children: [
+                              Text(
+                                'Available Playlists',
+                                style: TextStyle(
+                                  color: context.onSurfaceColor,
+                                  fontSize: 14.sp,
+                                  fontWeight: FontWeight.w600,
+                                  fontFamily: 'Poppins',
+                                ),
+                              ),
+                              const Spacer(),
+                              if (_selectedPlaylists.isNotEmpty)
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 8.w,
+                                    vertical: 2.h,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: context.primaryStart.withValues(
+                                      alpha: 0.1,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12.r),
+                                    border: Border.all(
+                                      color: context.primaryStart.withValues(
+                                        alpha: 0.3,
+                                      ),
+                                      width: 0.5.w,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    '${_selectedPlaylists.length} selected',
+                                    style: TextStyle(
+                                      color: context.primaryStart,
+                                      fontSize: 11.sp,
+                                      fontFamily: 'Poppins',
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
-                                const Spacer(),
-                                if (_selectedPlaylists.isNotEmpty)
-                                  Container(
-                                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
-                                    decoration: BoxDecoration(
-                                      color: context.primaryStart.withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(12.r),
-                                      border: Border.all(
-                                        color: context.primaryStart.withValues(alpha: 0.3),
-                                        width: 0.5.w,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      '${_selectedPlaylists.length} selected',
-                                      style: TextStyle(
-                                        color: context.primaryStart,
-                                        fontSize: 11.sp,
-                                        fontFamily: 'Poppins',
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
+                            ],
                           ),
                           SizedBox(height: 6.h),
                           ListView.builder(
                             shrinkWrap: true,
                             physics: NeverScrollableScrollPhysics(),
-                            padding: EdgeInsets.symmetric(horizontal: 16.w),
                             itemCount: playlists.length,
                             itemBuilder: (context, index) {
                               final playlist = playlists[index];
@@ -567,136 +520,107 @@ class _PlaylistSelectionPopupState extends State<PlaylistSelectionPopup> {
           ),
 
           // Fixed Bottom Action Buttons
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  context.surfaceColor.withValues(alpha: 0.9),
-                  context.surfaceColor,
-                ],
-              ),
-              border: Border(
-                top: BorderSide(
-                  color: context.primaryStart.withValues(alpha: 0.2),
-                  width: 1.w,
-                ),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: context.isDark
-                      ? Colors.black.withValues(alpha: 0.3)
-                      : Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 10.r,
-                  offset: Offset(0, -2.h),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          context.onSurfaceColor.withValues(alpha: 0.1),
-                          context.onSurfaceColor.withValues(alpha: 0.05),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(12.r),
-                      border: Border.all(
-                        color: context.onSurfaceVariantColor.withValues(
-                          alpha: 0.3,
-                        ),
-                        width: 1.w,
-                      ),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        context.onSurfaceColor.withValues(alpha: 0.1),
+                        context.onSurfaceColor.withValues(alpha: 0.05),
+                      ],
                     ),
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        side: BorderSide.none,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12.r),
-                        ),
-                        padding: EdgeInsets.symmetric(vertical: 12.h),
+                    borderRadius: BorderRadius.circular(12.r),
+                    border: Border.all(
+                      color: context.onSurfaceVariantColor.withValues(
+                        alpha: 0.3,
                       ),
-                      child: Text(
-                        'Cancel',
-                        style: TextStyle(
-                          color: context.onSurfaceVariantColor,
-                          fontFamily: 'Poppins',
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14.sp,
-                        ),
+                      width: 1.w,
+                    ),
+                  ),
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      side: BorderSide.none,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                      padding: EdgeInsets.symmetric(vertical: 12.h),
+                    ),
+                    child: Text(
+                      'Cancel',
+                      style: TextStyle(
+                        color: context.onSurfaceVariantColor,
+                        fontFamily: 'Poppins',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14.sp,
                       ),
                     ),
                   ),
                 ),
-                SizedBox(width: 10.w),
-                Expanded(
-                  flex: 2,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: _hasChanges()
-                          ? LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                context.primaryStart,
-                                context.primaryEnd,
-                              ],
-                            )
-                          : LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                context.onSurfaceColor.withValues(alpha: 0.3),
-                                context.onSurfaceColor.withValues(alpha: 0.2),
-                              ],
-                            ),
-                      borderRadius: BorderRadius.circular(12.r),
-                      boxShadow: _hasChanges()
-                          ? [
-                              BoxShadow(
-                                color: context.primaryStart.withValues(alpha: 0.3),
-                                blurRadius: 8.r,
-                                offset: Offset(0, 2.h),
+              ),
+              SizedBox(width: 10.w),
+              Expanded(
+                flex: 2,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: _hasChanges()
+                        ? LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [context.primaryStart, context.primaryEnd],
+                          )
+                        : LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              context.onSurfaceColor.withValues(alpha: 0.3),
+                              context.onSurfaceColor.withValues(alpha: 0.2),
+                            ],
+                          ),
+                    borderRadius: BorderRadius.circular(12.r),
+                    boxShadow: _hasChanges()
+                        ? [
+                            BoxShadow(
+                              color: context.primaryStart.withValues(
+                                alpha: 0.3,
                               ),
-                            ]
-                          : null,
-                    ),
-                    child: ElevatedButton(
-                      onPressed: _hasChanges() ? _addToSelectedPlaylists : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        foregroundColor: _hasChanges() 
-                            ? Colors.white 
-                            : context.onSurfaceVariantColor,
-                        elevation: 0,
-                        shadowColor: Colors.transparent,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12.r),
-                        ),
-                        padding: EdgeInsets.symmetric(vertical: 12.h),
+                              blurRadius: 8.r,
+                              offset: Offset(0, 2.h),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: ElevatedButton(
+                    onPressed: _hasChanges() ? _addToSelectedPlaylists : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: _hasChanges()
+                          ? Colors.white
+                          : context.onSurfaceVariantColor,
+                      elevation: 0,
+                      shadowColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12.r),
                       ),
-                      child: Text(
-                        _getButtonText(),
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14.sp,
-                        ),
+                      padding: EdgeInsets.symmetric(vertical: 12.h),
+                    ),
+                    child: Text(
+                      _getButtonText(),
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14.sp,
                       ),
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -729,20 +653,7 @@ class _PlaylistSelectionPopupState extends State<PlaylistSelectionPopup> {
 
       // Form cleared, expansion tile will auto-collapse
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Playlist "${_nameController.text}" created and song added!',
-            style: TextStyle(color: Colors.white, fontFamily: 'Poppins'),
-          ),
-          backgroundColor: context.primaryStart,
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8.r),
-          ),
-        ),
-      );
+      AppCustom.showPlaylistCreatedToast(context, _nameController.text);
     } catch (e) {
       _logger.e('❌ Failed to create playlist', error: e);
     } finally {
@@ -772,24 +683,26 @@ class _PlaylistSelectionPopupState extends State<PlaylistSelectionPopup> {
   void _checkSongPresentPlaylist() {
     final state = context.read<MusicBloc>().state;
     final playlists = state.myPlaylist.toList();
-    
+
     _logger.i('🔍 Checking song presence in ${playlists.length} playlists');
-    
+
     final Set<String> playlistsWithSong = <String>{};
-    
+
     for (final playlist in playlists) {
       if (playlist.songIds.contains(widget.song.id)) {
         playlistsWithSong.add(playlist.id);
         _logger.d('✅ Song found in playlist: ${playlist.name}');
       }
     }
-    
+
     if (playlistsWithSong.isNotEmpty) {
       setState(() {
         _selectedPlaylists.addAll(playlistsWithSong);
         _initialSelectedPlaylists.addAll(playlistsWithSong);
       });
-      _logger.i('📋 Pre-selected ${playlistsWithSong.length} playlists that already contain this song');
+      _logger.i(
+        '📋 Pre-selected ${playlistsWithSong.length} playlists that already contain this song',
+      );
     }
   }
 
@@ -802,9 +715,12 @@ class _PlaylistSelectionPopupState extends State<PlaylistSelectionPopup> {
     _logger.i('➕ Processing ${_selectedPlaylists.length} playlist selections');
 
     // Use the initial state to determine changes
-    final Set<String> playlistsToAddTo = _selectedPlaylists.difference(_initialSelectedPlaylists);
-    final Set<String> playlistsToRemoveFrom = _initialSelectedPlaylists.difference(_selectedPlaylists);
-    
+    final Set<String> playlistsToAddTo = _selectedPlaylists.difference(
+      _initialSelectedPlaylists,
+    );
+    final Set<String> playlistsToRemoveFrom = _initialSelectedPlaylists
+        .difference(_selectedPlaylists);
+
     _logger.i('➕ Adding to ${playlistsToAddTo.length} playlists');
     _logger.i('➖ Removing from ${playlistsToRemoveFrom.length} playlists');
 
@@ -818,7 +734,7 @@ class _PlaylistSelectionPopupState extends State<PlaylistSelectionPopup> {
         ),
       );
     }
-    
+
     // Remove song from deselected playlists
     for (final playlistId in playlistsToRemoveFrom) {
       context.read<MusicBloc>().add(
@@ -835,30 +751,22 @@ class _PlaylistSelectionPopupState extends State<PlaylistSelectionPopup> {
     // Show appropriate success message
     String message;
     if (playlistsToAddTo.isNotEmpty && playlistsToRemoveFrom.isNotEmpty) {
-      message = 'Song updated in ${playlistsToAddTo.length + playlistsToRemoveFrom.length} playlists';
+      message =
+          'Song updated in ${playlistsToAddTo.length + playlistsToRemoveFrom.length} playlists';
     } else if (playlistsToAddTo.isNotEmpty) {
-      message = 'Song added to ${playlistsToAddTo.length} playlist${playlistsToAddTo.length == 1 ? '' : 's'}!';
+      message =
+          'Song added to ${playlistsToAddTo.length} playlist${playlistsToAddTo.length == 1 ? '' : 's'}!';
     } else if (playlistsToRemoveFrom.isNotEmpty) {
       if (_selectedPlaylists.isEmpty && _initialSelectedPlaylists.isNotEmpty) {
         message = 'Song removed from all playlists!';
       } else {
-        message = 'Song removed from ${playlistsToRemoveFrom.length} playlist${playlistsToRemoveFrom.length == 1 ? '' : 's'}!';
+        message =
+            'Song removed from ${playlistsToRemoveFrom.length} playlist${playlistsToRemoveFrom.length == 1 ? '' : 's'}!';
       }
     } else {
       message = 'No changes made';
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
-          style: TextStyle(color: Colors.white, fontFamily: 'Poppins'),
-        ),
-        backgroundColor: context.primaryStart,
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
-      ),
-    );
+    AppCustom.success(context, message);
   }
 }

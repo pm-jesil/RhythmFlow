@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../logger/logger.dart';
-import 'fetch_songs.dart';
 import 'audio_service.dart';
+import 'permission_service.dart';
 import '../../screens/bottom_tab/screens/bloc/music_bloc.dart';
 import '../../core/di/injection.dart';
 import '../../screens/widgets/playlist_source_helper.dart';
@@ -47,7 +47,7 @@ class AppInitializationService {
     _logger.i('📋 Requesting permissions...');
     
     try {
-      final hasPermissions = await FetchSongsService.requestAllRequiredPermissions();
+      final hasPermissions = await PermissionService.hasAllRequiredPermissions();
       
       if (hasPermissions) {
         _logger.i('✅ Permissions granted');
@@ -81,12 +81,9 @@ class AppInitializationService {
       // Always load songs (to check for new ones)
       futures.add(_loadSongs(musicBloc));
       
-      // Load albums and artists only if they're empty
-      if (!hasCachedAlbums) {
-        futures.add(_loadAlbums(musicBloc));
-      }
-      if (!hasCachedArtists) {
-        futures.add(_loadArtists(musicBloc));
+      // Load metadata (albums and artists) only if they're empty
+      if (!hasCachedAlbums || !hasCachedArtists) {
+        futures.add(_loadMetadata(musicBloc));
       }
       
       // Always load playlists (they're user-created)
@@ -108,30 +105,24 @@ class AppInitializationService {
   /// Load songs
   static Future<void> _loadSongs(MusicBloc musicBloc) async {
     try {
-      musicBloc.add(const MusicEvent.loadAllSongsProgressive());
-      _logger.d('📀 Progressive songs loading initiated');
+      musicBloc.add(const MusicEvent.fetchAndUpdateSongs());
+      _logger.d('📀 Songs loading initiated');
     } catch (e) {
       _logger.e('❌ Failed to load songs', error: e);
     }
   }
 
-  /// Load albums
-  static Future<void> _loadAlbums(MusicBloc musicBloc) async {
+  /// Load metadata (albums and artists)
+  static Future<void> _loadMetadata(MusicBloc musicBloc) async {
     try {
-      musicBloc.add(const MusicEvent.loadAlbumsProgressive());
-      _logger.d('💿 Progressive albums loading initiated');
+      musicBloc.add(const MusicEvent.fetchAndUpdateMetadata(
+        includeAlbums: true,
+        includeArtists: true,
+        isProgressive: true,
+      ));
+      _logger.d('💿👤 Metadata loading initiated');
     } catch (e) {
-      _logger.e('❌ Failed to load albums', error: e);
-    }
-  }
-
-  /// Load artists
-  static Future<void> _loadArtists(MusicBloc musicBloc) async {
-    try {
-      musicBloc.add(const MusicEvent.loadArtistsProgressive());
-      _logger.d('👤 Progressive artists loading initiated');
-    } catch (e) {
-      _logger.e('❌ Failed to load artists', error: e);
+      _logger.e('❌ Failed to load metadata', error: e);
     }
   }
 

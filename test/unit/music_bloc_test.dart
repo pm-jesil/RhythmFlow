@@ -83,13 +83,6 @@ void main() {
       });
     });
 
-    group('LoadAllSongs', () {
-      test('should handle loadAllSongs event without crashing', () async {
-        // This test verifies that the event doesn't crash the bloc
-        // The actual song loading depends on external services that can't be easily mocked
-        expect(() => musicBloc.add(const MusicEvent.loadAllSongs()), returnsNormally);
-      });
-    });
 
     group('PlayOrPauseSong', () {
       final testSong = Song(
