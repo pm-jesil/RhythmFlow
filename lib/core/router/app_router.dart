@@ -10,6 +10,7 @@ import '../../screens/playlist_detail_screen/playlist_detail_screen.dart';
 import '../../screens/app_settings/settings_screen.dart';
 import '../../screens/app_settings/music_library_settings_screen.dart';
 import '../../screens/app_settings/profile_edit_screen.dart';
+import '../../screens/app_settings/comprehensive_features_settings_screen.dart';
 import '../../screens/welcome_screen.dart';
 import '../../screens/app_settings/bloc/app_settings_bloc.dart';
 import '../../core/theme/theme_extension.dart';
@@ -107,6 +108,14 @@ class AppRouter {
         path: '/settings/profile-edit',
         builder: (context, state) {
           return const ProfileEditScreen();
+        },
+      ),
+
+      
+      GoRoute(
+        path: '/comprehensive-features-settings',
+        builder: (context, state) {
+          return const ComprehensiveFeaturesSettingsScreen();
         },
       ),
     ],
@@ -267,5 +276,10 @@ extension NavigationExtension on BuildContext {
 
   void navigateToProfileEdit() {
     GoRouter.of(this).push('/settings/profile-edit');
+  }
+
+
+  void navigateToComprehensiveFeaturesSettings() {
+    GoRouter.of(this).push('/comprehensive-features-settings');
   }
 }

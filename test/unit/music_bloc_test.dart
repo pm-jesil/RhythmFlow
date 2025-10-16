@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:pmj_music_player/screens/bottom_tab/screens/bloc/music_bloc.dart';
+import 'package:pmj_music_player/screens/bottom_tab/bloc/music_bloc.dart';
 import 'package:pmj_music_player/utils/models/song/song_model.dart';
 import 'package:pmj_music_player/utils/models/album/album_model.dart';
 import 'package:pmj_music_player/utils/models/artist/artist_model.dart';
@@ -36,6 +36,12 @@ void main() {
         path: '/fallback/path.mp3',
         duration: const Duration(minutes: 3),
       ));
+      
+      // Register fallback value for AppSettingsEvent
+      registerFallbackValue(const AppSettingsEvent.resetToDefaults());
+      
+      // Register fallback value for Duration
+      registerFallbackValue(const Duration(seconds: 30));
     });
 
     setUp(() {
@@ -65,6 +71,14 @@ void main() {
       when(() => mockAudioService.pause()).thenAnswer((_) async {});
       when(() => mockAudioService.resume()).thenAnswer((_) async {});
       when(() => mockAudioService.stop()).thenAnswer((_) async {});
+      when(() => mockAudioService.seekTo(any())).thenAnswer((_) async {});
+      when(() => mockAudioService.setVolume(any())).thenAnswer((_) async {});
+      when(() => mockAudioService.setSpeed(any())).thenAnswer((_) async {});
+      
+      // Setup AppSettingsBloc mock behaviors - CRITICAL FIX
+      when(() => mockAppSettingsBloc.stream).thenAnswer((_) => Stream.value(AppSettingsState.initial()));
+      when(() => mockAppSettingsBloc.state).thenReturn(AppSettingsState.initial());
+      when(() => mockAppSettingsBloc.add(any())).thenReturn(null);
       
       musicBloc = MusicBloc(mockAudioService, mockRemoteControlService, mockAppSettingsBloc);
     });
@@ -247,6 +261,8 @@ void main() {
           isArtistListError: false,
           isLoading: false,
           isError: false,
+          isComprehensiveFeaturesExtractingLoading: false,
+          isComprehensiveFeaturesExtractingError: false,
         );
 
         final json = musicBloc.toJson(testState);

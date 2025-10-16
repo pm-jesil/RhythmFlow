@@ -10,7 +10,7 @@ import '../../../utils/models/artist/artist_model.dart';
 import '../../../utils/models/album/album_model.dart';
 import '../../../utils/models/my_playlist/my_playlist_model.dart';
 import '../../../utils/models/song/song_model.dart';
-import '../screens/bloc/music_bloc.dart';
+import '../bloc/music_bloc.dart';
 import '../../widgets/album_art_widget.dart';
 import '../../widgets/custom_3d_card.dart';
 

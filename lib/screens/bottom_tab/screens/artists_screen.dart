@@ -7,7 +7,7 @@ import '../../../utils/logger/logger.dart';
 import '../../../utils/models/artist/artist_model.dart';
 import '../../../utils/models/song/song_model.dart';
 import '../../../utils/models/playlist_source/playlist_source_model.dart';
-import 'bloc/music_bloc.dart';
+import '../bloc/music_bloc.dart';
 import '../widgets/album_artist_my_playlist_helper.dart';
 
 class ArtistsScreen extends StatefulWidget {

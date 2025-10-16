@@ -585,12 +585,7 @@ class SongCleanupService {
     final cleanedPlaylists = cleanupMyPlaylists(playlists, invalidSongIds);
     final playlistsUpdated = _countUpdatedPlaylists(playlists, cleanedPlaylists);
     
-    _logger.i('✅ Comprehensive cleanup completed:');
-    _logger.i('   - Songs removed: $songsRemoved');
-    _logger.i('   - Albums removed: $albumsRemoved');
-    _logger.i('   - Artists removed: $artistsRemoved');
-    _logger.i('   - Playlists updated: $playlistsUpdated');
-    _logger.i('   - Player state cleaned: ${playerState != cleanedPlayerState}');
+    _logger.i('✅ Comprehensive cleanup completed: $songsRemoved songs, $albumsRemoved albums, $artistsRemoved artists, $playlistsUpdated playlists updated');
     
     return {
       'allSongs': cleanedAllSongs,

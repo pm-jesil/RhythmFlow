@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../logger/logger.dart';
 import 'audio_service.dart';
 import 'permission_service.dart';
-import '../../screens/bottom_tab/screens/bloc/music_bloc.dart';
+import '../../screens/bottom_tab/bloc/music_bloc.dart';
 import '../../core/di/injection.dart';
 import '../../screens/widgets/playlist_source_helper.dart';
 

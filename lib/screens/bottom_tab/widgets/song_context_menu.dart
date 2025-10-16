@@ -40,7 +40,6 @@ class _SongContextMenuState extends State<SongContextMenu>
     {'icon': Icons.playlist_add, 'title': 'Add to Playlist', 'action': 'playlist', 'color': 'primary'},
     {'icon': Icons.album, 'title': 'Go to Album', 'action': 'album', 'color': 'primary'},
     {'icon': Icons.person, 'title': 'Go to Artist', 'action': 'artist', 'color': 'primary'},
-    // {'icon': Icons.ring_volume, 'title': 'Set as Ringtone', 'action': 'ringtone', 'color': 'primary'}, // Hidden
     {'icon': Icons.delete_outline, 'title': 'Delete', 'action': 'delete', 'color': 'error'},
   ];
 

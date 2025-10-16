@@ -23,6 +23,7 @@ abstract class MusicState with _$MusicState {
     required bool isSongListLoading,
     required bool isAlbumListLoading,
     required bool isArtistListLoading,
+    required bool isComprehensiveFeaturesExtractingLoading,
 
     // Progress tracking
     @Default(0) int songLoadingProgress,
@@ -31,11 +32,15 @@ abstract class MusicState with _$MusicState {
     required bool isSongListError,
     required bool isAlbumListError,
     required bool isArtistListError,
+    required bool isComprehensiveFeaturesExtractingError,
 
     // General loading and error states (for backward compatibility)
     required bool isLoading,
     required bool isError,
-    
+
+    // Horizontal scrolling widget home index
+    @Default(0) int horizondalScrollingWidgetHomeIndex,
+
     // App settings fetch song flag
     @Default(false) bool appSettingsFetchSong,
   }) = _Initial;
@@ -66,15 +71,16 @@ abstract class MusicState with _$MusicState {
     isSongListLoading: false,
     isAlbumListLoading: false,
     isArtistListLoading: false,
+    isComprehensiveFeaturesExtractingLoading: false,
 
     // Error states
     isSongListError: false,
     isAlbumListError: false,
     isArtistListError: false,
+    isComprehensiveFeaturesExtractingError: false,
 
     // General loading and error states (for backward compatibility)
     isLoading: false,
     isError: false,
   );
 }
-

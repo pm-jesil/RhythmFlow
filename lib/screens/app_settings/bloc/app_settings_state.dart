@@ -10,6 +10,7 @@ class AppSettingsState with _$AppSettingsState {
     bool? followSystemTheme,
     required int sleepTimerMinutes,
     required bool isSleepTimerEnabled,
+    required bool isAiShuffleEnabled,
     required bool autoPlayNext,
     required bool showNotifications,
     required double playbackSpeed,
@@ -47,14 +48,15 @@ class AppSettingsState with _$AppSettingsState {
     ],
 
     lastUpdateMusicLibrary: null,
-    isDarkMode: null, // null for first install
-    followSystemTheme: null, // null for first install
+    isDarkMode: null,
+    followSystemTheme: null,
     sleepTimerMinutes: 30,
     isSleepTimerEnabled: false,
     autoPlayNext: true,
+    isAiShuffleEnabled: false,
     showNotifications: true,
     playbackSpeed: 1.0,
-    appBackgroundRefreshTimeGap: 5, // Default 5 hours
+    appBackgroundRefreshTimeGap: 5,
     userName: null,
     nickName: null,
   );

@@ -7,7 +7,7 @@ import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 import '../../../utils/logger/logger.dart';
 import '../../core/theme/theme_extension.dart';
 import '../../core/router/app_router.dart';
-import '../bottom_tab/screens/bloc/music_bloc.dart';
+import '../bottom_tab/bloc/music_bloc.dart';
 import '../widgets/album_art_widget.dart';
 import '../widgets/custom_scrolling_text.dart';
 

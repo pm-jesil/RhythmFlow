@@ -29,6 +29,7 @@ class TestHelpers {
     int? playCount,
     bool? isFavorite,
     String? albumArtist,
+    List<double>? audioEmbedding,
   }) {
     return Song(
       id: id ?? 'test-song-id',
@@ -51,6 +52,7 @@ class TestHelpers {
       playCount: playCount ?? 5,
       isFavorite: isFavorite ?? true,
       albumArtist: albumArtist ?? 'Test Album Artist',
+      audioEmbedding: audioEmbedding,
     );
   }
 
@@ -195,24 +197,14 @@ class TestHelpers {
       songIds: ['song$index-1', 'song$index-2'],
     ));
   }
-}
 
-/// Mock classes for testing
-class MockSong extends Mock implements Song {}
-class MockAlbum extends Mock implements Album {}
-class MockArtist extends Mock implements Artist {}
-class MockMyPlaylist extends Mock implements MyPlaylist {}
-class MockMyPlayerStateModel extends Mock implements MyPlayerStateModel {}
-
-/// Test utilities
-class TestUtils {
   /// Registers fallback values for mocktail
   static void registerFallbacks() {
-    registerFallbackValue(TestHelpers.createTestSong());
-    registerFallbackValue(TestHelpers.createTestAlbum());
-    registerFallbackValue(TestHelpers.createTestArtist());
-    registerFallbackValue(TestHelpers.createTestPlaylist());
-    registerFallbackValue(TestHelpers.createTestPlayerState());
+    registerFallbackValue(createTestSong());
+    registerFallbackValue(createTestAlbum());
+    registerFallbackValue(createTestArtist());
+    registerFallbackValue(createTestPlaylist());
+    registerFallbackValue(createTestPlayerState());
   }
 
   /// Creates a test file path
@@ -235,26 +227,63 @@ class TestUtils {
     return DateTime(year, month, day);
   }
 
-  /// Creates multiple test songs
-  static List<Song> createTestSongs({int count = 3}) {
-    return TestHelpers.createTestSongs(count: count);
+  /// Creates DJ/Electronic audio embedding
+  static List<double> createDjAudioEmbedding() {
+    return List<double>.generate(1024, (index) {
+      if (index < 256) return 0.9; // High energy
+      if (index < 512) return 0.8; // High danceability
+      if (index < 768) return 0.7; // Electronic signature
+      return 0.6; // Bass drop intensity
+    });
   }
 
-  /// Creates multiple test albums
-  static List<Album> createTestAlbums({int count = 3}) {
-    return TestHelpers.createTestAlbums(count: count);
+  /// Creates cool/smooth audio embedding
+  static List<double> createCoolAudioEmbedding() {
+    return List<double>.generate(1024, (index) {
+      if (index < 256) return 0.4; // Medium energy
+      if (index < 512) return 0.3; // Low danceability
+      if (index < 768) return 0.8; // Smooth characteristics
+      return 0.7; // Cool vibe
+    });
   }
 
-  /// Creates multiple test artists
-  static List<Artist> createTestArtists({int count = 3}) {
-    return TestHelpers.createTestArtists(count: count);
+  /// Creates rock audio embedding
+  static List<double> createRockAudioEmbedding() {
+    return List<double>.generate(1024, (index) {
+      if (index < 256) return 0.8; // High energy
+      if (index < 512) return 0.6; // Medium danceability
+      if (index < 768) return 0.9; // Rock characteristics
+      return 0.8; // Aggressive vibe
+    });
   }
 
-  /// Creates multiple test playlists
-  static List<MyPlaylist> createTestPlaylists({int count = 3}) {
-    return TestHelpers.createTestPlaylists(count: count);
+  /// Creates pop audio embedding
+  static List<double> createPopAudioEmbedding() {
+    return List<double>.generate(1024, (index) {
+      if (index < 256) return 0.7; // Medium-high energy
+      if (index < 512) return 0.8; // High danceability
+      if (index < 768) return 0.6; // Pop characteristics
+      return 0.9; // Catchy vibe
+    });
+  }
+
+  /// Creates feel-good audio embedding
+  static List<double> createFeelGoodAudioEmbedding() {
+    return List<double>.generate(1024, (index) {
+      if (index < 256) return 0.8; // High energy
+      if (index < 512) return 0.9; // Very high danceability
+      if (index < 768) return 0.7; // Feel-good characteristics
+      return 0.9; // Very catchy vibe
+    });
   }
 }
+
+/// Mock classes for testing
+class MockSong extends Mock implements Song {}
+class MockAlbum extends Mock implements Album {}
+class MockArtist extends Mock implements Artist {}
+class MockMyPlaylist extends Mock implements MyPlaylist {}
+class MockMyPlayerStateModel extends Mock implements MyPlayerStateModel {}
 
 /// Test constants
 class TestConstants {

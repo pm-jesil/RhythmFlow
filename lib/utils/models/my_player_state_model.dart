@@ -168,6 +168,13 @@ class MyPlayerStateModel {
     return copyWith(currentPlayList: shuffledList);
   }
 
+  // AI Shuffle - intelligently reorder playlist based on current song features
+  MyPlayerStateModel aiShufflePlaylist(List<String> reorderedPlaylist) {
+    if (reorderedPlaylist.isEmpty) return this;
+    
+    return copyWith(currentPlayList: reorderedPlaylist);
+  }
+
   // Revert shuffle - restore original order based on playlistId
   // Then reorder to start with current playing song
   MyPlayerStateModel revertShuffle(List<String> originalOrder) {

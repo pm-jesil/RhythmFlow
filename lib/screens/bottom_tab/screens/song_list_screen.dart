@@ -8,7 +8,7 @@ import '../../../core/theme/theme_extension.dart';
 import '../../../utils/models/playlist_source/playlist_source_model.dart';
 import '../widgets/custom_tab_view_app_bar.dart';
 import '../../../core/router/app_router.dart';
-import 'bloc/music_bloc.dart';
+import '../bloc/music_bloc.dart';
 import '../widgets/song_list_item.dart';
 import '../widgets/song_list_widget.dart';
 import '../../../utils/services/permission_service.dart';
@@ -35,7 +35,7 @@ class _SongListScreenState extends State<SongListScreen> {
     
     // Request all required permissions on first entry
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      PermissionService.requestAllRequiredPermissionsComprehensive(context);
+      PermissionService.requestAllRequiredPermissions(context);
     });
   }
 
@@ -60,6 +60,7 @@ class _SongListScreenState extends State<SongListScreen> {
     final query = _searchController.text.toLowerCase();
     List<Song> currentSongs = List<Song>.from(musicState.allSongs);
 
+    // Apply search filter (no navigation filters needed - sorting handles everything)
     List<Song> newFilteredSongs;
     if (query.isEmpty) {
       newFilteredSongs = currentSongs;
@@ -82,6 +83,7 @@ class _SongListScreenState extends State<SongListScreen> {
       _filteredSongs = newFilteredSongs;
     }
   }
+
 
   // Removed _updateSelectedSongFromBloc - no longer needed since we only use bloc state
 
@@ -182,10 +184,12 @@ class _SongListScreenState extends State<SongListScreen> {
       },
       child: BlocBuilder<MusicBloc, MusicState>(
         buildWhen: (previous, current) {
-          // Only rebuild when songs list or loading state changes
+          // Rebuild when songs list, loading state, or sorting changes
           return previous.allSongs.length != current.allSongs.length ||
               previous.isSongListLoading != current.isSongListLoading ||
-              previous.isSongListError != current.isSongListError;
+              previous.isSongListError != current.isSongListError ||
+              previous.sortingIndex != current.sortingIndex ||
+              !_areSongListsEqual(previous.allSongs, current.allSongs);
         },
         builder: (context, musicState) {
           // Update filtered songs when music state changes (including sorting)
@@ -395,7 +399,7 @@ class _SongListScreenState extends State<SongListScreen> {
               (context, index) {
                 final song = _filteredSongs[index];
                 return Padding(
-                  padding: EdgeInsets.only(bottom: 8.h),
+                  padding: EdgeInsets.only(bottom: 6.h),
                   child: SongListItem(
                     key: ValueKey(
                       song.id,

@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:pmj_music_player/screens/bottom_tab/screens/bloc/music_bloc.dart';
+import 'package:pmj_music_player/screens/bottom_tab/bloc/music_bloc.dart';
 import 'package:pmj_music_player/screens/music_player/pop_up_music_player_widget.dart';
 import '../test_helpers.dart';
 
@@ -44,6 +44,8 @@ void main() {
         isArtistListError: false,
         isLoading: false,
         isError: false,
+        isComprehensiveFeaturesExtractingLoading: false,
+        isComprehensiveFeaturesExtractingError: false,
       );
       
       when(() => mockMusicBloc.state).thenReturn(testState);

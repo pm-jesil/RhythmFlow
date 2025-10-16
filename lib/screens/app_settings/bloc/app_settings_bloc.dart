@@ -21,6 +21,7 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
     on<_UpdatePlaybackSettings>(_onUpdatePlaybackSettings);
     on<_UpdateBackgroundRefreshTimeGap>(_onUpdateBackgroundRefreshTimeGap);
     on<_UpdateUserProfile>(_onUpdateUserProfile);
+    on<_UpdateAiShuffle>(_onUpdateAiShuffle);
 
     // Initialize theme sync
     _initializeThemeSync();
@@ -167,6 +168,7 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
       sleepTimerMinutes: 30,
       isSleepTimerEnabled: false,
       autoPlayNext: true,
+      isAiShuffleEnabled: true,
       showNotifications: true,
       playbackSpeed: 1.0,
       appBackgroundRefreshTimeGap: 5,
@@ -250,6 +252,13 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
     emit(state.copyWith(userName: event.userName, nickName: event.nickName));
   }
 
+  void _onUpdateAiShuffle(
+    _UpdateAiShuffle event,
+    Emitter<AppSettingsState> emit,
+  ) {
+    emit(state.copyWith(isAiShuffleEnabled: event.isEnabled));
+  }
+
   @override
   Map<String, dynamic>? toJson(AppSettingsState state) {
     try {
@@ -323,9 +332,12 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
         appBackgroundRefreshTimeGap: json['appBackgroundRefreshTimeGap'] ?? 5,
         userName: json['userName'],
         nickName: json['nickName'],
+        isAiShuffleEnabled: json['isAiShuffleEnabled'] ?? true,
       );
     } catch (e) {
       return null;
     }
   }
+
+
 }

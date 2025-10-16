@@ -8,6 +8,7 @@ extension ThemeExtension on BuildContext {
   Color get cardColor => _isDarkMode ? AppTheme.darkCard : AppTheme.lightCard;
   Color get onSurfaceColor => _isDarkMode ? AppTheme.darkOnSurface : AppTheme.lightOnSurface;
   Color get onSurfaceVariantColor => _isDarkMode ? AppTheme.darkOnSurfaceVariant : AppTheme.lightOnSurfaceVariant;
+  Color get outlineColor => _isDarkMode ? AppTheme.darkOutline : AppTheme.lightOutline;
   LinearGradient get backgroundGradient => _isDarkMode ? AppTheme.darkBackgroundGradient : AppTheme.lightBackgroundGradient;
   
   // 🎯 Primary Colors (always available)

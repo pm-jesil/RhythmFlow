@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pmj_music_player/core/di/injection.dart';
 import 'package:pmj_music_player/screens/app_settings/bloc/app_settings_bloc.dart';
+import 'package:pmj_music_player/utils/services/song_features/comprehensive_features_extractor.dart';
 import 'utils/logger/logger.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 
@@ -13,7 +14,8 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/theme_bloc.dart';
 import 'core/router/app_router.dart';
 import 'core/constants/app_constants.dart';
-import 'screens/bottom_tab/screens/bloc/music_bloc.dart';
+import 'screens/bottom_tab/bloc/music_bloc.dart';
+import 'utils/services/app_lifecycle_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,6 +43,23 @@ void main() async {
     logger.e('❌ JustAudioBackground initialization failed: $e');
   }
 
+  // Initialize Feature Extraction Service (includes Comprehensive Features Extractor)
+  try {
+    logger.i('🚀 Initializing Feature Extraction Service...');
+    final comprehensiveFeaturesExtractor =
+        await ComprehensiveFeaturesExtractor.initialize();
+    if (comprehensiveFeaturesExtractor) {
+      logger.i('✅ Feature Extraction Service initialized successfully');
+    } else {
+      logger.w(
+        '⚠️ Feature Extraction Service initialization failed - will retry later',
+      );
+    }
+  } catch (e) {
+    logger.e('❌ Feature Extraction Service initialization error: $e');
+    // Continue anyway - will retry in bloc if needed
+  }
+
   runApp(const MyApp());
 }
 
@@ -50,7 +69,9 @@ Future<void> _initializeHydratedBloc() async {
     HydratedBloc.storage = await HydratedStorage.build(
       storageDirectory: kIsWeb
           ? HydratedStorageDirectory.web
-          : HydratedStorageDirectory((await getApplicationDocumentsDirectory()).path),
+          : HydratedStorageDirectory(
+              (await getApplicationDocumentsDirectory()).path,
+            ),
     );
     logger.i('HydratedBloc storage initialized successfully');
   } catch (e) {
@@ -58,8 +79,33 @@ Future<void> _initializeHydratedBloc() async {
   }
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    // Use centralized lifecycle handler for ALL lifecycle concerns
+    AppLifecycleHandler.handleLifecycleChange(state);
+  }
 
   ThemeMode _getThemeMode(AppSettingsState state) {
     if (state.followSystemTheme == true) {

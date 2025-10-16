@@ -4,7 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../core/theme/theme_extension.dart';
 import '../../../utils/logger/logger.dart';
 import '../../../utils/models/song/song_model.dart';
-import '../bottom_tab/screens/bloc/music_bloc.dart';
+import '../bottom_tab/bloc/music_bloc.dart';
 import '../widgets/album_art_widget.dart';
 import '../widgets/playlist_source_helper.dart';
 import '../../../core/widgets/app_custom.dart';
@@ -285,7 +285,7 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
             );
           },
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
             child: Row(
               children: [
                 // Now Playing Icon
@@ -308,8 +308,8 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
                 // Album Art
                 AlbumArtWidget(
                   albumArt: song.albumArt,
-                  width: 56.w,
-                  height: 56.h,
+                  width: 48.w,
+                  height: 48.h,
                   borderRadius: 8.r,
                   boxShadow: [
                     BoxShadow(
@@ -324,7 +324,7 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
                   defaultIconSize: 24.sp,
                 ),
 
-                SizedBox(width: 16.w),
+                SizedBox(width: 12.w),
 
                 // Song Info
                 Expanded(
@@ -352,7 +352,7 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      SizedBox(height: 2.h),
+                      SizedBox(height: 1.h),
                       Text(
                         song.primaryArtist,
                         style: TextStyle(
@@ -393,7 +393,7 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
   }) {
     return Container(
       key: key,
-      margin: EdgeInsets.only(bottom: 8.h),
+      margin: EdgeInsets.only(bottom: 6.h),
       decoration: BoxDecoration(
         color: isCurrentSong
             ? context.isDark
@@ -442,7 +442,7 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
             );
           },
           child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 8.h),
+            padding: EdgeInsets.symmetric(vertical: 6.h),
             child: Row(
               children: [
                 // Reorder Handle (only show if not current song and not first)
@@ -473,8 +473,8 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
                 // Album Art
                 AlbumArtWidget(
                   albumArt: song.albumArt,
-                  width: 48.w,
-                  height: 48.h,
+                  width: 40.w,
+                  height: 40.h,
                   borderRadius: 6.r,
                   boxShadow: [
                     BoxShadow(
@@ -491,7 +491,7 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
                   defaultIconSize: 20.sp,
                 ),
 
-                SizedBox(width: 12.w),
+                SizedBox(width: 10.w),
 
                 // Song Info
                 Expanded(
@@ -513,7 +513,7 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      SizedBox(height: 2.h),
+                      SizedBox(height: 1.h),
                       Text(
                         song.primaryArtist,
                         style: TextStyle(

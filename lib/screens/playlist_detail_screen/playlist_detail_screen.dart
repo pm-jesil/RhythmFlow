@@ -7,7 +7,7 @@ import '../../core/theme/theme_extension.dart';
 import '../../utils/logger/logger.dart';
 import '../../utils/models/playlist_source/playlist_source_model.dart';
 import '../../utils/models/song/song_model.dart';
-import '../bottom_tab/screens/bloc/music_bloc.dart';
+import '../bottom_tab/bloc/music_bloc.dart';
 import '../widgets/sorting_helper.dart';
 import '../widgets/custom_music_floating_button.dart';
 import '../../core/widgets/app_custom.dart';
@@ -496,7 +496,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         // No longer using local selection state - only bloc state
                             
                             return Padding(
-                          padding: EdgeInsets.only(bottom: 6.h),
+                          padding: EdgeInsets.only(bottom: 4.h),
                           child: _buildEnhancedSongTile(
                             song,
                             false, // No longer using local selection state
@@ -601,13 +601,13 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               borderRadius: BorderRadius.circular(12.r),
               onTap: () => _playSong(song),
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                 child: Row(
                   children: [
                     // Track Number or Album Art
                     Container(
-                      width: 40.w,
-                      height: 40.w,
+                      width: 36.w,
+                      height: 36.w,
                       decoration: BoxDecoration(
                         color: isSelectedSong
                             ? context.primaryStart.withValues(alpha: 0.2)
@@ -629,7 +629,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           : _buildTrackNumber(index),
                     ),
 
-                    SizedBox(width: 12.w),
+                    SizedBox(width: 10.w),
 
                     // Song Info
                     Expanded(

@@ -13,11 +13,12 @@ import '../../../utils/models/song/song_model.dart';
 import '../../../utils/models/artist/artist_model.dart';
 import '../../../utils/models/album/album_model.dart';
 import '../../../utils/models/playlist_source/playlist_source_model.dart';
-import 'bloc/music_bloc.dart';
+import '../bloc/music_bloc.dart';
 import '../../widgets/album_art_widget.dart';
 import '../bottom_tab.dart';
 import '../../app_settings/bloc/app_settings_bloc.dart';
 import '../../widgets/sorting_helper.dart';
+import '../widgets/horizondal_scrolling_widget_home.dart';
 
 class ForYouScreen extends StatefulWidget {
   const ForYouScreen({super.key});
@@ -34,9 +35,6 @@ class _ForYouScreenState extends State<ForYouScreen> {
   static const double _sectionPadding = 16.0;
   static const double _itemSpacing = 8.0;
   static const double _borderRadius = 10.0;
-  static const double _rankIndicatorSize = 24.0;
-  static const double _albumArtSize = 48.0;
-  static const double _iconSize = 20.0;
   // Animation delays
   static const int _statsDelay = 0;
   static const int _recentlyAddedDelay = 1;
@@ -54,77 +52,49 @@ class _ForYouScreenState extends State<ForYouScreen> {
   void initState() {
     super.initState();
     _logger.i('ForYouScreen initialized');
+    
+    // Toggle horizontalScrollingWidgetHomeIndex value (0 to 1, 1 to 0) on each navigation to For You screen
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final musicBloc = context.read<MusicBloc>();
+      final currentState = musicBloc.state;
+      final newHorizontalIndex = currentState.horizondalScrollingWidgetHomeIndex == 0 ? 1 : 0;
+      
+      _logger.i('🔄 Toggling horizontalScrollingWidgetHomeIndex: ${currentState.horizondalScrollingWidgetHomeIndex} → $newHorizontalIndex');
+      
+      // Call updateMusicBlocState event to update the horizontalScrollingWidgetHomeIndex
+      musicBloc.add(
+        MusicEvent.updateMusicBlocState(
+          newState: currentState.copyWith(
+            horizondalScrollingWidgetHomeIndex: newHorizontalIndex,
+          ),
+        ),
+      );
+    });
   }
 
   // Helper methods for data processing
-  List<Song> _getMostPlayedSongs(List<Song> songs) {
-    final songsWithPlayCount = songs.where((song) => (song.playCount ?? 0) > 0).toList();
-    return SortingHelper.sortByPlayCount(songsWithPlayCount, ascending: false);
-  }
-
-  List<Song> _getRecentlyAddedSongs(List<Song> songs) {
-    final songsWithDate = songs.where((song) => song.dateAdded != null).toList();
-    return SortingHelper.sortByDateAdded(songsWithDate, newestFirst: true);
-  }
 
   List<Artist> _getTopArtists(List<Artist> artists) {
-    final artistsWithPlayCount = artists.where((artist) => (artist.playCount ?? 0) > 0).toList();
-    return SortingHelper.sortArtistsByPlayCount(artistsWithPlayCount, ascending: false);
+    final artistsWithPlayCount = artists
+        .where((artist) => (artist.playCount ?? 0) > 0)
+        .toList();
+    return SortingHelper.sortArtistsByPlayCount(
+      artistsWithPlayCount,
+      ascending: false,
+    );
   }
 
   List<Album> _getTopAlbums(List<Album> albums) {
-    final albumsWithPlayCount = albums.where((album) => (album.playCount ?? 0) > 0).toList();
-    return SortingHelper.sortAlbumsByPlayCount(albumsWithPlayCount, ascending: false);
+    final albumsWithPlayCount = albums
+        .where((album) => (album.playCount ?? 0) > 0)
+        .toList();
+    return SortingHelper.sortAlbumsByPlayCount(
+      albumsWithPlayCount,
+      ascending: false,
+    );
   }
 
   // Helper methods for common UI components
-  Widget _buildRankIndicator(int rank) {
-    return Container(
-      width: _rankIndicatorSize.w,
-      height: _rankIndicatorSize.w,
-      decoration: BoxDecoration(
-        gradient: rank <= 3
-            ? context.primaryGradient
-            : LinearGradient(
-                colors: [
-                  context.onSurfaceVariantColor,
-                  context.onSurfaceVariantColor,
-                ],
-              ),
-        borderRadius: BorderRadius.circular(_borderRadius.r),
-      ),
-      child: Center(
-        child: Text(
-          '$rank',
-          style: TextStyle(
-            color: rank <= 3 ? Colors.white : context.onSurfaceColor,
-            fontSize: 12.sp,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Poppins',
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPlayCountBadge(int playCount) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-      decoration: BoxDecoration(
-        color: context.primaryStart.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8.r),
-      ),
-      child: Text(
-        '$playCount plays',
-        style: TextStyle(
-          color: context.primaryStart,
-          fontSize: 10.sp,
-          fontWeight: FontWeight.w500,
-          fontFamily: 'Poppins',
-        ),
-      ),
-    );
-  }
 
   Widget _buildEmptyStateCard(
     String title,
@@ -264,41 +234,45 @@ class _ForYouScreenState extends State<ForYouScreen> {
           onSettingsPressed: () => context.navigateToSettings(),
         ),
         body: BlocBuilder<MusicBloc, MusicState>(
-          builder: (context, state) {
-            return CustomScrollView(
-              slivers: [
-                // Content
-                SliverPadding(
-                  padding: EdgeInsets.all(_sectionPadding.w),
-                  sliver: SliverList(
-                    delegate: SliverChildListDelegate([
-                      // Welcome Section
-                      _buildAnimatedWelcomeSection(),
-                      SizedBox(height: _largeSpacing.h),
+          builder: (context, musicState) {
+            return BlocBuilder<AppSettingsBloc, AppSettingsState>(
+              builder: (context, appSettingsState) {
+                return CustomScrollView(
+                  slivers: [
+                    // Content
+                    SliverPadding(
+                      padding: EdgeInsets.all(_sectionPadding.w),
+                      sliver: SliverList(
+                        delegate: SliverChildListDelegate([
+                          // Welcome Section
+                          _buildAnimatedWelcomeSection(),
+                          SizedBox(height: _largeSpacing.h),
 
-                      // Quick Stats
-                      _buildAnimatedQuickStats(state),
-                      SizedBox(height: _largeSpacing.h),
+                          // Quick Stats
+                          _buildAnimatedQuickStats(musicState),
+                          SizedBox(height: _largeSpacing.h),
 
-                      // Quilted Grid Layout
-                      _buildQuiltedGrid(state),
-                      SizedBox(height: _largeSpacing.h),
+                          // Quilted Grid Layout
+                          _buildQuiltedGrid(musicState, appSettingsState),
+                          SizedBox(height: _largeSpacing.h),
 
-                      // Recently Added
-                      _buildRecentlyAdded(state),
-                      SizedBox(height: _largeSpacing.h),
+                          // Horizondal Scrolling Widget
+                          _buildHorizondalScrollingWidget(musicState),
+                          SizedBox(height: _largeSpacing.h),
 
-                      // Top Albums (by play count)
-                      _buildTopAlbumsByPlayCount(state),
-                      SizedBox(height: _largeSpacing.h),
+                          // Top Albums (by play count)
+                          _buildTopAlbumsByPlayCount(musicState),
+                          SizedBox(height: _largeSpacing.h),
 
-                      // Top Artists (by play count)
-                      _buildTopArtistsByPlayCount(state),
-                      SizedBox(height: 150.h),
-                    ]),
-                  ),
-                ),
-              ],
+                          // Top Artists (by play count)
+                          _buildTopArtistsByPlayCount(musicState),
+                          SizedBox(height: 150.h),
+                        ]),
+                      ),
+                    ),
+                  ],
+                );
+              },
             );
           },
         ),
@@ -316,7 +290,8 @@ class _ForYouScreenState extends State<ForYouScreen> {
         final now = DateTime.now();
         final timeBasedSeed = now.millisecondsSinceEpoch;
         final userBasedSeed = userName.hashCode.abs();
-        final combinedSeed = (timeBasedSeed + userBasedSeed) % AppConstants.musicQuotes.length;
+        final combinedSeed =
+            (timeBasedSeed + userBasedSeed) % AppConstants.musicQuotes.length;
         final selectedQuote = AppConstants.musicQuotes[combinedSeed];
 
         return Custom3DCard(
@@ -457,14 +432,17 @@ class _ForYouScreenState extends State<ForYouScreen> {
     return _buildQuickStats(state);
   }
 
-  Widget _buildQuiltedGrid(MusicState state) {
-    final mostPlayedSongs = _getMostPlayedSongs(state.allSongs);
+  Widget _buildQuiltedGrid(MusicState state, AppSettingsState appSettingsState) {
+    final currentPlaylistIds = state.myPlayerState.currentPlayList;
+    final currentPlaylistSongs = state.allSongs
+        .where((song) => currentPlaylistIds.contains(song.id))
+        .toList();
 
-    if (mostPlayedSongs.isEmpty) {
+    if (currentPlaylistSongs.isEmpty) {
       return _buildEmptyStateCard(
-        'My Suggestions',
+        appSettingsState.isAiShuffleEnabled ? 'AI Suggestions' : 'My Suggestions',
         'Start playing songs to see personalized suggestions here!',
-        Icons.lightbulb_outline_rounded,
+        appSettingsState.isAiShuffleEnabled ? Icons.psychology_rounded : Icons.lightbulb_outline_rounded,
         0,
       );
     }
@@ -502,27 +480,27 @@ class _ForYouScreenState extends State<ForYouScreen> {
             childrenDelegate: SliverChildBuilderDelegate(
               (context, index) {
                 if (index == 0) {
-                  // First card - "My Suggestions" text (large tile)
-                  return _buildMySuggestionsCard();
+                  // First card - "AI Suggestions" or "My Suggestions" text (large tile)
+                  return _buildMySuggestionsCard(appSettingsState);
                 } else if (index >= 1 && index <= 4) {
                   // Top row small tiles and middle-right tile (indices 1-4)
                   final songIndex = index - 1;
-                  if (songIndex < mostPlayedSongs.length) {
-                    return _buildAlbumArtCard(mostPlayedSongs[songIndex]);
+                  if (songIndex < currentPlaylistSongs.length) {
+                    return _buildAlbumArtCard(currentPlaylistSongs[songIndex]);
                   }
                   return _buildEmptyAlbumCard();
                 } else if (index >= 5 && index <= 8) {
                   // Bottom-right 4 small containers (indices 5-8)
                   final songIndex = index - 1;
-                  if (songIndex < mostPlayedSongs.length) {
-                    return _buildAlbumArtCard(mostPlayedSongs[songIndex]);
+                  if (songIndex < currentPlaylistSongs.length) {
+                    return _buildAlbumArtCard(currentPlaylistSongs[songIndex]);
                   }
                   return _buildEmptyAlbumCard();
                 } else {
                   // Bottom-left and bottom-middle tiles (indices 9-10)
                   final songIndex = index - 1;
-                  if (songIndex < mostPlayedSongs.length) {
-                    return _buildAlbumArtCard(mostPlayedSongs[songIndex]);
+                  if (songIndex < currentPlaylistSongs.length) {
+                    return _buildAlbumArtCard(currentPlaylistSongs[songIndex]);
                   }
                   return _buildEmptyAlbumCard();
                 }
@@ -535,7 +513,12 @@ class _ForYouScreenState extends State<ForYouScreen> {
     );
   }
 
-  Widget _buildMySuggestionsCard() {
+  Widget _buildMySuggestionsCard(AppSettingsState appSettingsState) {
+    final isAiEnabled = appSettingsState.isAiShuffleEnabled;
+    final titleText = isAiEnabled ? 'AI' : 'My';
+    final subtitleText = 'Suggestions';
+    final icon = isAiEnabled ? Icons.psychology_rounded : Icons.lightbulb_outline_rounded;
+    
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -574,13 +557,13 @@ class _ForYouScreenState extends State<ForYouScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.lightbulb_outline_rounded,
+              icon,
               color: context.isDark ? Colors.white : Colors.white,
               size: 24.sp,
             ),
             SizedBox(height: 8.h),
             Text(
-              'My',
+              titleText,
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 16.sp,
@@ -597,7 +580,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
               ),
             ),
             Text(
-              'Suggestions',
+              subtitleText,
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 16.sp,
@@ -672,41 +655,15 @@ class _ForYouScreenState extends State<ForYouScreen> {
     );
   }
 
-  Widget _buildRecentlyAdded(MusicState state) {
-    final recentSongs = _getRecentlyAddedSongs(state.allSongs);
-
-    if (recentSongs.isEmpty) {
-      return _buildEmptyStateCard(
-        'Recently Added',
-        'No recently added songs found.',
-        Icons.new_releases_rounded,
-        _recentlyAddedDelay,
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionHeader(
-          'Recently Added',
-          recentSongs.length,
-          () => _navigateToRecentlyAdded(),
-        ),
-        SizedBox(height: _itemSpacing.h),
-        ...recentSongs.take(_maxSongsPerSection).toList().asMap().entries.map((
-          entry,
-        ) {
-          final index = entry.key;
-          final song = entry.value;
-          return Column(
-            children: [
-              _buildSongItem(song),
-              if (index < _maxSongsPerSection - 1)
-                SizedBox(height: _itemSpacing.h),
-            ],
-          );
-        }),
-      ],
+  Widget _buildHorizondalScrollingWidget(MusicState state) {
+    return HorizondalScrollingWidgetHome(
+      allSongs: state.allSongs,
+      artistList: state.artistList,
+      albumList: state.albumList,
+      onRecentlyAddedPressed: () => _navigateToRecentlyAdded(),
+      onMostPlayedPressed: () => _navigateToMostPlayed(),
+      maxSongsPerSection: _maxSongsPerSection,
+      animationDelay: _recentlyAddedDelay,
     );
   }
 
@@ -792,117 +749,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
     );
   }
 
-  Widget _buildMediaItem({
-    required String title,
-    required String subtitle,
-    required String? albumArt,
-    required VoidCallback onTap,
-    required IconData actionIcon,
-    int? rank,
-    int? playCount,
-    int? animationDelay,
-    Duration? animationDuration,
-    double? borderRadius,
-    bool isNetworkImage = false,
-  }) {
-    if (albumArt != null && albumArt.isNotEmpty) {
-      isNetworkImage =
-          albumArt.startsWith('http://') || albumArt.startsWith('https://');
-    }
-    return Custom3DCard(
-      enableAnimation: true,
-      animationDelay: animationDelay ?? _recentlyAddedDelay,
-      animationDuration: animationDuration ?? AppConstants.longAnimation,
-      padding: EdgeInsets.symmetric(horizontal: _cardPadding.w, vertical: 8.h),
-      borderRadius: _borderRadius.r,
-      onTap: onTap,
-      backgroundColor: context.cardColor,
-      child: Row(
-        children: [
-          // Rank indicator (only for ranked items)
-          if (rank != null) ...[
-            _buildRankIndicator(rank),
-            SizedBox(width: _cardPadding.w),
-          ],
-          AlbumArtWidget(
-            albumArt: albumArt,
-            width: _albumArtSize.w,
-            height: _albumArtSize.h,
-            borderRadius: (borderRadius ?? 8).r,
-            isNetworkImage: isNetworkImage,
-            defaultIcon: Icons.music_note_rounded,
-            defaultIconSize: _iconSize,
-          ),
-          SizedBox(width: _cardPadding.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: context.onSurfaceColor,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14.sp,
-                    fontFamily: 'Poppins',
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                SizedBox(height: 2.h),
-                Row(
-                  children: [
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        color: context.onSurfaceVariantColor,
-                        fontSize: 12.sp,
-                        fontFamily: 'Poppins',
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    // Play count badge (only for items with play count)
-                    if (rank != null && (playCount ?? 0) > 0) ...[
-                      SizedBox(width: _itemSpacing.w),
-                      _buildPlayCountBadge(playCount ?? 0),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
-          SizedBox(width: _itemSpacing.w),
-          Icon(
-            actionIcon,
-            color: context.onSurfaceVariantColor,
-            size: _iconSize.sp,
-          ),
-        ],
-      ),
-    );
-  }
-
   // Convenience methods for specific types
-  Widget _buildSongItem(
-    Song song, {
-    int? rank,
-    int? animationDelay,
-    Duration? animationDuration,
-  }) {
-    return _buildMediaItem(
-      title: song.displayTitle,
-      subtitle: song.displayArtist,
-      albumArt: song.albumArt,
-      onTap: () => _playSong(song),
-      actionIcon: Icons.play_arrow_rounded,
-      rank: rank,
-      playCount: song.playCount,
-      animationDelay: animationDelay,
-      animationDuration: animationDuration,
-      borderRadius: 8,
-    );
-  }
 
   Widget _buildSectionHeader(String title, int count, VoidCallback onTap) {
     return InkWell(
@@ -1075,8 +922,40 @@ class _ForYouScreenState extends State<ForYouScreen> {
 
   void _navigateToRecentlyAdded() {
     _logger.i('Navigate to recently added songs');
-    // Navigate to songs tab and filter by recently added
-    _navigateToTabWithFilter(1, 'recently_added', null); // Songs tab is index 1
+    // Set sorting to 'Newest First' (index 0) before navigating
+    context.read<MusicBloc>().add(
+      MusicEvent.changeSortingOrder(
+        sortingIndex: 0, // Newest First
+        sortingList: context
+            .read<MusicBloc>()
+            .state
+            .allSongs
+            .map((s) => s.id)
+            .toList(),
+        playlistSource: PlaylistSource.allSongs(),
+      ),
+    );
+    // Navigate to songs tab
+    _navigateToTab(1); // Songs tab is index 1
+  }
+
+  void _navigateToMostPlayed() {
+    _logger.i('Navigate to most played songs');
+    // Set sorting to 'Most Played' (index 5) before navigating
+    context.read<MusicBloc>().add(
+      MusicEvent.changeSortingOrder(
+        sortingIndex: 5, // Most Played
+        sortingList: context
+            .read<MusicBloc>()
+            .state
+            .allSongs
+            .map((s) => s.id)
+            .toList(),
+        playlistSource: PlaylistSource.allSongs(),
+      ),
+    );
+    // Navigate to songs tab
+    // _navigateToTab(1); // Songs tab is index 1
   }
 
   void _navigateToTopArtists() {

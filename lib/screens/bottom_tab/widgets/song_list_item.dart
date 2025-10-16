@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../core/theme/theme_extension.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../screens/bloc/music_bloc.dart';
+import '../bloc/music_bloc.dart';
 import '../../widgets/album_art_widget.dart';
 import 'song_context_menu.dart';
 
@@ -230,14 +230,14 @@ class _SongListItemState extends State<SongListItem>
                       borderRadius: BorderRadius.circular(10.r),
                       onTap: _handleTileTap,
                       child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h), // Reduced padding
+                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h), // Further reduced padding
                 child: Row(
                   children: [
                     // Album Art
                     AlbumArtWidget(
                       albumArt: widget.albumArtPath,
-                      width: 48.w,
-                      height: 48.h,
+                      width: 40.w,
+                      height: 40.h,
                       borderRadius: 6.r,
                       boxShadow: [
                         BoxShadow(
@@ -251,7 +251,7 @@ class _SongListItemState extends State<SongListItem>
                       defaultIconSize: 20.0,
                     ),
                     
-                    SizedBox(width: 12.w), // Reduced spacing between album art and text
+                    SizedBox(width: 10.w), // Further reduced spacing between album art and text
                     
                     // Song Info
                     Expanded(
@@ -268,7 +268,7 @@ class _SongListItemState extends State<SongListItem>
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          SizedBox(height: 2.h), // Reduced spacing
+                          SizedBox(height: 1.h), // Further reduced spacing
                           Text(
                             widget.artistName,
                             style: TextStyle(
@@ -281,7 +281,7 @@ class _SongListItemState extends State<SongListItem>
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          SizedBox(height: 1.h), // Reduced spacing
+                          SizedBox(height: 0.5.h), // Further reduced spacing
                           Text(
                             widget.albumName,
                             style: TextStyle(
@@ -298,7 +298,7 @@ class _SongListItemState extends State<SongListItem>
                       ),
                     ),
                     
-                    SizedBox(width: 12.w), // Reduced spacing
+                    SizedBox(width: 10.w), // Further reduced spacing
                     
                     // Duration and Play Button
                     Row(

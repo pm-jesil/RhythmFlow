@@ -48,6 +48,9 @@ dependencies:
   file_picker: ^10.3.2
   permission_handler: ^12.0.1
   device_info_plus: ^11.5.0
+  
+  # Background Processing
+  workmanager: ^0.9.0+3
 
   # Serialization & JSON
   json_annotation: ^4.9.0
@@ -80,10 +83,16 @@ dependencies:
 
   # Performance & Optimization
   flutter_cache_manager: ^3.3.1
-  image: ^4.1.7
+  image: ^3.3.0
+
+  # AI & ML
+  tflite_flutter: ^0.11.0
+  
+  # Advanced Audio Processing
+  ffmpeg_kit_flutter_new: ^3.2.0
+
 
   # Testing (in main dependencies)
-  bloc_test: ^10.0.0
   liquid_glass_renderer: ^0.1.1-dev.10
 
 
@@ -94,12 +103,13 @@ dev_dependencies:
 
   # Testing
   mocktail: ^1.0.4
+  mockito: ^5.4.4
+  build_runner: ^2.5.4
 
   # Linting & Analysis
   flutter_lints: ^6.0.0
 
   # Code Generation
-  build_runner: ^2.4.11
   freezed: ^2.5.7
   json_serializable: ^6.7.1
   injectable_generator: ^2.4.1
@@ -143,3 +153,6 @@ flutter:
       fonts:
         - asset: assets/fonts/YuGothicUILight.ttf
           weight: 300
+
+  assets:
+    - assets/models/

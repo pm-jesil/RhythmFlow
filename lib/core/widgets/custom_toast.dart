@@ -226,13 +226,6 @@ class ToastHelper {
     );
   }
 
-  /// Show ringtone set toast
-  static void ringtoneSet(BuildContext context, String songTitle, String type) {
-    CustomToast.showSuccess(
-      context: context,
-      message: '"$songTitle" set as $type successfully!',
-    );
-  }
 
   /// Show share toast
   static void shareSuccess(BuildContext context, String itemName) {

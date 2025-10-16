@@ -54,6 +54,10 @@ android {
             isMinifyEnabled = false
         }
     }
+
+    // aaptOptions {
+    //     noCompress 'tflite'
+    // }
     
     // Enable view binding
     buildFeatures {

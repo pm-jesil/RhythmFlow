@@ -39,6 +39,10 @@ class AppSettingsEvent with _$AppSettingsEvent {
     required double playbackSpeed,
   }) = _UpdatePlaybackSettings;
 
+  const factory AppSettingsEvent.updateAiShuffle({
+    required bool isEnabled,
+  }) = _UpdateAiShuffle;
+
   const factory AppSettingsEvent.updateBackgroundRefreshTimeGap({
     required int hours,
   }) = _UpdateBackgroundRefreshTimeGap;
@@ -47,4 +51,6 @@ class AppSettingsEvent with _$AppSettingsEvent {
     required String userName,
     required String nickName,
   }) = _UpdateUserProfile;
+
+
 }

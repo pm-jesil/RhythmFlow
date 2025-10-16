@@ -1,9 +1,8 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
 import '../app_settings/bloc/app_settings_bloc.dart';
 import '../../utils/services/audio_service.dart';
 import '../../utils/logger/logger.dart';
-import '../bottom_tab/screens/bloc/music_bloc.dart';
+import '../bottom_tab/bloc/music_bloc.dart';
 
 /// Helper class to centralize all app settings synchronization logic
 /// Handles theme, playback speed, and other settings sync between AppSettingsBloc and services
@@ -212,38 +211,5 @@ class SyncAppSettingsHelper {
     return musicBloc.getSleepTimerRemainingDuration();
   }
   
-  /// Handle app lifecycle changes (background/foreground)
-  static void handleAppLifecycleChange({
-    required AppLifecycleState lifecycleState,
-    required AppSettingsBloc appSettingsBloc,
-    required MusicBloc musicBloc,
-  }) {
-    try {
-      switch (lifecycleState) {
-        case AppLifecycleState.paused:
-        case AppLifecycleState.detached:
-        case AppLifecycleState.hidden:
-          _logger.i('💤 App backgrounded - sleep timer continues running');
-          // Timer continues running in background
-          break;
-        case AppLifecycleState.resumed:
-          _logger.i('💤 App foregrounded - checking sleep timer status');
-          // Check if timer should still be running
-          if (musicBloc.state.myPlayerState.isPlaying && musicBloc.state.myPlayerState.currentSongId != null) {
-            final appSettingsState = appSettingsBloc.state;
-            if (appSettingsState.isSleepTimerEnabled && !musicBloc.isSleepTimerRunning) {
-              _logger.i('💤 App resumed with music playing and timer enabled - restarting timer');
-              startSleepTimer(appSettingsBloc: appSettingsBloc, musicBloc: musicBloc);
-            }
-          }
-          break;
-        case AppLifecycleState.inactive:
-          // Do nothing for inactive state
-          break;
-      }
-    } catch (e) {
-      _logger.e('❌ Error handling app lifecycle change: $e');
-    }
-  }
   
 }

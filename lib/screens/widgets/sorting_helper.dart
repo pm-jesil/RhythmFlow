@@ -6,7 +6,7 @@ import '../../utils/models/playlist_source/playlist_source_model.dart';
 import '../../utils/models/song/song_model.dart';
 import '../../utils/models/artist/artist_model.dart';
 import '../../utils/models/album/album_model.dart';
-import '../bottom_tab/screens/bloc/music_bloc.dart';
+import '../bottom_tab/bloc/music_bloc.dart';
 
 /// Common sorting utility for song lists
 class SortingHelper {
@@ -143,6 +143,8 @@ class SortingHelper {
         return Icons.timer;
       case 4:
         return Icons.timer_off;
+      case 5:
+        return Icons.trending_up;
       default:
         return Icons.sort;
     }
@@ -177,6 +179,9 @@ class SortingHelper {
         break;
       case 4: // Duration (Longest)
         result.sort((a, b) => b.duration.compareTo(a.duration));
+        break;
+      case 5: // Most Played
+        result.sort((a, b) => (b.playCount ?? 0).compareTo(a.playCount ?? 0));
         break;
     }
 

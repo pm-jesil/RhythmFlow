@@ -3,8 +3,9 @@ part of 'music_bloc.dart';
 @freezed
 abstract class MusicEvent with _$MusicEvent {
   // Load events
-  const factory MusicEvent.fetchAndUpdateSongs({bool? isForce}) = _FetchAndUpdateSongs;
-  
+  const factory MusicEvent.fetchAndUpdateSongs({bool? isForce}) =
+      _FetchAndUpdateSongs;
+
   // Unified metadata update event (replaces separate album/artist events)
   const factory MusicEvent.fetchAndUpdateMetadata({
     bool? includeAlbums,
@@ -25,6 +26,10 @@ abstract class MusicEvent with _$MusicEvent {
     String? coverImage,
     bool? isPublic,
   }) = _AddOrUpdateMyPlayList;
+
+
+  // Comprehensive features extraction event
+  const factory MusicEvent.extractComprehensiveFeatures({bool? isForce}) = _ExtractComprehensiveFeatures;
 
   // Playback events
   const factory MusicEvent.playOrPauseSong({
@@ -71,6 +76,13 @@ abstract class MusicEvent with _$MusicEvent {
   // Position update event
   const factory MusicEvent.updateLastPosition({required Duration position}) =
       _UpdateLastPosition;
+
+  // AI Shuffle event - intelligently reorder playlist based on current song features
+  const factory MusicEvent.aiShuffle({
+    required String currentSongId,
+    required List<String> currentPlayList,
+    PlaylistSource? playlistSource,
+  }) = _AiShuffle;
 
   // State update event
   const factory MusicEvent.updateMusicBlocState({

@@ -372,10 +372,6 @@ class AppCustom {
     ToastHelper.settingsSaved(context);
   }
 
-  /// Show ringtone set toast
-  static void showRingtoneSetToast(BuildContext context, String songTitle, String type) {
-    ToastHelper.ringtoneSet(context, songTitle, type);
-  }
 
   /// Show share success toast
   static void showShareSuccessToast(BuildContext context, String itemName) {

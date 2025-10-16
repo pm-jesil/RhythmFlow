@@ -7,7 +7,7 @@ import '../../../core/theme/theme_extension.dart';
 import '../../../utils/logger/logger.dart';
 import '../../../utils/services/permission_service.dart';
 import 'bloc/app_settings_bloc.dart';
-import '../../../screens/bottom_tab/screens/bloc/music_bloc.dart';
+import '../bottom_tab/bloc/music_bloc.dart';
 import '../../../core/widgets/app_custom.dart';
 
 class MusicLibrarySettingsScreen extends StatefulWidget {

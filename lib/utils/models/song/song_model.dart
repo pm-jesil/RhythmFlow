@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:pmj_music_player/utils/models/song_features/song_features.dart';
 
 part 'song_model.freezed.dart';
 part 'song_model.g.dart';
@@ -39,6 +40,8 @@ class Song with _$Song {
     int? playCount,
     bool? isFavorite,
     String? albumArtist,
+    List<double>? audioEmbedding,
+    SongFeatures ? features,
   }) = _Song;
 
   factory Song.fromJson(Map<String, dynamic> json) => _$SongFromJson(json);

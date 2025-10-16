@@ -10,7 +10,7 @@ import 'dart:async';
 import '../../../utils/logger/logger.dart';
 import '../../core/theme/theme_extension.dart';
 import '../../core/router/app_router.dart';
-import '../bottom_tab/screens/bloc/music_bloc.dart';
+import '../bottom_tab/bloc/music_bloc.dart';
 import 'package:pmj_music_player/utils/models/song/song_model.dart';
 import 'package:pmj_music_player/utils/services/audio_service.dart';
 import 'package:rxdart/rxdart.dart';
@@ -49,7 +49,7 @@ class MusicPlayerModal extends StatefulWidget {
 }
 
 class _MusicPlayerModalState extends State<MusicPlayerModal>
-    with TickerProviderStateMixin, WidgetsBindingObserver {
+    with TickerProviderStateMixin {
   final AppLogger _logger = AppLogger('MusicPlayerModal');
 
   late AnimationController _slideController;
@@ -77,7 +77,6 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _logger.i('🎯 MusicPlayerModal initialized');
 
     _slideController = AnimationController(
@@ -114,7 +113,6 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _slideController.dispose();
     _positionSubscription?.cancel();
     _durationSubscription?.cancel();
@@ -122,13 +120,6 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
     super.dispose();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _logger.i('📱 App resumed - forcing immediate sync');
-      _forceImmediateSync();
-    }
-  }
 
   /// Initialize progress tracking with audio service streams
   void _initializeProgressTracking() {

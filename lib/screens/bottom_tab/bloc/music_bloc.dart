@@ -3,31 +3,33 @@ import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:injectable/injectable.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:flutter/material.dart';
 import 'package:pmj_music_player/core/constants/app_enums.dart';
 import 'package:pmj_music_player/core/constants/app_constants.dart';
 import 'package:pmj_music_player/utils/models/my_playlist/my_playlist_model.dart';
-import '../../../../utils/models/song/song_model.dart';
-import '../../../../utils/models/album/album_model.dart';
-import '../../../../utils/models/artist/artist_model.dart';
-import '../../../../utils/models/my_player_state_model.dart';
-import '../../../../utils/models/playlist_source/playlist_source_model.dart';
-import '../../../../utils/logger/logger.dart';
-import '../../../../utils/services/fetch_songs.dart';
-import '../../../../utils/services/music_service.dart';
-import '../../../../utils/services/audio_service.dart';
-import '../../../../utils/services/enhanced_notification_service.dart';
-import '../../../../utils/services/remote_control_service.dart';
-import '../../../../utils/services/song_cleanup_service.dart';
-import '../../../../utils/services/play_count_tracking_service.dart';
-import '../../../../utils/services/my_playlist_service.dart';
-import '../../../widgets/sync_app_settings_helper.dart';
-import '../../../app_settings/bloc/app_settings_bloc.dart';
-import '../../../widgets/sorting_helper.dart';
-import '../../../widgets/playlist_source_helper.dart';
+import 'package:pmj_music_player/utils/services/song_features/comprehensive_features_extractor.dart';
+import '../../../utils/models/song/song_model.dart';
+import '../../../utils/models/album/album_model.dart';
+import '../../../utils/models/artist/artist_model.dart';
+import '../../../utils/models/my_player_state_model.dart';
+import '../../../utils/models/playlist_source/playlist_source_model.dart';
+import '../../../utils/logger/logger.dart';
+import '../../../utils/services/fetch_songs.dart';
+import '../../../utils/services/music_service.dart';
+import '../../../utils/services/audio_service.dart';
+import '../../../utils/services/enhanced_notification_service.dart';
+import '../../../utils/services/remote_control_service.dart';
+import '../../../utils/services/song_cleanup_service.dart';
+import '../../../utils/services/play_count_tracking_service.dart';
+import '../../../utils/services/my_playlist_service.dart';
+import '../../../utils/services/app_lifecycle_handler.dart';
+import '../../../utils/services/ai_shuffle/ai_shuffle_service.dart';
+import '../../widgets/sync_app_settings_helper.dart';
+import '../../app_settings/bloc/app_settings_bloc.dart';
+import '../../widgets/sorting_helper.dart';
+import '../../widgets/playlist_source_helper.dart';
 
 part 'music_event.dart';
-part 'music_state.dart';
+part '../bloc/music_state.dart';
 part 'music_bloc.freezed.dart';
 
 @singleton
@@ -48,7 +50,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
   // Flag to prevent race conditions during state updates
   bool _isUpdatingState = false;
-  
+
   // Queue for pending song changes to prevent race conditions
   final List<Song> _pendingSongChanges = [];
   bool _isProcessingSongChanges = false;
@@ -67,6 +69,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     'Alphabetical',
     'Duration (Shortest)',
     'Duration (Longest)',
+    'Most Played',
   ];
 
   MusicBloc(
@@ -91,6 +94,8 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     on<_UpdateFilterKeyword>(_onUpdateFilterKeyword);
     on<_SetNavigationFilter>(_onSetNavigationFilter);
     on<_UpdateMusicBlocState>(_onUpdateMusicBlocState);
+    on<_ExtractComprehensiveFeatures>(_onExtractComprehensiveFeatures);
+    on<_AiShuffle>(_onAiShuffle);
 
     _audioService.onSongChanged = _onAudioServiceSongChanged;
     _audioService.setPositionChangedCallback(_onPositionChanged);
@@ -100,6 +105,12 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     SyncAppSettingsHelper.initializeSettingsSync(
       appSettingsBloc: _appSettingsBloc,
       audioService: _audioService,
+    );
+
+    // Initialize app lifecycle handler
+    AppLifecycleHandler.initialize(
+      musicBloc: this,
+      appSettingsBloc: _appSettingsBloc,
     );
 
     _appSettingsSubscription = _appSettingsBloc.stream.listen((
@@ -220,6 +231,8 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         isArtistListError: false,
         isLoading: false,
         isError: false,
+        isComprehensiveFeaturesExtractingLoading: false,
+        isComprehensiveFeaturesExtractingError: false,
       );
     } catch (e) {
       _logger.e('Failed to restore state from storage: $e');
@@ -461,11 +474,13 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
       _logger.i(
         '🔄 Updating albums and artists after progressive song refresh...',
       );
-      add(const MusicEvent.fetchAndUpdateMetadata(
-        includeAlbums: true,
-        includeArtists: true,
-        isProgressive: true,
-      ));
+      add(
+        const MusicEvent.fetchAndUpdateMetadata(
+          includeAlbums: true,
+          includeArtists: true,
+          isProgressive: true,
+        ),
+      );
 
       // Set app settings fetch flag to false after completion
       emit(state.copyWith(appSettingsFetchSong: false));
@@ -504,14 +519,27 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
       }
 
       _logger.i('✅ Metadata update completed');
+
+      // Trigger comprehensive features extraction after both albums and artists are complete
+      if (includeAlbums && includeArtists) {
+        _logger.i(
+          '🎵 Metadata complete - Triggering comprehensive features extraction',
+        );
+        add(const MusicEvent.extractComprehensiveFeatures());
+      }
     } catch (e) {
       _logger.e('❌ Error in metadata update: $e');
     }
   }
 
   /// Update albums from current songs
-  Future<void> _updateAlbums(Emitter<MusicState> emit, bool isProgressive) async {
-    _logger.i('💿 Updating albums from current songs (${state.allSongs.length} songs)');
+  Future<void> _updateAlbums(
+    Emitter<MusicState> emit,
+    bool isProgressive,
+  ) async {
+    _logger.i(
+      '💿 Updating albums from current songs (${state.allSongs.length} songs)',
+    );
 
     try {
       // Extract albums from current songs
@@ -522,7 +550,9 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
       _logger.i('✅ Updated albums: ${uniqueAlbums.length} total');
 
       // Progressive loading only if needed and requested
-      if (isProgressive && state.albumList.isEmpty && state.allSongs.length < 50) {
+      if (isProgressive &&
+          state.albumList.isEmpty &&
+          state.allSongs.length < 50) {
         _logger.i('💿 Performing progressive album extraction');
         await _extractAlbumsProgressive(
           onProgress: (newAlbums, isComplete) {
@@ -538,8 +568,13 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
   }
 
   /// Update artists from current songs
-  Future<void> _updateArtists(Emitter<MusicState> emit, bool isProgressive) async {
-    _logger.i('👤 Updating artists from current songs (${state.allSongs.length} songs)');
+  Future<void> _updateArtists(
+    Emitter<MusicState> emit,
+    bool isProgressive,
+  ) async {
+    _logger.i(
+      '👤 Updating artists from current songs (${state.allSongs.length} songs)',
+    );
 
     try {
       // Extract artists from current songs
@@ -550,7 +585,9 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
       _logger.i('✅ Updated artists: ${uniqueArtists.length} total');
 
       // Progressive loading only if needed and requested
-      if (isProgressive && state.artistList.isEmpty && state.allSongs.length < 50) {
+      if (isProgressive &&
+          state.artistList.isEmpty &&
+          state.allSongs.length < 50) {
         _logger.i('👤 Performing progressive artist extraction');
         await _extractArtistsProgressive(
           onProgress: (newArtists, isComplete) {
@@ -564,7 +601,6 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
       _logger.e('❌ Error updating artists: $e');
     }
   }
-
 
   Future<void> _onLoadMyPlaylists(
     _LoadMyPlaylists event,
@@ -866,6 +902,21 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           appSettingsBloc: _appSettingsBloc,
           musicBloc: this,
         );
+
+        // Check AI Shuffle setting and trigger if enabled
+        final appSettings = _appSettingsBloc.state;
+        if (appSettings.isAiShuffleEnabled) {
+          _logger.d('🎵 AI Shuffle enabled - triggering intelligent reordering');
+          
+          add(MusicEvent.aiShuffle(
+            currentSongId: event.songId!,
+            currentPlayList: state.myPlayerState.currentPlayList,
+            playlistSource: event.playlistSource,
+          ));
+        } else {
+          _logger.d('🎵 AI Shuffle disabled - maintaining original playlist order');
+        }
+
         return;
       }
 
@@ -984,6 +1035,20 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           appSettingsBloc: _appSettingsBloc,
           musicBloc: this,
         );
+
+        // Check AI Shuffle setting and trigger if enabled
+        final appSettings = _appSettingsBloc.state;
+        if (appSettings.isAiShuffleEnabled) {
+          _logger.d('🎵 AI Shuffle enabled - triggering intelligent reordering');
+          
+          add(MusicEvent.aiShuffle(
+            currentSongId: event.songId!,
+            currentPlayList: state.myPlayerState.currentPlayList,
+            playlistSource: event.playlistSource,
+          ));
+        } else {
+          _logger.d('🎵 AI Shuffle disabled - maintaining original playlist order');
+        }
       }
 
       _logger.i(
@@ -1449,6 +1514,42 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     emit(event.newState);
   }
 
+  // ==================== AI SHUFFLE EVENT HANDLER ====================
+  Future<void> _onAiShuffle(
+    _AiShuffle event,
+    Emitter<MusicState> emit,
+  ) async {
+    try {
+      _logger.i('🎵 AI Shuffle triggered for song: ${event.currentSongId}');
+      
+      // Get current state
+      final currentState = state;
+      
+      // Reorder playlist using AI shuffle
+      final reorderedPlaylist = AiShuffleService.reorderPlaylistBySimilarity(
+        currentSongId: event.currentSongId,
+        playlistSongIds: event.currentPlayList,
+        allSongs: currentState.allSongs,
+      );
+      
+      _logger.d('🎯 Original playlist: ${event.currentPlayList.take(5).join(', ')}...');
+      _logger.d('🎯 Reordered playlist: ${reorderedPlaylist.take(5).join(', ')}...');
+      
+      // Update player state with reordered playlist
+      final updatedPlayerState = currentState.myPlayerState.aiShufflePlaylist(reorderedPlaylist);
+      
+      // Emit new state
+      emit(currentState.copyWith(myPlayerState: updatedPlayerState));
+      
+      _logger.i('✅ AI Shuffle completed: ${reorderedPlaylist.length} songs reordered');
+      
+    } catch (e, stackTrace) {
+      _logger.e('❌ AI Shuffle failed: $e');
+      _logger.e('Stack trace: $stackTrace');
+      // Don't fail silently - maintain current playlist
+    }
+  }
+
   /// Mark initialization as complete to allow position updates
   void markInitializationComplete() {
     _isInitializing = false;
@@ -1493,7 +1594,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
     // Add to queue instead of ignoring
     _pendingSongChanges.add(newSong);
-    
+
     // Process queue if not already processing
     if (!_isProcessingSongChanges) {
       _processSongChangeQueue();
@@ -1503,27 +1604,27 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
   /// Process queued song changes to prevent race conditions
   Future<void> _processSongChangeQueue() async {
     if (_isProcessingSongChanges || _pendingSongChanges.isEmpty) return;
-    
+
     _isProcessingSongChanges = true;
-    
+
     while (_pendingSongChanges.isNotEmpty) {
       final newSong = _pendingSongChanges.removeAt(0);
-      
+
       // Wait for any ongoing state updates to complete
       while (_isUpdatingState) {
         await Future.delayed(const Duration(milliseconds: 10));
       }
-      
+
       await _processSongChange(newSong);
     }
-    
+
     _isProcessingSongChanges = false;
   }
 
   /// Process individual song change
   Future<void> _processSongChange(Song newSong) async {
     _logger.i('🔄 Processing song change: "${newSong.title}"');
-    
+
     // Check if this is a different song (skip scenario)
     if (state.myPlayerState.currentSongId != null &&
         state.myPlayerState.currentSongId != newSong.id) {
@@ -1687,7 +1788,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
   void _clearPendingSongChanges() {
     _pendingSongChanges.clear();
     _isProcessingSongChanges = false;
-    _logger.d('🧹 Cleared pending song changes queue');
+    // Cleared pending song changes queue
   }
 
   // ==================== REMOTE CONTROL METHODS ====================
@@ -1949,15 +2050,6 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     return null;
   }
 
-  /// Handle app lifecycle changes (background/foreground)
-  void handleAppLifecycleChange(AppLifecycleState lifecycleState) {
-    SyncAppSettingsHelper.handleAppLifecycleChange(
-      lifecycleState: lifecycleState,
-      appSettingsBloc: _appSettingsBloc,
-      musicBloc: this,
-    );
-  }
-
   // ==================== SLEEP TIMER INTERNAL METHODS ====================
   /// Internal method to start sleep timer (used by helper)
   void startSleepTimerInternal(Duration timerDuration) {
@@ -1983,7 +2075,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         _sleepTimer = null;
         _logger.i('💤 Sleep timer stopped and cleared');
       } else {
-        _logger.d('💤 No sleep timer running to stop');
+        // No sleep timer running to stop
       }
     } catch (e) {
       _logger.e('❌ Error stopping sleep timer internally: $e');
@@ -2025,11 +2117,13 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
     if (state.allSongs.isNotEmpty) {
       // Use the new unified metadata update event
-      add(const MusicEvent.fetchAndUpdateMetadata(
-        includeAlbums: true,
-        includeArtists: true,
-        isProgressive: false,
-      ));
+      add(
+        const MusicEvent.fetchAndUpdateMetadata(
+          includeAlbums: true,
+          includeArtists: true,
+          isProgressive: false,
+        ),
+      );
     } else {
       _logger.w('⚠️ No songs available to refresh albums and artists');
     }
@@ -2390,6 +2484,147 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     }
   }
 
+  /// Extract comprehensive features for all songs using background service
+  Future<void> _onExtractComprehensiveFeatures(
+    _ExtractComprehensiveFeatures event,
+    Emitter<MusicState> emit,
+  ) async {
+    _logger.i(
+      '🔬 Starting comprehensive features extraction (hybrid background mode)',
+    );
+
+    try {
+      // Initialize feature extraction service if needed
+      if (!ComprehensiveFeaturesExtractor.isInitialized) {
+        _logger.i('🚀 Initializing feature extraction service...');
+        final initialized = await ComprehensiveFeaturesExtractor.initialize();
+        if (!initialized) {
+          _logger.e('❌ Failed to initialize feature extraction service');
+          emit(
+            state.copyWith(
+              isComprehensiveFeaturesExtractingLoading: false,
+              isComprehensiveFeaturesExtractingError: true,
+            ),
+          );
+          return;
+        }
+      }
+
+      // Validate song list
+      if (state.allSongs.isEmpty) {
+        _logger.w('⚠️ No songs to analyze');
+        emit(
+          state.copyWith(
+            isComprehensiveFeaturesExtractingLoading: false,
+            isComprehensiveFeaturesExtractingError: false,
+          ),
+        );
+        return;
+      }
+
+      // Note: Can't check processing state across isolates with WorkManager
+
+      // Determine which songs to process
+      List<Song> targetSongs;
+      if (event.isForce == true) {
+        // Force re-extraction for all songs
+        targetSongs = List<Song>.from(state.allSongs);
+        _logger.i(
+          '🔁 Force re-extraction enabled — processing all ${targetSongs.length} songs.',
+        );
+      } else {
+        // Extract only for songs missing features
+        targetSongs = state.allSongs.where((song) {
+          return song.features == null;
+        }).toList();
+
+        if (targetSongs.isEmpty) {
+          _logger.i(
+            '✅ All songs already have features extracted. Nothing to process.',
+          );
+          emit(
+            state.copyWith(
+              isComprehensiveFeaturesExtractingLoading: false,
+              isComprehensiveFeaturesExtractingError: false,
+            ),
+          );
+          return;
+        }
+
+        _logger.i(
+          '🎵 Extracting features for ${targetSongs.length} pending songs...',
+        );
+      }
+
+      // Set loading state
+      emit(
+        state.copyWith(
+          isComprehensiveFeaturesExtractingLoading: true,
+          isComprehensiveFeaturesExtractingError: false,
+        ),
+      );
+
+      // Start background feature extraction
+      await ComprehensiveFeaturesExtractor.extractFeaturesInBackground(
+        songs: targetSongs,
+        onProgress: (current, total) {
+          _logger.d(
+            '📊 Feature extraction progress: $current/$total songs processed',
+          );
+        },
+        onCompleted: () {
+          _logger.i('✅ Background feature extraction completed successfully');
+          emit(
+            state.copyWith(
+              isComprehensiveFeaturesExtractingLoading: false,
+              isComprehensiveFeaturesExtractingError: false,
+            ),
+          );
+        },
+        onSongUpdated: (updatedSong) {
+          _logger.d('🔄 Received updated song: ${updatedSong.title}');
+          _logger.d('🔍 Song features: ${updatedSong.features != null ? "EXTRACTED" : "NULL"}');
+          
+          // Incremental UI update - keep loading state as true during processing
+          final currentSongs = List<Song>.from(state.allSongs);
+          final index = currentSongs.indexWhere((s) => s.id == updatedSong.id);
+          if (index != -1) {
+            currentSongs[index] = updatedSong;
+            _logger.d('✅ Updated song in state: ${updatedSong.title}');
+            emit(
+              state.copyWith(
+                allSongs: currentSongs,
+                // Keep loading state as true during processing
+                isComprehensiveFeaturesExtractingLoading: true,
+                isComprehensiveFeaturesExtractingError: false,
+              ),
+            );
+          } else {
+            _logger.w('⚠️ Song not found in state: ${updatedSong.title}');
+          }
+        },
+        onError: (error) {
+          _logger.e('❌ Background feature extraction error: $error');
+          emit(
+            state.copyWith(
+              isComprehensiveFeaturesExtractingLoading: false,
+              isComprehensiveFeaturesExtractingError: true,
+            ),
+          );
+        },
+      );
+    } catch (e, stackTrace) {
+      emit(
+        state.copyWith(
+          isComprehensiveFeaturesExtractingLoading: false,
+          isComprehensiveFeaturesExtractingError: true,
+        ),
+      );
+      _logger.e('❌ Error in comprehensive features extraction: $e');
+      _logger.e('Stack trace: $stackTrace');
+    }
+  }
+
   @override
   Future<void> close() {
     // Stop play count tracking
@@ -2397,6 +2632,8 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
     // Stop sleep timer
     SyncAppSettingsHelper.stopSleepTimer(musicBloc: this);
+
+    // Note: WorkManager handles background task cleanup automatically
 
     // Dispose stream subscriptions to prevent memory leaks
     _playerStateSubscription?.cancel();

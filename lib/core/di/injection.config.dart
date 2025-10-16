@@ -14,7 +14,7 @@ import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
 
 import '../../screens/app_settings/bloc/app_settings_bloc.dart' as _i558;
-import '../../screens/bottom_tab/screens/bloc/music_bloc.dart' as _i224;
+import '../../screens/bottom_tab/bloc/music_bloc.dart' as _i264;
 import '../../utils/services/audio_service.dart' as _i333;
 import '../../utils/services/enhanced_notification_service.dart' as _i417;
 import '../../utils/services/remote_control_service.dart' as _i298;
@@ -39,8 +39,8 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i298.RemoteControlService>(
       () => _i298.RemoteControlService(),
     );
-    gh.singleton<_i224.MusicBloc>(
-      () => _i224.MusicBloc(
+    gh.singleton<_i264.MusicBloc>(
+      () => _i264.MusicBloc(
         gh<_i333.AudioService>(),
         gh<_i298.RemoteControlService>(),
         gh<_i558.AppSettingsBloc>(),

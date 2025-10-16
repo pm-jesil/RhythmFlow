@@ -13,6 +13,7 @@ class AppTheme {
   static const Color darkCard = Color(0xFF2A2A2A);
   static const Color darkOnSurface = Color(0xFFFFFFFF);
   static const Color darkOnSurfaceVariant = Color(0xFFB0B0B0);
+  static const Color darkOutline = Color(0xFF3A3A3A);
   
   // ☀️ Light Theme Colors (Improved contrast)
   static const Color lightBackground = Color(0xFFF8F9FA);
@@ -20,6 +21,7 @@ class AppTheme {
   static const Color lightCard = Color(0xFFF1F3F4);
   static const Color lightOnSurface = Color(0xFF1A1A1A);
   static const Color lightOnSurfaceVariant = Color(0xFF5F6368);
+  static const Color lightOutline = Color(0xFFE0E0E0);
   
   // 🎯 Accent Colors
   static const Color accentRed = Color(0xFFFF6B6B);

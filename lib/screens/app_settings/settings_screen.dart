@@ -65,6 +65,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             SizedBox(height: 24.h),
             _buildAppearanceSection(state),
             SizedBox(height: 24.h),
+            _buildAiShuffleSection(state),
+            SizedBox(height: 24.h),
             _buildMusicSection(state),
             SizedBox(height: 24.h),
             _buildAdvancedSection(state),
@@ -95,6 +97,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildAppearanceSection(AppSettingsState state) {
     return Column(
       children: [_buildSectionHeader('Appearance'), _buildThemeSettings(state)],
+    );
+  }
+
+  Widget _buildAiShuffleSection(AppSettingsState state) {
+    return Column(
+      children: [
+        _buildSectionHeader('AI Shuffle'),
+        _buildAiShuffleSettings(state),
+      ],
     );
   }
 
@@ -295,6 +306,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Widget _buildAiShuffleSettings(AppSettingsState state) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16.w),
+      decoration: BoxDecoration(
+        color: context.surfaceColor,
+        borderRadius: BorderRadius.circular(12.r),
+        boxShadow: [
+          BoxShadow(
+            color: context.onSurfaceColor.withValues(alpha: 0.05),
+            blurRadius: 8.r,
+            offset: Offset(0, 2.h),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _buildNativeSwitchTile(
+            icon: Icons.psychology_rounded,
+            title: 'Enable AI Shuffle',
+            subtitle: 'Intelligently reorders playlist based on current song features',
+            value: state.isAiShuffleEnabled,
+            onChanged: (value) => _updateAiShuffle(value),
+          ),
+          _buildDivider(),
+          _buildNativeListTile(
+            icon: Icons.analytics_rounded,
+            title: 'Music Features Analysis',
+            subtitle: 'Extract comprehensive features from your music',
+            onTap: () {
+              context.navigateToComprehensiveFeaturesSettings();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Widget _buildAdvancedSettings(AppSettingsState state) {
     return Container(
@@ -443,11 +491,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  void _updateAiShuffle(bool isEnabled) {
+    context.read<AppSettingsBloc>().add(
+      AppSettingsEvent.updateAiShuffle(isEnabled: isEnabled),
+    );
+  }
+
+  // ==================== HELPER METHODS ====================
+
+
   // ==================== UI COMPONENTS ====================
 
   Widget _buildNativeSwitchTile({
     required IconData icon,
     required String title,
+    String? subtitle,
     required bool value,
     required ValueChanged<bool>? onChanged,
     bool enabled = true,
@@ -469,12 +527,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
           fontFamily: 'Poppins',
         ),
       ),
+      subtitle: subtitle != null
+          ? Text(
+              subtitle,
+              style: TextStyle(
+                color: context.onSurfaceVariantColor,
+                fontSize: 14.sp,
+                fontFamily: 'Poppins',
+              ),
+            )
+          : null,
       trailing: Switch(
         value: value,
         onChanged: enabled ? onChanged : null,
         activeThumbColor: context.primaryStart,
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
+    );
+  }
+
+  Widget _buildNativeListTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: context.primaryStart, size: 22.sp),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: context.onSurfaceColor,
+          fontSize: 16.sp,
+          fontWeight: FontWeight.w500,
+          fontFamily: 'Poppins',
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(
+          color: context.onSurfaceVariantColor,
+          fontSize: 14.sp,
+          fontFamily: 'Poppins',
+        ),
+      ),
+      trailing: Icon(
+        Icons.arrow_forward_ios_rounded,
+        color: context.onSurfaceVariantColor,
+        size: 16.sp,
+      ),
+      onTap: onTap,
     );
   }
 

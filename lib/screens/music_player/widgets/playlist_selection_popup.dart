@@ -7,7 +7,7 @@ import '../../../../utils/models/song/song_model.dart';
 import '../../../../utils/models/my_playlist/my_playlist_model.dart';
 import '../../../core/theme/theme_extension.dart';
 import '../../../core/constants/app_enums.dart';
-import '../../bottom_tab/screens/bloc/music_bloc.dart';
+import '../../bottom_tab/bloc/music_bloc.dart';
 import '../../../core/widgets/app_custom.dart';
 
 /// Comprehensive playlist selection popup widget

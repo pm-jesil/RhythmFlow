@@ -7,7 +7,7 @@ import 'dart:math' as math;
 
 import '../../../utils/logger/logger.dart';
 import '../../../core/theme/theme_extension.dart';
-import '../../bottom_tab/screens/bloc/music_bloc.dart';
+import '../../bottom_tab/bloc/music_bloc.dart';
 import '../../../utils/models/song/song_model.dart';
 
 class AlbumArtWidgetOnMusicPlayerScreen extends StatefulWidget {

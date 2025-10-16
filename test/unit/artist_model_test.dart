@@ -92,7 +92,6 @@ void main() {
         expect(json['id'], equals('test-artist-id'));
         expect(json['name'], equals('Test Artist'));
         expect(json['songIds'], equals(['song1', 'song2', 'song3']));
-        expect(json['albumIds'], equals(['album1', 'album2', 'album3']));
       });
 
       test('fromJson should create correct artist', () {
@@ -101,7 +100,6 @@ void main() {
           'name': 'JSON Artist',
           'songIds': ['json1', 'json2'],
           'createdAt': '2023-01-01T00:00:00.000Z',
-          'albumIds': ['album1', 'album2'],
         };
 
         final artist = Artist.fromJson(json);
