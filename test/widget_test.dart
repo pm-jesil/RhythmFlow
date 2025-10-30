@@ -1,4 +1,4 @@
-// Basic Flutter widget test for PMJ Music Player
+// Basic Flutter widget test for Rhythm Flow
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -203,7 +203,7 @@ void main() {
         home: Scaffold(
           body: Center(
             child: Text(
-              'PMJ Music Player',
+              'Rhythm Flow',
               style: TextStyle(fontSize: 24),
             ),
           ),
@@ -213,6 +213,6 @@ void main() {
 
     // Verify that the app loads without crashing
     expect(find.byType(MaterialApp), findsOneWidget);
-    expect(find.text('PMJ Music Player'), findsOneWidget);
+    expect(find.text('Rhythm Flow'), findsOneWidget);
   });
 }

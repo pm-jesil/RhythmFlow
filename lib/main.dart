@@ -21,7 +21,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final logger = AppLogger('Main');
-  logger.i('🎵 PMJ Music Player starting...');
+  logger.i('🎵 Rhythm Flow starting...');
 
   await _initializeHydratedBloc();
 
@@ -35,7 +35,7 @@ void main() async {
   try {
     await JustAudioBackground.init(
       androidNotificationChannelId: 'com.pmj.music_player.channel.audio',
-      androidNotificationChannelName: 'PMJ Music Player',
+      androidNotificationChannelName: 'Rhythm Flow',
       androidNotificationOngoing: true,
     );
     logger.i('✅ JustAudioBackground initialized successfully');

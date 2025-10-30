@@ -20,7 +20,7 @@ class TabLabels {
 class AppConstants {
   const AppConstants();
   
-  static const String appName = 'PMJ Music Player';
+  static const String appName = 'Rhythm Flow';
   static const Duration longAnimation = Duration(milliseconds: 800);
   
   // Music quotes for personalized experience

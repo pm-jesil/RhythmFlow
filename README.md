@@ -1,10 +1,10 @@
-# 🎵 PMJ Music Player
+# 🎵 Rhythm Flow
 
 A modern, feature-rich Flutter music player application with AI-powered music analysis, intelligent playlist management, and comprehensive local music library support.
 
 ## 📱 Overview
 
-PMJ Music Player is a sophisticated music player built with Flutter that offers advanced features like AI-powered music analysis, intelligent shuffle, comprehensive metadata extraction, and a beautiful modern UI. The app supports local music files and provides a personalized music experience.
+Rhythm Flow is a sophisticated music player built with Flutter that offers advanced features like AI-powered music analysis, intelligent shuffle, comprehensive metadata extraction, and a beautiful modern UI. The app supports local music files and provides a personalized music experience.
 
 ## ✨ Key Features
 
@@ -132,6 +132,8 @@ PMJ Music Player is a sophisticated music player built with Flutter that offers 
 
 ### Intelligent Features
 - **AI Shuffle**: Similarity-based playlist reordering
+  - Cycle behavior in UI: AI → Normal Shuffle → None → AI
+  - Only one shuffle mode is active at a time
 - **Mood Detection**: Emotional analysis of music
 - **Genre Classification**: Automatic genre identification
 - **Instrument Recognition**: Musical instrument detection
@@ -177,6 +179,7 @@ PMJ Music Player is a sophisticated music player built with Flutter that offers 
 - **hive**: Local database
 - **music_feature_analyzer**: AI music analysis
 - **audiotags**: Metadata extraction
+ - **in_app_update**: Silent, background app updates on Android
 
 ### Performance
 - **Lazy Loading**: Screens and data loaded on demand
@@ -186,17 +189,13 @@ PMJ Music Player is a sophisticated music player built with Flutter that offers 
 - **Battery Optimization**: Optimized for battery life
 
 ### Testing
-- **Unit Tests**: Comprehensive unit test coverage
-- **Widget Tests**: UI component testing
-- **Integration Tests**: End-to-end testing
-- **Feature Tests**: AI feature testing
-- **Package Tests**: Third-party package integration
+If tests are added to the project, use the commands below to run them.
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Flutter SDK 3.8.1 or higher
-- Dart SDK 3.0 or higher
+- Flutter SDK 3.35.x or higher
+- Dart SDK 3.5 or higher
 - Android Studio / VS Code
 - Git
 
@@ -204,12 +203,14 @@ PMJ Music Player is a sophisticated music player built with Flutter that offers 
 1. Clone the repository
 2. Install dependencies: `flutter pub get`
 3. Run code generation: `flutter packages pub run build_runner build`
+   - Dev loop (optional): `flutter packages pub run build_runner watch --delete-conflicting-outputs`
 4. Run the app: `flutter run`
 
 ### Configuration
-- Configure audio permissions in platform-specific files
+- Configure audio permissions in platform-specific files (Android: READ/WRITE/NOTIFICATION, foreground service)
 - Set up background processing for feature extraction
 - Configure notification channels for media controls
+- Google Play in-app updates (Android): Ensure the app is distributed via Play Store for updates to work
 
 ## 📊 Project Structure
 
@@ -298,4 +299,12 @@ For support, feature requests, or bug reports:
 
 ---
 
-**PMJ Music Player** - Where AI meets Music 🎵✨
+**Rhythm Flow** - Where AI meets Music 🎵✨
+ 
+## ℹ️ Notes
+ 
+- Update checks run silently in the background on Android; no blocking UI is shown at launch. High-priority updates may still display system UI as required by Play.
+- Shuffle icons in the player reflect three states:
+  - AI Shuffle (sparkles icon, active color)
+  - Normal Shuffle (shuffle icon, active color)
+  - None (shuffle icon with a diagonal cross, inactive color)

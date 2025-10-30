@@ -1,7 +1,7 @@
-# AppLogger - PMJ Music Player Logging System
+# AppLogger - Rhythm Flow Logging System
 
 ## Overview
-The AppLogger provides a clean, simple logging system for the PMJ Music Player app with context-aware logging and essential logging methods.
+The AppLogger provides a clean, simple logging system for the Rhythm Flow app with context-aware logging and essential logging methods.
 
 ## Features
 - ✅ **Context-aware logging** with component identification
@@ -88,7 +88,7 @@ AppLogger.enableFatalLogs(true);
 ### Main App
 ```dart
 final logger = AppLogger('Main');
-logger.i('🎵 PMJ Music Player starting...');
+logger.i('🎵 Rhythm Flow starting...');
 ```
 
 ### Navigation

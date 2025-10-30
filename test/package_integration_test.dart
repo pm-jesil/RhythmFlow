@@ -8,7 +8,7 @@ import 'package:pmj_music_player/utils/models/song_features/song_features.dart';
 /// ============================================================================
 /// 
 /// PURPOSE: Test the integration between the music_feature_analyzer package
-/// and the PMJ Music Player project
+/// and the Rhythm Flow project
 /// 
 /// TEST COVERAGE:
 /// - Package initialization

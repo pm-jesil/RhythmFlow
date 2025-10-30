@@ -19,7 +19,7 @@ class SongListWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'To access your music files, PMJ Music needs storage permission.',
+            'To access your music files, Rhythm Flow needs storage permission.',
             style: TextStyle(
               color: context.onSurfaceVariantColor,
               fontSize: 16.sp,

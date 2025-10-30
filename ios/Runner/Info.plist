@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>PMJ Music Player</string>
+	<string>Rhythm Flow</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -200,7 +200,7 @@
 			<key>UTTypeIdentifier</key>
 			<string>com.pmj.music_player.playlist</string>
 			<key>UTTypeDescription</key>
-			<string>PMJ Music Player Playlist</string>
+			<string>Rhythm Flow Playlist</string>
 			<key>UTTypeConformsTo</key>
 			<array>
 				<string>public.data</string>

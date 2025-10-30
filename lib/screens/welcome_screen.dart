@@ -133,7 +133,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
         // App Title
         Text(
-          'PMJ Music Player',
+          'Rhythm Flow',
           style: TextStyle(
             color: context.onSurfaceColor,
             fontSize: 25.sp,
@@ -222,7 +222,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
         // Welcome Text
         Text(
-          'Welcome to PMJ Music!',
+          'Welcome to Rhythm Flow!',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: context.onSurfaceColor,
