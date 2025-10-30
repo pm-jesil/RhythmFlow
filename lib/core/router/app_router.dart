@@ -12,8 +12,8 @@ import '../../screens/app_settings/music_library_settings_screen.dart';
 import '../../screens/app_settings/profile_edit_screen.dart';
 import '../../screens/app_settings/comprehensive_features_settings_screen.dart';
 import '../../screens/welcome_screen.dart';
-import '../../screens/update_check_screen.dart';
 import '../../screens/app_settings/bloc/app_settings_bloc.dart';
+import '../../utils/services/app_update_service.dart';
 import '../../core/theme/theme_extension.dart';
 import '../../utils/models/artist/artist_model.dart';
 import '../../utils/models/album/album_model.dart';
@@ -38,8 +38,8 @@ class AppRouter {
                 ? const BottomTab() 
                 : const WelcomeScreen();
               
-              // Wrap content with update check
-              return UpdateCheckScreen(child: content);
+              // Run update check silently in background; show content immediately
+              return _SilentUpdateWrapper(child: content);
             },
           );
         },
@@ -286,4 +286,29 @@ extension NavigationExtension on BuildContext {
   void navigateToComprehensiveFeaturesSettings() {
     GoRouter.of(this).push('/comprehensive-features-settings');
   }
+}
+
+/// Lightweight wrapper that triggers a silent background update check
+class _SilentUpdateWrapper extends StatefulWidget {
+  final Widget child;
+  const _SilentUpdateWrapper({required this.child});
+
+  @override
+  State<_SilentUpdateWrapper> createState() => _SilentUpdateWrapperState();
+}
+
+class _SilentUpdateWrapperState extends State<_SilentUpdateWrapper> {
+  @override
+  void initState() {
+    super.initState();
+    // Defer to next frame to ensure UI renders first
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Fire-and-forget silent update check
+      // No UI is presented; downloads happen in background for flexible updates
+      AppUpdateService.checkForUpdatesSilently();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

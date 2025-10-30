@@ -145,7 +145,7 @@ class _CustomMusicFloatingButtonState extends State<CustomMusicFloatingButton>
       appSettingsBloc.add(
         AppSettingsEvent.updateAiShuffle(isEnabled: false),
       );
-
+      
       musicBloc.add(
         MusicEvent.toggleShuffle(
           isShuffle: true,
@@ -172,7 +172,7 @@ class _CustomMusicFloatingButtonState extends State<CustomMusicFloatingButton>
       appSettingsBloc.add(
         AppSettingsEvent.updateAiShuffle(isEnabled: true),
       );
-
+      
       musicBloc.add(
         MusicEvent.aiShuffle(
           currentSongId: currentSongId,

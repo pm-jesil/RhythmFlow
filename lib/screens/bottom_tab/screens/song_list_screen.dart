@@ -382,7 +382,7 @@ class _SongListScreenState extends State<SongListScreen> {
                                                         );
                                                       }
                                                       if (isNormal) {
-                                                        return Icon(
+                                                  return Icon(
                                                           CupertinoIcons.shuffle,
                                                           color: Colors.white,
                                                           size: 24.sp,
@@ -395,8 +395,8 @@ class _SongListScreenState extends State<SongListScreen> {
                                                         children: [
                                                           Icon(
                                                             CupertinoIcons.shuffle,
-                                                            color: Colors.white,
-                                                            size: 24.sp,
+                                                    color: Colors.white,
+                                                    size: 24.sp,
                                                           ),
                                                           Transform.rotate(
                                                             angle: 0.8,
