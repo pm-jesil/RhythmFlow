@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import '../app_settings/bloc/app_settings_bloc.dart';
 import 'package:pmj_music_player/core/constants/app_enums.dart';
 import 'package:pmj_music_player/screens/music_player/widgets/album_art_widget_music_palyer_screen.dart';
 import 'dart:ui';
@@ -18,7 +20,6 @@ import 'package:get_it/get_it.dart';
 import 'widgets/playlist_selection_popup.dart';
 import '../widgets/custom_scrolling_text.dart';
 import '../../core/widgets/app_custom.dart';
-import '../app_settings/bloc/app_settings_bloc.dart';
 
 // Popup Music Player Modal
 class MusicPlayerModal extends StatefulWidget {
@@ -119,7 +120,6 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
     _syncTimer?.cancel();
     super.dispose();
   }
-
 
   /// Initialize progress tracking with audio service streams
   void _initializeProgressTracking() {
@@ -449,7 +449,8 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
 
                                             // Previous Button
                                             _buildEnhancedControlButton(
-                                              icon: Icons.skip_previous,
+                                              icon:
+                                                  CupertinoIcons.backward_fill,
                                               onPressed: () {
                                                 context.read<MusicBloc>().add(
                                                   const MusicEvent.playPrevious(),
@@ -554,8 +555,10 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                                       state
                                                               .myPlayerState
                                                               .isPlaying
-                                                          ? Icons.pause
-                                                          : Icons.play_arrow,
+                                                          ? CupertinoIcons
+                                                                .pause_fill
+                                                          : CupertinoIcons
+                                                                .play_fill,
                                                       key: ValueKey(
                                                         'main_player_${state.myPlayerState.isPlaying}',
                                                       ), // Unique key for main player
@@ -569,7 +572,7 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
 
                                             // Next Button
                                             _buildEnhancedControlButton(
-                                              icon: Icons.skip_next,
+                                              icon: CupertinoIcons.forward_fill,
                                               onPressed: () {
                                                 context.read<MusicBloc>().add(
                                                   const MusicEvent.playNext(),
@@ -581,25 +584,64 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                             SizedBox(width: 15.w),
 
                                             // Shuffle Button
-                                            _buildEnhancedControlButton(
-                                              icon: Icons.shuffle,
-                                              onPressed: () {
-                                                context.read<MusicBloc>().add(
-                                                  MusicEvent.toggleShuffle(
-                                                    isShuffle: !state
-                                                        .myPlayerState
-                                                        .isShuffle,
-                                                    currentPlayList: context
-                                                        .read<MusicBloc>()
-                                                        .state
-                                                        .myPlayerState
-                                                        .currentPlayList,
+                                            BlocBuilder<AppSettingsBloc, AppSettingsState>(
+                                              builder: (context, appSettingsState) {
+                                                final isAiShuffleEnabled = appSettingsState.isAiShuffleEnabled;
+                                                final isShuffleActive = state.myPlayerState.isShuffle;
+                                                final noShuffleActive = !isAiShuffleEnabled && !isShuffleActive;
+
+                                                return _buildEnhancedControlButton(
+                                                  child: _buildShuffleIcon(
+                                                    isAi: isAiShuffleEnabled,
+                                                    isNormal: isShuffleActive,
+                                                    size: 37.w,
                                                   ),
+                                                  onPressed: () {
+                                                    final musicBloc = context.read<MusicBloc>();
+                                                    final appSettingsBloc = context.read<AppSettingsBloc>();
+                                                    final currentPlayList = musicBloc.state.myPlayerState.currentPlayList;
+                                                    final currentSongId = musicBloc.state.myPlayerState.currentSongId;
+
+                                                    if (isAiShuffleEnabled) {
+                                                      // AI → Normal: disable AI, then enable regular shuffle (auto-start)
+                                                      appSettingsBloc.add(
+                                                        AppSettingsEvent.updateAiShuffle(isEnabled: false),
+                                                      );
+
+                                                      musicBloc.add(
+                                                        MusicEvent.toggleShuffle(
+                                                          isShuffle: true,
+                                                          currentPlayList: currentPlayList,
+                                                        ),
+                                                      );
+                                                    } else if (isShuffleActive) {
+                                                      // Normal → None: disable regular shuffle
+                                                      musicBloc.add(
+                                                        MusicEvent.toggleShuffle(
+                                                          isShuffle: false,
+                                                          currentPlayList: currentPlayList,
+                                                        ),
+                                                      );
+                                                    } else {
+                                                      // None → AI: enable AI and trigger AI shuffle
+                                                      appSettingsBloc.add(
+                                                        AppSettingsEvent.updateAiShuffle(isEnabled: true),
+                                                      );
+
+                                                      if (currentSongId != null) {
+                                                        musicBloc.add(
+                                                          MusicEvent.aiShuffle(
+                                                            currentSongId: currentSongId,
+                                                            currentPlayList: currentPlayList,
+                                                          ),
+                                                        );
+                                                      }
+                                                    }
+                                                  },
+                                                  isActive: !noShuffleActive,
+                                                  size: 37.w,
                                                 );
                                               },
-                                              isActive:
-                                                  state.myPlayerState.isShuffle,
-                                              size: 37.w,
                                             ),
                                           ],
                                         ),
@@ -698,7 +740,7 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                                       .navigateToPlayingQueue();
                                                 },
                                                 icon: Icon(
-                                                  Icons.queue_music,
+                                                  CupertinoIcons.list_bullet,
                                                   color: context.isDark
                                                       ? context.primaryStart
                                                       : Colors.white,
@@ -822,8 +864,9 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
 
                                                   // Favorite Button
                                                   _buildCompactBottomButton(
-                                                    icon: Icons.favorite_border,
-                                                    activeIcon: Icons.favorite,
+                                                    icon: CupertinoIcons.heart,
+                                                    activeIcon: CupertinoIcons
+                                                        .heart_fill,
                                                     onPressed: () {
                                                       _toggleFavorite(
                                                         context,
@@ -837,7 +880,7 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
 
                                                   // Playlist Button
                                                   _buildCompactBottomButton(
-                                                    icon: Icons.playlist_add,
+                                                    icon: CupertinoIcons.add,
                                                     onPressed: () {
                                                       _showCreatePlaylistDialog(
                                                         context,
@@ -849,7 +892,8 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                                   // Playback Settings Button (hidden initially)
                                                   if (_showAllOptions)
                                                     _buildCompactBottomButton(
-                                                      icon: Icons.speed,
+                                                      icon: CupertinoIcons
+                                                          .speedometer,
                                                       onPressed: () {
                                                         _showPlaybackSpeedDialog(
                                                           context,
@@ -860,7 +904,7 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                                   // Sleep Timer Button (hidden initially)
                                                   if (_showAllOptions)
                                                     _buildCompactBottomButton(
-                                                      icon: Icons.bedtime,
+                                                      icon: CupertinoIcons.moon,
                                                       onPressed: () {
                                                         _showSleepTimerDialog(
                                                           context,
@@ -997,19 +1041,19 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
 
     switch (repeatMode) {
       case 0:
-        icon = Icons.repeat;
+        icon = CupertinoIcons.repeat;
         tooltip = 'Repeat Off';
         break;
       case 1:
-        icon = Icons.repeat_one;
+        icon = CupertinoIcons.repeat_1;
         tooltip = 'Repeat One';
         break;
       case 2:
-        icon = Icons.repeat;
+        icon = CupertinoIcons.repeat;
         tooltip = 'Loop';
         break;
       default:
-        icon = Icons.repeat;
+        icon = CupertinoIcons.repeat;
         tooltip = 'Repeat Off';
     }
 
@@ -1088,8 +1132,9 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
   }
 
   Widget _buildEnhancedControlButton({
-    required IconData icon,
+    IconData? icon,
     required VoidCallback onPressed,
+    Widget? child,
     double size = 40,
     bool isActive = false,
   }) {
@@ -1148,18 +1193,71 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
             ),
           ],
         ),
-        child: Center(
-          child: Icon(
-            icon,
-            color: isActive
-                ? context.primaryStart
-                : context.isDark
-                ? context.onSurfaceColor.withValues(alpha: 0.9)
-                : Colors.white,
-            size: (size * 0.5).sp,
+        child:
+            child ??
+            Center(
+              child: Icon(
+                icon,
+                color: isActive
+                    ? context.primaryStart
+                    : context.isDark
+                    ? context.onSurfaceColor.withValues(alpha: 0.9)
+                    : Colors.white,
+                size: (size * 0.5).sp,
+              ),
+            ),
+      ),
+    );
+  }
+
+  /// Build shuffle icon with states: AI, Normal, None (crossed out)
+  Widget _buildShuffleIcon({
+    required bool isAi,
+    required bool isNormal,
+    required double size,
+  }) {
+    if (isAi) {
+      return Center(
+        child: Icon(
+          CupertinoIcons.sparkles,
+          color: context.primaryStart,
+          size: (size * 0.5).sp,
+        ),
+      );
+    }
+
+    if (isNormal) {
+      return Center(
+        child: Icon(
+          CupertinoIcons.shuffle,
+          color: context.primaryStart,
+          size: (size * 0.5).sp,
+        ),
+      );
+    }
+
+    // None: show shuffle with a diagonal cross line in inactive color
+    final Color baseColor = context.isDark
+        ? context.onSurfaceColor.withValues(alpha: 0.9)
+        : Colors.white;
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Icon(
+          CupertinoIcons.shuffle,
+          color: baseColor,
+          size: (size * 0.5).sp,
+        ),
+        Transform.rotate(
+          angle: 0.8, // approx 45 degrees
+          child: Container(
+            width: (size * 0.55).w,
+            height: 2.h,
+            color: baseColor.withValues(alpha: 0.7),
           ),
         ),
-      ),
+      ],
     );
   }
 
@@ -1520,7 +1618,9 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 200),
             child: Icon(
-              isExpanded ? Icons.arrow_forward_ios : Icons.arrow_back_ios,
+              isExpanded
+                  ? CupertinoIcons.chevron_right
+                  : CupertinoIcons.chevron_left,
               key: ValueKey(isExpanded ? 'forward' : 'back'),
               color: context.isDark
                   ? context.onSurfaceColor.withValues(alpha: 0.8)
@@ -1853,7 +1953,7 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
       child: BlocBuilder<AppSettingsBloc, AppSettingsState>(
         builder: (context, settingsState) {
           return _buildNativeSliderTile(
-            icon: Icons.speed_rounded,
+            icon: CupertinoIcons.speedometer,
             title: 'Playback Speed',
             subtitle: '${settingsState.playbackSpeed.toStringAsFixed(1)}x',
             value: settingsState.playbackSpeed,
@@ -1887,7 +1987,7 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
             children: [
               // Sleep Timer Toggle Switch
               _buildNativeSwitchTile(
-                icon: Icons.bedtime_rounded,
+                icon: CupertinoIcons.moon,
                 title: 'Sleep Timer',
                 subtitle: settingsState.isSleepTimerEnabled
                     ? 'Timer is active'
@@ -1901,7 +2001,7 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
               if (settingsState.isSleepTimerEnabled) ...[
                 SizedBox(height: 16.h),
                 _buildNativeSliderTile(
-                  icon: Icons.timer_rounded,
+                  icon: CupertinoIcons.timer,
                   title: 'Timer Duration',
                   subtitle: _formatSleepTimerDuration(
                     settingsState.sleepTimerMinutes,

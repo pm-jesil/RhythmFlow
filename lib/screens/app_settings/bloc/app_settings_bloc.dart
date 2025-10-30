@@ -22,6 +22,7 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
     on<_UpdateBackgroundRefreshTimeGap>(_onUpdateBackgroundRefreshTimeGap);
     on<_UpdateUserProfile>(_onUpdateUserProfile);
     on<_UpdateAiShuffle>(_onUpdateAiShuffle);
+    on<_TrackShuffleUsage>(_onTrackShuffleUsage);
 
     // Initialize theme sync
     _initializeThemeSync();
@@ -178,6 +179,7 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
       nickName: currentNickName,
       isDarkMode: currentIsDarkMode,
       followSystemTheme: currentFollowSystemTheme,
+      shuffleHistory: [],
     );
 
     emit(resetState);
@@ -257,6 +259,29 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
     Emitter<AppSettingsState> emit,
   ) {
     emit(state.copyWith(isAiShuffleEnabled: event.isEnabled));
+    
+    // Track shuffle usage when enabling
+    if (event.isEnabled) {
+      add(AppSettingsEvent.trackShuffleUsage(shuffleType: 'ai_shuffle'));
+    }
+  }
+
+
+  void _onTrackShuffleUsage(
+    _TrackShuffleUsage event,
+    Emitter<AppSettingsState> emit,
+  ) {
+    final currentHistory = List<String>.from(state.shuffleHistory);
+    
+    // Add new shuffle type to the beginning of the list
+    currentHistory.insert(0, event.shuffleType);
+    
+    // Keep only the last 3 items
+    if (currentHistory.length > 3) {
+      currentHistory.removeRange(3, currentHistory.length);
+    }
+    
+    emit(state.copyWith(shuffleHistory: currentHistory));
   }
 
   @override
@@ -277,6 +302,7 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
         'appBackgroundRefreshTimeGap': state.appBackgroundRefreshTimeGap,
         'userName': state.userName,
         'nickName': state.nickName,
+        'shuffleHistory': state.shuffleHistory,
       };
     } catch (_) {
       return null; // skip persisting on serialization errors
@@ -333,6 +359,7 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
         userName: json['userName'],
         nickName: json['nickName'],
         isAiShuffleEnabled: json['isAiShuffleEnabled'] ?? true,
+        shuffleHistory: List<String>.from(json['shuffleHistory'] ?? []),
       );
     } catch (e) {
       return null;

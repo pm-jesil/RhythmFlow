@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
@@ -309,7 +310,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
                       borderRadius: BorderRadius.circular(_borderRadius.r),
                     ),
                     child: Icon(
-                      Icons.waving_hand_rounded,
+                      CupertinoIcons.hand_raised,
                       color: Colors.white,
                       size: 24.sp,
                     ),
@@ -393,7 +394,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
           child: _buildStatCard(
             title: 'Artists',
             count: totalArtists,
-            icon: Icons.person_rounded,
+            icon: CupertinoIcons.person,
             color: context.primaryStart,
             onTap: () => _navigateToArtistsTab(),
             animationDelay: _statsDelay,
@@ -404,7 +405,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
           child: _buildStatCard(
             title: 'Songs',
             count: totalSongs,
-            icon: Icons.music_note_rounded,
+            icon: CupertinoIcons.music_note,
             color: context.accentTeal,
             onTap: () => _navigateToSongsTab(),
             animationDelay: 1,
@@ -418,7 +419,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
           child: _buildStatCard(
             title: 'Albums',
             count: totalAlbums,
-            icon: Icons.album_rounded,
+            icon: CupertinoIcons.music_albums,
             color: context.accentGreen,
             onTap: () => _navigateToAlbumsTab(),
             animationDelay: 2,
@@ -442,7 +443,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
       return _buildEmptyStateCard(
         appSettingsState.isAiShuffleEnabled ? 'AI Suggestions' : 'My Suggestions',
         'Start playing songs to see personalized suggestions here!',
-        appSettingsState.isAiShuffleEnabled ? Icons.psychology_rounded : Icons.lightbulb_outline_rounded,
+        appSettingsState.isAiShuffleEnabled ? CupertinoIcons.sparkles : CupertinoIcons.lightbulb,
         0,
       );
     }
@@ -517,7 +518,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
     final isAiEnabled = appSettingsState.isAiShuffleEnabled;
     final titleText = isAiEnabled ? 'AI' : 'My';
     final subtitleText = 'Suggestions';
-    final icon = isAiEnabled ? Icons.psychology_rounded : Icons.lightbulb_outline_rounded;
+    final icon = isAiEnabled ? CupertinoIcons.sparkles : CupertinoIcons.lightbulb;
     
     return Container(
       decoration: BoxDecoration(
@@ -647,7 +648,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
       ),
       child: Center(
         child: Icon(
-          Icons.music_note,
+          CupertinoIcons.music_note,
           color: context.onSurfaceVariantColor.withValues(alpha: 0.5),
           size: 20.sp,
         ),
@@ -674,7 +675,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
       return _buildEmptyStateCard(
         'Top Artists',
         'Start playing songs to see your top artists here!',
-        Icons.person_rounded,
+        CupertinoIcons.person,
         _topArtistsDelay,
       );
     }
@@ -715,7 +716,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
       return _buildEmptyStateCard(
         'Top Albums',
         'Start playing songs to see your top albums here!',
-        Icons.album_rounded,
+        CupertinoIcons.music_albums,
         _topAlbumsDelay,
       );
     }
@@ -789,7 +790,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
                 ),
                 SizedBox(width: 8.w),
                 Icon(
-                  Icons.arrow_forward_ios_rounded,
+                  CupertinoIcons.chevron_right,
                   color: context.onSurfaceVariantColor,
                   size: 14.sp,
                 ),

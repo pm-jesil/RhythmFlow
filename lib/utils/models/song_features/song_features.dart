@@ -34,6 +34,11 @@ class SongFeatures with _$SongFeatures {
     required double spectralCentroid, // Spectral centroid
     required double spectralRolloff, // Spectral rolloff
     required double zeroCrossingRate, // Zero crossing rate
+    required double spectralFlux, // Spectral flux
+    required double complexity, // Complexity score
+    required double valence, // Valence (emotional positivity)
+    required double arousal, // Arousal (emotional intensity)
+    required double confidence, // Analysis confidence
     
     // Analysis metadata
     required DateTime analyzedAt, // When analysis was performed

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pmj_music_player/screens/bottom_tab/bloc/music_bloc.dart';
@@ -39,6 +40,7 @@ class _HorizondalScrollingWidgetHomeState
     extends State<HorizondalScrollingWidgetHome> {
   final AppLogger _logger = AppLogger('HorizondalScrollingWidgetHome');
   PageController? _pageController;
+  int _currentPage = 0;
 
   // Helper methods for data processing
   List<Song> _getMostPlayedSongs(List<Song> songs) {
@@ -57,6 +59,9 @@ class _HorizondalScrollingWidgetHomeState
 
   void _updateCurrentWidgetIndex(int index) {
     _logger.i('🔄 Updating current widget index to: $index');
+    setState(() {
+      _currentPage = index;
+    });
     context.read<MusicBloc>().add(
       MusicEvent.updateMusicBlocState(
         newState: context.read<MusicBloc>().state.copyWith(
@@ -71,6 +76,7 @@ class _HorizondalScrollingWidgetHomeState
     super.initState();
     // Initialize PageController with the current index from MusicBloc
     final currentIndex = context.read<MusicBloc>().state.horizondalScrollingWidgetHomeIndex;
+    _currentPage = currentIndex;
     _pageController = PageController(initialPage: currentIndex);
   }
 
@@ -85,37 +91,43 @@ class _HorizondalScrollingWidgetHomeState
     final recentSongs = _getRecentlyAddedSongs(widget.allSongs);
     final mostPlayedSongs = _getMostPlayedSongs(widget.allSongs);
 
-    return SizedBox(
-      height: 300.h, // Fixed height for PageView
-      child: PageView.builder(
-        controller: _pageController,
-        itemCount: 2,
-        onPageChanged: (index) => _updateCurrentWidgetIndex(index),
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            // Recently Added
-            return _buildSongListSection(
-              context: context,
-              title: 'Recently Added',
-              songs: recentSongs,
-              onViewAllPressed: widget.onRecentlyAddedPressed,
-              emptyStateIcon: Icons.new_releases_rounded,
-              emptyStateMessage: 'No recently added songs found.',
-            );
-          } else {
-            // Most Played
-            return _buildSongListSection(
-              context: context,
-              title: 'Most Played',
-              songs: mostPlayedSongs,
-              onViewAllPressed: widget.onMostPlayedPressed,
-              emptyStateIcon: Icons.trending_up_rounded,
-              emptyStateMessage:
-                  'Start playing songs to see your most played here!',
-            );
-          }
-        },
-      ),
+    return Column(
+      children: [
+        SizedBox(
+          height: 300.h, // Fixed height for PageView
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: 2,
+            onPageChanged: (index) => _updateCurrentWidgetIndex(index),
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                // Recently Added
+                return _buildSongListSection(
+                  context: context,
+                  title: 'Recently Added',
+                  songs: recentSongs,
+                  onViewAllPressed: widget.onRecentlyAddedPressed,
+                  emptyStateIcon: CupertinoIcons.star,
+                  emptyStateMessage: 'No recently added songs found.',
+                );
+              } else {
+                // Most Played
+                return _buildSongListSection(
+                  context: context,
+                  title: 'Most Played',
+                  songs: mostPlayedSongs,
+                  onViewAllPressed: widget.onMostPlayedPressed,
+                  emptyStateIcon: CupertinoIcons.chart_bar,
+                  emptyStateMessage:
+                      'Start playing songs to see your most played here!',
+                );
+              }
+            },
+          ),
+        ),
+        SizedBox(height: 12.h),
+        _buildPageIndicator(context),
+      ],
     );
   }
 
@@ -251,7 +263,7 @@ class _HorizondalScrollingWidgetHomeState
                 ),
                 SizedBox(width: 8.w),
                 Icon(
-                  Icons.arrow_forward_ios_rounded,
+                  CupertinoIcons.chevron_right,
                   color: context.onSurfaceVariantColor,
                   size: 14.sp,
                 ),
@@ -336,6 +348,25 @@ class _HorizondalScrollingWidgetHomeState
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildPageIndicator(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(2, (index) {
+        return Container(
+          margin: EdgeInsets.symmetric(horizontal: 4.w),
+          width: _currentPage == index ? 24.w : 8.w,
+          height: 8.h,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4.r),
+            color: _currentPage == index
+                ? context.primaryStart
+                : context.onSurfaceVariantColor.withValues(alpha: 0.3),
+          ),
+        );
+      }),
     );
   }
 }

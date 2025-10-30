@@ -6,8 +6,9 @@ import 'package:just_audio/just_audio.dart';
 import 'package:pmj_music_player/core/constants/app_enums.dart';
 import 'package:pmj_music_player/core/constants/app_constants.dart';
 import 'package:pmj_music_player/utils/models/my_playlist/my_playlist_model.dart';
-import 'package:pmj_music_player/utils/services/song_features/comprehensive_features_extractor.dart';
+import 'package:music_feature_analyzer/music_feature_analyzer.dart';
 import '../../../utils/models/song/song_model.dart';
+import '../../../utils/models/song_features/song_features.dart';
 import '../../../utils/models/album/album_model.dart';
 import '../../../utils/models/artist/artist_model.dart';
 import '../../../utils/models/my_player_state_model.dart';
@@ -106,6 +107,18 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
       appSettingsBloc: _appSettingsBloc,
       audioService: _audioService,
     );
+    
+    // Listen to app settings changes for mutual exclusivity
+    _appSettingsBloc.stream.listen((appSettingsState) {
+      // When AI shuffle is enabled, disable regular shuffle
+      if (appSettingsState.isAiShuffleEnabled && state.myPlayerState.isShuffle) {
+        _logger.i('🤖 AI Shuffle enabled - disabling regular shuffle');
+        add(const MusicEvent.toggleShuffle(
+          isShuffle: false,
+          currentPlayList: [],
+        ));
+      }
+    });
 
     // Initialize app lifecycle handler
     AppLifecycleHandler.initialize(
@@ -866,22 +879,19 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           previousSongId: null,
           completedSongs: [],
           repeatModeIndex: state.myPlayerState.repeatModeIndex,
-        );
-
-        // Reorder playlist to start with the tapped song
-        final reorderedQueue = newPlayerState.reorderToStartWith(event.songId!);
+        ).reorderToStartWith(event.songId!).copyWith(
+          isPlaying: true,
+          lastPosition: null, // Clear position for new song
+        );  
 
         _logger.i(
-          '🔄 Reordered playlist: ${newPlayerState.currentPlayList} → ${reorderedQueue.currentPlayList}',
+          '🔄 Reordered playlist: ${getSongIds(playlistSongs)} → ${newPlayerState.currentPlayList}',
         );
 
         // Update state immediately - clear last position for new song
         emit(
           state.copyWith(
-            myPlayerState: reorderedQueue.copyWith(
-              isPlaying: true,
-              lastPosition: null, // Clear position for new song
-            ),
+            myPlayerState: newPlayerState,
           ),
         );
 
@@ -903,19 +913,12 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           musicBloc: this,
         );
 
-        // Check AI Shuffle setting and trigger if enabled
-        final appSettings = _appSettingsBloc.state;
-        if (appSettings.isAiShuffleEnabled) {
-          _logger.d('🎵 AI Shuffle enabled - triggering intelligent reordering');
-          
-          add(MusicEvent.aiShuffle(
-            currentSongId: event.songId!,
-            currentPlayList: state.myPlayerState.currentPlayList,
-            playlistSource: event.playlistSource,
-          ));
-        } else {
-          _logger.d('🎵 AI Shuffle disabled - maintaining original playlist order');
-        }
+        // Trigger AI Shuffle for new song (only when starting to play)
+        _triggerAiShuffleIfEnabled(
+          songId: event.songId!,
+          playlistSource: event.playlistSource,
+          currentPlayList: newPlayerState.currentPlayList,
+        );
 
         return;
       }
@@ -991,7 +994,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           playlistId = _getPlaylistId(source);
         }
 
-        // Create new myPlayerState with appropriate playlist
+        // Create new myPlayerState with appropriate playlist and reorder to start with tapped song
         final newPlayerState = MyPlayerStateModel(
           playlistId: playlistId,
           currentPlayList: getSongIds(playlistSongs),
@@ -999,24 +1002,17 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           previousSongId: state.myPlayerState.currentSongId,
           completedSongs: [],
           repeatModeIndex: state.myPlayerState.repeatModeIndex,
+        ).reorderToStartWith(event.songId!).copyWith(
+          isPlaying: true,
+          lastPosition: null, // Clear position for new song
         );
 
-        // Reorder playlist to start with the tapped song
-        final reorderedQueue = newPlayerState.reorderToStartWith(event.songId!);
-
         _logger.i(
-          '🔄 Reordered playlist: ${newPlayerState.currentPlayList} → ${reorderedQueue.currentPlayList}',
+          '🔄 Reordered playlist: ${getSongIds(playlistSongs)} → ${newPlayerState.currentPlayList}',
         );
 
         // Update state immediately - clear last position for new song
-        emit(
-          state.copyWith(
-            myPlayerState: reorderedQueue.copyWith(
-              isPlaying: true,
-              lastPosition: null, // Clear position for new song
-            ),
-          ),
-        );
+        emit(state.copyWith(myPlayerState: newPlayerState));
 
         // Reset invalid song attempts counter when starting new song
         _invalidSongAttempts = 0;
@@ -1036,19 +1032,12 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           musicBloc: this,
         );
 
-        // Check AI Shuffle setting and trigger if enabled
-        final appSettings = _appSettingsBloc.state;
-        if (appSettings.isAiShuffleEnabled) {
-          _logger.d('🎵 AI Shuffle enabled - triggering intelligent reordering');
-          
-          add(MusicEvent.aiShuffle(
-            currentSongId: event.songId!,
-            currentPlayList: state.myPlayerState.currentPlayList,
-            playlistSource: event.playlistSource,
-          ));
-        } else {
-          _logger.d('🎵 AI Shuffle disabled - maintaining original playlist order');
-        }
+        // Trigger AI Shuffle for new song (only when starting to play)
+        _triggerAiShuffleIfEnabled(
+          songId: event.songId!,
+          playlistSource: event.playlistSource,
+          currentPlayList: newPlayerState.currentPlayList,
+        );
       }
 
       _logger.i(
@@ -1202,6 +1191,39 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     }
   }
 
+  // ==================== AI SHUFFLE HELPER METHODS ====================
+
+  /// Trigger AI Shuffle only when starting to play a song (not when pausing)
+  void _triggerAiShuffleIfEnabled({
+    required String songId,
+    required PlaylistSource? playlistSource,
+    required List<String> currentPlayList,
+  }) {
+    try {
+      // Check AI Shuffle setting and trigger if enabled
+      final appSettings = _appSettingsBloc.state;
+      if (appSettings.isAiShuffleEnabled) {
+        _logger.d(
+          '🎵 AI Shuffle enabled - triggering intelligent reordering for song: $songId',
+        );
+
+        add(
+          MusicEvent.aiShuffle(
+            currentSongId: songId,
+            currentPlayList: currentPlayList,
+            playlistSource: playlistSource,
+          ),
+        );
+      } else {
+        _logger.d(
+          '🎵 AI Shuffle disabled - maintaining original playlist order',
+        );
+      }
+    } catch (e) {
+      _logger.e('❌ Error triggering AI Shuffle: $e');
+    }
+  }
+
   // ==================== PLAYBACK SETTINGS EVENT HANDLERS ====================
   Future<void> _onToggleShuffle(
     _ToggleShuffle event,
@@ -1210,6 +1232,16 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     _logger.i(
       '🔄 Toggle shuffle → ${event.isShuffle} | Auto-start: ${event.isAutoStart ?? false}',
     );
+
+    // Check AI shuffle state and implement mutual exclusivity
+    final appSettings = _appSettingsBloc.state;
+    if (event.isShuffle && appSettings.isAiShuffleEnabled) {
+      _logger.i('🤖 AI Shuffle is enabled - disabling AI Shuffle to enable regular shuffle');
+      // Disable AI shuffle when enabling regular shuffle
+      _appSettingsBloc.add(
+        AppSettingsEvent.updateAiShuffle(isEnabled: false),
+      );
+    }
 
     // Shuffle setting is handled by MusicBloc state management
 
@@ -1220,6 +1252,11 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
       emit(
         state.copyWith(myPlayerState: shuffledQueue.copyWith(isShuffle: true)),
+      );
+
+      // Track regular shuffle usage
+      _appSettingsBloc.add(
+        AppSettingsEvent.trackShuffleUsage(shuffleType: 'regular_shuffle'),
       );
 
       _logger.i(
@@ -1515,34 +1552,38 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
   }
 
   // ==================== AI SHUFFLE EVENT HANDLER ====================
-  Future<void> _onAiShuffle(
-    _AiShuffle event,
-    Emitter<MusicState> emit,
-  ) async {
+  Future<void> _onAiShuffle(_AiShuffle event, Emitter<MusicState> emit) async {
     try {
       _logger.i('🎵 AI Shuffle triggered for song: ${event.currentSongId}');
-      
+
       // Get current state
       final currentState = state;
-      
+
       // Reorder playlist using AI shuffle
       final reorderedPlaylist = AiShuffleService.reorderPlaylistBySimilarity(
         currentSongId: event.currentSongId,
         playlistSongIds: event.currentPlayList,
         allSongs: currentState.allSongs,
       );
-      
-      _logger.d('🎯 Original playlist: ${event.currentPlayList.take(5).join(', ')}...');
-      _logger.d('🎯 Reordered playlist: ${reorderedPlaylist.take(5).join(', ')}...');
-      
+
+      _logger.d(
+        '🎯 Original playlist: ${event.currentPlayList.take(5).join(', ')}...',
+      );
+      _logger.d(
+        '🎯 Reordered playlist: ${reorderedPlaylist.take(5).join(', ')}...',
+      );
+
       // Update player state with reordered playlist
-      final updatedPlayerState = currentState.myPlayerState.aiShufflePlaylist(reorderedPlaylist);
-      
+      final updatedPlayerState = currentState.myPlayerState.aiShufflePlaylist(
+        reorderedPlaylist,
+      );
+
       // Emit new state
       emit(currentState.copyWith(myPlayerState: updatedPlayerState));
-      
-      _logger.i('✅ AI Shuffle completed: ${reorderedPlaylist.length} songs reordered');
-      
+
+      _logger.i(
+        '✅ AI Shuffle completed: ${reorderedPlaylist.length} songs reordered',
+      );
     } catch (e, stackTrace) {
       _logger.e('❌ AI Shuffle failed: $e');
       _logger.e('Stack trace: $stackTrace');
@@ -2494,12 +2535,12 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     );
 
     try {
-      // Initialize feature extraction service if needed
-      if (!ComprehensiveFeaturesExtractor.isInitialized) {
-        _logger.i('🚀 Initializing feature extraction service...');
-        final initialized = await ComprehensiveFeaturesExtractor.initialize();
+      // Initialize Music Feature Analyzer if needed
+      if (!MusicFeatureAnalyzer.isInitialized) {
+        _logger.i('🚀 Initializing Music Feature Analyzer...');
+        final initialized = await MusicFeatureAnalyzer.initialize();
         if (!initialized) {
-          _logger.e('❌ Failed to initialize feature extraction service');
+          _logger.e('❌ Failed to initialize Music Feature Analyzer');
           emit(
             state.copyWith(
               isComprehensiveFeaturesExtractingLoading: false,
@@ -2564,55 +2605,72 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         ),
       );
 
-      // Start background feature extraction
-      await ComprehensiveFeaturesExtractor.extractFeaturesInBackground(
-        songs: targetSongs,
-        onProgress: (current, total) {
-          _logger.d(
-            '📊 Feature extraction progress: $current/$total songs processed',
-          );
-        },
-        onCompleted: () {
-          _logger.i('✅ Background feature extraction completed successfully');
-          emit(
-            state.copyWith(
-              isComprehensiveFeaturesExtractingLoading: false,
+      // Convert songs to file paths for analysis
+      final filePaths = targetSongs.map((song) => song.path).toList();
+
+      try {
+        _logger.i('🎵 Starting Music Feature Analyzer batch processing...');
+        
+        // Analyze songs using package with background processing (same as original)
+        await MusicFeatureAnalyzer.extractFeaturesInBackground(
+          filePaths,
+          onProgress: (current, total) {
+            _logger.d(
+              '📊 Feature extraction progress: $current/$total songs processed',
+            );
+            // Emit progress update to UI
+            emit(state.copyWith(
+              isComprehensiveFeaturesExtractingLoading: true,
               isComprehensiveFeaturesExtractingError: false,
-            ),
-          );
-        },
-        onSongUpdated: (updatedSong) {
-          _logger.d('🔄 Received updated song: ${updatedSong.title}');
-          _logger.d('🔍 Song features: ${updatedSong.features != null ? "EXTRACTED" : "NULL"}');
-          
-          // Incremental UI update - keep loading state as true during processing
-          final currentSongs = List<Song>.from(state.allSongs);
-          final index = currentSongs.indexWhere((s) => s.id == updatedSong.id);
-          if (index != -1) {
-            currentSongs[index] = updatedSong;
-            _logger.d('✅ Updated song in state: ${updatedSong.title}');
-            emit(
-              state.copyWith(
-                allSongs: currentSongs,
-                // Keep loading state as true during processing
+            ));
+          },
+          onSongUpdated: (filePath, features) {
+            _logger.d('🔄 Updated song: ${filePath.split('/').last}');
+            if (features != null) {
+              // Package now returns ExtractedSongFeatures, not SongFeatures
+              _logger.d('🔍 Features: ${features.estimatedGenre} | ${features.tempoBpm} BPM');
+              
+              // Find and update the specific song in the current state
+              final updatedSongs = state.allSongs.map((song) {
+                if (song.path == filePath) {
+                  final projectFeatures = _convertPackageFeaturesToProjectFeatures(features);
+                  return song.copyWith(features: projectFeatures);
+                }
+                return song;
+              }).toList();
+              
+              // Emit updated state with the new song features
+              emit(state.copyWith(
+                allSongs: updatedSongs,
                 isComprehensiveFeaturesExtractingLoading: true,
                 isComprehensiveFeaturesExtractingError: false,
-              ),
-            );
-          } else {
-            _logger.w('⚠️ Song not found in state: ${updatedSong.title}');
-          }
-        },
-        onError: (error) {
-          _logger.e('❌ Background feature extraction error: $error');
-          emit(
-            state.copyWith(
-              isComprehensiveFeaturesExtractingLoading: false,
-              isComprehensiveFeaturesExtractingError: true,
-            ),
-          );
-        },
-      );
+              ));
+            }
+          },
+          onCompleted: () {
+            _logger.i('✅ Background feature extraction completed');
+          },
+          onError: (error) {
+            _logger.e('❌ Background feature extraction error: $error');
+          },
+        );
+
+        // Final state update - mark extraction as complete
+        emit(state.copyWith(
+          isComprehensiveFeaturesExtractingLoading: false,
+          isComprehensiveFeaturesExtractingError: false,
+        ));
+
+        _logger.i('✅ Music Feature Analyzer completed successfully');
+      } catch (e) {
+        _logger.e('❌ Music Feature Analyzer error: $e');
+        emit(
+          state.copyWith(
+            isComprehensiveFeaturesExtractingLoading: false,
+            isComprehensiveFeaturesExtractingError: true,
+          ),
+        );
+      }
     } catch (e, stackTrace) {
       emit(
         state.copyWith(
@@ -2639,5 +2697,50 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     _playerStateSubscription?.cancel();
     _appSettingsSubscription?.cancel();
     return super.close();
+  }
+
+  /// Convert package ExtractedSongFeatures to project SongFeatures
+  SongFeatures _convertPackageFeaturesToProjectFeatures(dynamic packageFeatures) {
+    return SongFeatures(
+      // Basic categorical
+      tempo: packageFeatures.tempo,
+      beat: packageFeatures.beat,
+      energy: packageFeatures.energy,
+      instruments: packageFeatures.instruments,
+      vocals: packageFeatures.vocals,
+      mood: packageFeatures.mood,
+
+      // YAMNet results
+      yamnetInstruments: packageFeatures.yamnetInstruments,
+      hasVocals: packageFeatures.hasVocals,
+      estimatedGenre: packageFeatures.estimatedGenre,
+      yamnetEnergy: packageFeatures.yamnetEnergy,
+      moodTags: packageFeatures.moodTags,
+
+      // Signal processing
+      tempoBpm: packageFeatures.tempoBpm,
+      beatStrength: packageFeatures.beatStrength,
+      signalEnergy: packageFeatures.signalEnergy,
+      brightness: packageFeatures.brightness,
+      danceability: packageFeatures.danceability,
+
+      // Combined metrics
+      overallEnergy: packageFeatures.overallEnergy,
+      intensity: packageFeatures.intensity,
+      spectralCentroid: packageFeatures.spectralCentroid,
+      spectralRolloff: packageFeatures.spectralRolloff,
+      zeroCrossingRate: packageFeatures.zeroCrossingRate,
+
+      // Additional features from package
+      spectralFlux: packageFeatures.spectralFlux,
+      complexity: packageFeatures.complexity,
+      valence: packageFeatures.valence,
+      arousal: packageFeatures.arousal,
+      confidence: packageFeatures.confidence,
+
+      // Metadata
+      analyzedAt: packageFeatures.analyzedAt,
+      modelVersion: packageFeatures.analyzerVersion,
+    );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
@@ -45,11 +46,11 @@ class BottomTabState extends State<BottomTab> with TickerProviderStateMixin {
   static const double backdropBlurSigma = 25.0;
 
   final List<IconData> _iconList = [
-    Icons.home_rounded,
-    Icons.music_note_rounded,
-    Icons.album_rounded,
-    Icons.person_rounded,
-    Icons.queue_music_rounded,
+    CupertinoIcons.house,
+    CupertinoIcons.music_note,
+    CupertinoIcons.music_albums,
+    CupertinoIcons.person,
+    CupertinoIcons.list_bullet,
   ];
 
   final List<String> _tabLabels = [

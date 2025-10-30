@@ -12,6 +12,7 @@ import '../../screens/app_settings/music_library_settings_screen.dart';
 import '../../screens/app_settings/profile_edit_screen.dart';
 import '../../screens/app_settings/comprehensive_features_settings_screen.dart';
 import '../../screens/welcome_screen.dart';
+import '../../screens/update_check_screen.dart';
 import '../../screens/app_settings/bloc/app_settings_bloc.dart';
 import '../../core/theme/theme_extension.dart';
 import '../../utils/models/artist/artist_model.dart';
@@ -23,7 +24,7 @@ class AppRouter {
   static final router = GoRouter(
     initialLocation: '/',
     routes: [
-      // Main bottom tab screen with profile check
+      // Main bottom tab screen with profile check and update check
       GoRoute(
         path: '/', 
         builder: (context, state) {
@@ -33,9 +34,12 @@ class AppRouter {
               final isProfileSet = appSettingsState.userName != null && 
                                    appSettingsState.nickName != null;
               
-              return isProfileSet 
+              final content = isProfileSet 
                 ? const BottomTab() 
                 : const WelcomeScreen();
+              
+              // Wrap content with update check
+              return UpdateCheckScreen(child: content);
             },
           );
         },

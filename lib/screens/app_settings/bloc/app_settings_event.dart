@@ -52,5 +52,8 @@ class AppSettingsEvent with _$AppSettingsEvent {
     required String nickName,
   }) = _UpdateUserProfile;
 
+  const factory AppSettingsEvent.trackShuffleUsage({
+    required String shuffleType,
+  }) = _TrackShuffleUsage;
 
 }

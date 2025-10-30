@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../core/theme/theme_extension.dart';
 import '../bottom_tab/bloc/music_bloc.dart';
+import '../app_settings/bloc/app_settings_bloc.dart';
 
 class CustomMusicFloatingButton extends StatefulWidget {
   const CustomMusicFloatingButton({super.key});
@@ -119,6 +120,68 @@ class _CustomMusicFloatingButtonState extends State<CustomMusicFloatingButton>
     }
   }
 
+  void _onShuffleAction({
+    required String currentSongId,
+    required List<String> currentPlayList,
+  }) {
+    // Check if widget is still mounted before proceeding
+    if (!mounted) return;
+
+    // Trigger tap zoom animation
+    _tapController.forward().then((_) {
+      if (mounted) {
+        _tapController.reverse();
+      }
+    });
+
+    // Get current app settings and music state to determine shuffle behavior
+    final appSettingsBloc = context.read<AppSettingsBloc>();
+    final musicBloc = context.read<MusicBloc>();
+    final appSettings = appSettingsBloc.state;
+    final musicState = musicBloc.state;
+    
+    if (appSettings.isAiShuffleEnabled) {
+      // AI → Normal: disable AI, enable regular shuffle (auto-start)
+      appSettingsBloc.add(
+        AppSettingsEvent.updateAiShuffle(isEnabled: false),
+      );
+
+      musicBloc.add(
+        MusicEvent.toggleShuffle(
+          isShuffle: true,
+          currentPlayList: currentPlayList,
+          isAutoStart: true,
+        ),
+      );
+    } else if (musicState.myPlayerState.isShuffle) {
+      // Normal → None: disable regular shuffle, keep AI disabled
+      musicBloc.add(
+        MusicEvent.toggleShuffle(
+          isShuffle: false,
+          currentPlayList: currentPlayList,
+        ),
+      );
+      // Ensure AI remains disabled
+      if (appSettingsBloc.state.isAiShuffleEnabled) {
+        appSettingsBloc.add(
+          AppSettingsEvent.updateAiShuffle(isEnabled: false),
+        );
+      }
+    } else {
+      // None → AI: enable AI and trigger AI shuffle
+      appSettingsBloc.add(
+        AppSettingsEvent.updateAiShuffle(isEnabled: true),
+      );
+
+      musicBloc.add(
+        MusicEvent.aiShuffle(
+          currentSongId: currentSongId,
+          currentPlayList: currentPlayList,
+        ),
+      );
+    }
+  }
+
   Widget _buildIcon({
     required bool isPlaying,
     required String currentSongId,
@@ -170,6 +233,16 @@ class _CustomMusicFloatingButtonState extends State<CustomMusicFloatingButton>
               // Trigger zoom animation
               _onToggle(
                 isPlaying: isPlaying,
+                currentSongId: currentSongId,
+                currentPlayList: state.myPlayerState.currentPlayList,
+              );
+            },
+            onLongPress: () {
+              // Check if widget is still mounted before handling long press
+              if (!mounted) return;
+              
+              // Trigger shuffle action
+              _onShuffleAction(
                 currentSongId: currentSongId,
                 currentPlayList: state.myPlayerState.currentPlayList,
               );

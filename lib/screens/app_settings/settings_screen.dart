@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../core/theme/theme_extension.dart';
@@ -47,7 +48,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       centerTitle: true,
       leading: IconButton(
         icon: Icon(
-          Icons.arrow_back_ios_rounded,
+          CupertinoIcons.back,
           color: context.onSurfaceColor,
           size: 18.sp,
         ),
@@ -160,7 +161,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         children: [
           _buildProfileTile(
-            icon: Icons.person_rounded,
+            icon: CupertinoIcons.person,
             title: 'Profile',
             subtitle: nickName,
             onTap: () => _navigateToProfileEdit(),
@@ -187,14 +188,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         children: [
           _buildNativeActionTile(
-            icon: Icons.music_note_rounded,
+            icon: CupertinoIcons.music_note,
             title: 'Music Library',
             subtitle: 'Manage your music collection',
             onTap: _navigateToFetchSongsSettings,
           ),
           _buildDivider(),
           _buildNativeSwitchTile(
-            icon: Icons.skip_next_rounded,
+            icon: CupertinoIcons.forward,
             title: 'Auto Play Next',
             value: state.autoPlayNext,
             onChanged: (value) => _updatePlaybackSettings(
@@ -205,7 +206,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           _buildDivider(),
           _buildNativeSwitchTile(
-            icon: Icons.notifications_rounded,
+            icon: CupertinoIcons.bell,
             title: 'Show Notifications',
             value: state.showNotifications,
             onChanged: (value) => _updatePlaybackSettings(
@@ -216,7 +217,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           _buildDivider(),
           _buildNativeSliderTile(
-            icon: Icons.speed_rounded,
+            icon: CupertinoIcons.speedometer,
             title: 'Playback Speed',
             subtitle: '${state.playbackSpeed.toStringAsFixed(1)}x',
             value: state.playbackSpeed,
@@ -231,7 +232,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           _buildDivider(),
           _buildNativeSwitchTile(
-            icon: Icons.bedtime_rounded,
+            icon: CupertinoIcons.moon,
             title: 'Sleep Timer',
             value: state.isSleepTimerEnabled,
             onChanged: (value) =>
@@ -240,7 +241,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (state.isSleepTimerEnabled) ...[
             _buildDivider(),
             _buildNativeSliderTile(
-              icon: Icons.timer_rounded,
+              icon: CupertinoIcons.timer,
               title: 'Timer Duration',
               subtitle: _formatDuration(state.sleepTimerMinutes),
               value: state.sleepTimerMinutes.toDouble(),
@@ -273,7 +274,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         children: [
           _buildNativeSwitchTile(
-            icon: Icons.dark_mode_rounded,
+            icon: CupertinoIcons.moon,
             title: 'Dark Mode',
             value: state.isDarkMode ?? false,
             onChanged: (state.followSystemTheme == true)
@@ -296,7 +297,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           _buildDivider(),
           _buildNativeSwitchTile(
-            icon: Icons.settings_suggest_rounded,
+            icon: CupertinoIcons.gear,
             title: 'Follow System Theme',
             value: state.followSystemTheme ?? true,
             onChanged: (value) => _updateFollowSystem(value),
@@ -323,7 +324,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         children: [
           _buildNativeSwitchTile(
-            icon: Icons.psychology_rounded,
+            icon: CupertinoIcons.sparkles,
             title: 'Enable AI Shuffle',
             subtitle: 'Intelligently reorders playlist based on current song features',
             value: state.isAiShuffleEnabled,
@@ -331,7 +332,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           _buildDivider(),
           _buildNativeListTile(
-            icon: Icons.analytics_rounded,
+            icon: CupertinoIcons.chart_bar,
             title: 'Music Features Analysis',
             subtitle: 'Extract comprehensive features from your music',
             onTap: () {
@@ -361,7 +362,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         children: [
           _buildNativeSliderTile(
-            icon: Icons.refresh_rounded,
+            icon: CupertinoIcons.refresh,
             title: 'Background Refresh',
             subtitle: '${state.appBackgroundRefreshTimeGap} hours',
             value: state.appBackgroundRefreshTimeGap.toDouble(),
@@ -373,14 +374,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           _buildDivider(),
           _buildNativeActionTile(
-            icon: Icons.restore_rounded,
+            icon: CupertinoIcons.arrow_clockwise,
             title: 'Reset Settings',
             subtitle: 'Restore all settings to default',
             onTap: _showResetDialog,
           ),
           _buildDivider(),
           _buildNativeInfoTile(
-            icon: Icons.info_rounded,
+            icon: CupertinoIcons.info,
             title: 'App Version',
             subtitle: '1.0.0',
           ),
@@ -497,6 +498,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+
   // ==================== HELPER METHODS ====================
 
 
@@ -572,7 +574,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
       trailing: Icon(
-        Icons.arrow_forward_ios_rounded,
+        CupertinoIcons.chevron_right,
         color: context.onSurfaceVariantColor,
         size: 16.sp,
       ),
@@ -655,7 +657,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             )
           : null,
       trailing: Icon(
-        Icons.arrow_forward_ios_rounded,
+        CupertinoIcons.chevron_right,
         color: context.onSurfaceVariantColor,
         size: 16.sp,
       ),
@@ -784,7 +786,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
       trailing: Icon(
-        Icons.arrow_forward_ios_rounded,
+        CupertinoIcons.chevron_right,
         color: context.onSurfaceVariantColor,
         size: 16.sp,
       ),

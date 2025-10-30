@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../core/constants/app_enums.dart';
@@ -55,11 +56,11 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   IconData _getTypeIcon() {
     switch (widget.type) {
       case PlaylistDetailType.album:
-        return Icons.album_rounded;
+        return CupertinoIcons.music_albums;
       case PlaylistDetailType.artist:
-        return Icons.person_rounded;
+        return CupertinoIcons.person;
       case PlaylistDetailType.playlist:
-        return Icons.queue_music_rounded;
+        return CupertinoIcons.list_bullet;
     }
   }
 
@@ -139,7 +140,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                     elevation: 0,
                    leading: IconButton(
                      icon: Icon(
-                       Icons.arrow_back_ios_rounded,
+                       CupertinoIcons.back,
                        color: Colors.white,
                        size: 20.sp,
                      ),
@@ -150,19 +151,19 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                      if (widget.type == PlaylistDetailType.playlist) ...[
                        _buildActionButton(
                          context: context,
-                         icon: Icons.edit_rounded,
+                         icon: CupertinoIcons.pencil,
                          onPressed: _showEditPlaylistDialog,
                        ),
                        _buildActionButton(
                          context: context,
-                         icon: Icons.delete_rounded,
+                         icon: CupertinoIcons.delete,
                          onPressed: _showDeletePlaylistDialog,
                        ),
                      ],
                      // Sort button for all types
                      _buildActionButton(
                        context: context,
-                       icon: Icons.sort_rounded,
+                       icon: CupertinoIcons.sort_down,
                        onPressed: _showSortingMenu,
                      ),
                    ],
@@ -336,18 +337,18 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                       runSpacing: 8.h,
                                       children: [
                                         _buildStatItem(
-                                          icon: Icons.music_note_rounded,
+                                          icon: CupertinoIcons.music_note,
                                           label: '${widget.songCount} songs',
                                         ),
                                          if (widget.type == PlaylistDetailType.artist)
                                           _buildStatItem(
-                                            icon: Icons.album_rounded,
+                                            icon: CupertinoIcons.music_albums,
                                              label:
                                                  '${_getAlbumCountForArtist()} albums',
                                           ),
                                          if (widget.year != null)
                                           _buildStatItem(
-                                            icon: Icons.calendar_today_rounded,
+                                            icon: CupertinoIcons.calendar,
                                             label: widget.year!,
                                           ),
                                       ],
@@ -409,7 +410,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                      ),
                             ),
                             child: Icon(
-                              Icons.play_arrow_rounded,
+                              CupertinoIcons.play_fill,
                               color: Colors.white,
                                      size: 18.sp,
                                    ),
@@ -456,7 +457,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                 borderRadius: BorderRadius.circular(40.r),
                               ),
                               child: Icon(
-                                Icons.music_off_rounded,
+                                CupertinoIcons.music_note_2,
                                 color: context.onSurfaceVariantColor,
                                 size: 40.sp,
                               ),
@@ -742,7 +743,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
             : null,
       ),
       child: Icon(
-        isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+        isPlaying ? CupertinoIcons.pause_fill : CupertinoIcons.play_fill,
         color: isSelected ? Colors.white : context.onSurfaceVariantColor,
         size: 16.sp,
       ),

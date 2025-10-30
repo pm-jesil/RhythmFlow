@@ -6,7 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pmj_music_player/core/di/injection.dart';
 import 'package:pmj_music_player/screens/app_settings/bloc/app_settings_bloc.dart';
-import 'package:pmj_music_player/utils/services/song_features/comprehensive_features_extractor.dart';
+import 'package:music_feature_analyzer/music_feature_analyzer.dart';
 import 'utils/logger/logger.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 
@@ -43,20 +43,19 @@ void main() async {
     logger.e('❌ JustAudioBackground initialization failed: $e');
   }
 
-  // Initialize Feature Extraction Service (includes Comprehensive Features Extractor)
+  // Initialize Music Feature Analyzer
   try {
-    logger.i('🚀 Initializing Feature Extraction Service...');
-    final comprehensiveFeaturesExtractor =
-        await ComprehensiveFeaturesExtractor.initialize();
-    if (comprehensiveFeaturesExtractor) {
-      logger.i('✅ Feature Extraction Service initialized successfully');
+    logger.i('🚀 Initializing Music Feature Analyzer...');
+    final analyzerInitialized = await MusicFeatureAnalyzer.initialize();
+    if (analyzerInitialized) {
+      logger.i('✅ Music Feature Analyzer initialized successfully');
     } else {
       logger.w(
-        '⚠️ Feature Extraction Service initialization failed - will retry later',
+        '⚠️ Music Feature Analyzer initialization failed - will retry later',
       );
     }
   } catch (e) {
-    logger.e('❌ Feature Extraction Service initialization error: $e');
+    logger.e('❌ Music Feature Analyzer initialization error: $e');
     // Continue anyway - will retry in bloc if needed
   }
 

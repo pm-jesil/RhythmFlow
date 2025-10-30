@@ -91,10 +91,17 @@ dependencies:
   # Advanced Audio Processing
   ffmpeg_kit_flutter_new: ^3.2.0
 
-
   # Testing (in main dependencies)
   liquid_glass_renderer: ^0.1.1-dev.10
 
+  # Icons
+  font_awesome_flutter: ^10.11.0
+
+  # Music Feature Analysis
+  music_feature_analyzer: ^1.0.0
+
+  # In App Updates
+  in_app_update: ^4.2.5
 
 
 dev_dependencies:
@@ -155,4 +162,4 @@ flutter:
           weight: 300
 
   assets:
-    - assets/models/
+    - assets/

@@ -4,7 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../core/theme/theme_extension.dart';
 import '../../core/widgets/app_custom.dart';
 import '../../utils/logger/logger.dart';
-import '../../utils/services/song_features/comprehensive_features_extractor.dart';
+import 'package:music_feature_analyzer/music_feature_analyzer.dart';
 import '../../utils/models/song/song_model.dart';
 import '../bottom_tab/bloc/music_bloc.dart';
 
@@ -24,14 +24,17 @@ class _ComprehensiveFeaturesSettingsScreenState extends State<ComprehensiveFeatu
     return BlocBuilder<MusicBloc, MusicState>(
       builder: (context, state) {
         final allSongs = state.allSongs;
-        final progress = ComprehensiveFeaturesExtractor.getExtractionProgress(
-          allSongs,
-        );
+        // Get progress using the proper method (same as original)
+        final progress = MusicFeatureAnalyzer.getExtractionProgressWithSongs(allSongs);
         final stats = _calculateStatistics(allSongs);
         final isLoading = state.isComprehensiveFeaturesExtractingLoading;
         
         _logger.d('Screen state - Songs: ${allSongs.length}, Progress: ${progress['completionPercentage']}%, Loading: $isLoading');
-        _logger.d('FEature of Song ${allSongs[0].features}');
+        if (allSongs.isNotEmpty) {
+          _logger.d('Features of Song ${allSongs[0].title} : ${allSongs[0].features?.toJson().toString()}');
+        } else {
+          _logger.d('No songs available to display features');
+        }
 
         return Scaffold(
           backgroundColor: context.backgroundColor,
@@ -118,7 +121,7 @@ class _ComprehensiveFeaturesSettingsScreenState extends State<ComprehensiveFeatu
   }
 
   Widget _buildStatusSection({required BuildContext context}) {
-    final isInitialized = ComprehensiveFeaturesExtractor.isInitialized;
+    final isInitialized = MusicFeatureAnalyzer.isInitialized;
     return _buildCard(
       context: context,
       child: Row(

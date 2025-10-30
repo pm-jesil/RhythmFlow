@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:share_plus/share_plus.dart';
@@ -515,13 +516,13 @@ class SongContextMenuActions {
                   album.coverImage!,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) => Icon(
-                    Icons.album,
+                    CupertinoIcons.music_albums,
                     color: context.primaryStart,
                     size: 20.sp,
                   ),
                 ),
               )
-            : Icon(Icons.album, color: context.primaryStart, size: 20.sp),
+            : Icon(CupertinoIcons.music_albums, color: context.primaryStart, size: 20.sp),
       );
     } else {
       final artist = mediaItem as Artist;
@@ -546,13 +547,13 @@ class SongContextMenuActions {
                   artist.image!,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) => Icon(
-                    Icons.person,
+                    CupertinoIcons.person,
                     color: context.primaryStart,
                     size: 20.sp,
                   ),
                 ),
               )
-            : Icon(Icons.person, color: context.primaryStart, size: 20.sp),
+            : Icon(CupertinoIcons.person, color: context.primaryStart, size: 20.sp),
       );
     }
 
@@ -607,7 +608,7 @@ class SongContextMenuActions {
                 ),
                 // Arrow icon
                 Icon(
-                  Icons.arrow_forward_ios,
+                  CupertinoIcons.chevron_right,
                   color: context.onSurfaceVariantColor,
                   size: 16.sp,
                 ),

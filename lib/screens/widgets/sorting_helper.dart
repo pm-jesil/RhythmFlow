@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/theme/theme_extension.dart';
 import '../../core/widgets/app_custom.dart';
@@ -134,19 +135,19 @@ class SortingHelper {
   static IconData _getSortIcon(int index) {
     switch (index) {
       case 0:
-        return Icons.new_releases;
+        return CupertinoIcons.star;
       case 1:
-        return Icons.history;
+        return CupertinoIcons.clock;
       case 2:
-        return Icons.sort_by_alpha;
+        return CupertinoIcons.sort_down;
       case 3:
-        return Icons.timer;
+        return CupertinoIcons.timer;
       case 4:
-        return Icons.timer_off;
+        return CupertinoIcons.timer;
       case 5:
-        return Icons.trending_up;
+        return CupertinoIcons.chart_bar;
       default:
-        return Icons.sort;
+        return CupertinoIcons.sort_down;
     }
   }
 
