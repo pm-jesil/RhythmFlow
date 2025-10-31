@@ -145,6 +145,10 @@ RhythmFlow is a sophisticated music player built with Flutter that offers advanc
 - **Play Count Analytics**: Detailed play statistics
 - **Trend Analysis**: Music consumption trends
 
+### ⚠️ AI Accuracy Disclaimer
+- **Model Limitations**: The AI-powered features (genre classification, instrument detection, mood analysis) use the YAMNet model and may have reduced accuracy. This is a limitation of the available YAMNet model, and other perfect models are not currently available.
+- **Best Effort**: The app provides the best possible analysis using the current technology, but results may vary and should be considered as approximate rather than definitive.
+
 ## 🎨 User Experience
 
 ### Design System
@@ -308,3 +312,4 @@ For support, feature requests, or bug reports:
   - AI Shuffle (sparkles icon, active color)
   - Normal Shuffle (shuffle icon, active color)
   - None (shuffle icon with a diagonal cross, inactive color)
+- **AI Accuracy Disclaimer**: AI-powered features (genre classification, instrument detection, mood analysis) may have reduced accuracy due to limitations of the YAMNet model. Other perfect models are not currently available, so results should be considered approximate.
