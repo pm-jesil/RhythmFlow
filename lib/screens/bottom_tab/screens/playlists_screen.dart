@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:pmj_music_player/core/constants/app_enums.dart';
+import 'package:rhythmflow/core/constants/app_enums.dart';
 import '../../../core/theme/theme_extension.dart';
 import '../widgets/custom_tab_view_app_bar.dart';
 import '../../../utils/logger/logger.dart';

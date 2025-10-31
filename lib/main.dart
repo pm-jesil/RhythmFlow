@@ -4,8 +4,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
-import 'package:pmj_music_player/core/di/injection.dart';
-import 'package:pmj_music_player/screens/app_settings/bloc/app_settings_bloc.dart';
+import 'package:rhythmflow/core/di/injection.dart';
+import 'package:rhythmflow/screens/app_settings/bloc/app_settings_bloc.dart';
 import 'package:music_feature_analyzer/music_feature_analyzer.dart';
 import 'utils/logger/logger.dart';
 import 'package:just_audio_background/just_audio_background.dart';
@@ -21,7 +21,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final logger = AppLogger('Main');
-  logger.i('🎵 Rhythm Flow starting...');
+  logger.i('🎵 RhythmFlow starting...');
 
   await _initializeHydratedBloc();
 
@@ -34,8 +34,8 @@ void main() async {
 
   try {
     await JustAudioBackground.init(
-      androidNotificationChannelId: 'com.pmj.music_player.channel.audio',
-      androidNotificationChannelName: 'Rhythm Flow',
+      androidNotificationChannelId: 'com.technexa.rhythmflow.channel.audio',
+      androidNotificationChannelName: 'RhythmFlow',
       androidNotificationOngoing: true,
     );
     logger.i('✅ JustAudioBackground initialized successfully');

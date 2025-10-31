@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:pmj_music_player/core/router/app_router.dart';
+import 'package:rhythmflow/core/router/app_router.dart';
 
 void main() {
   group('App Router Tests', () {

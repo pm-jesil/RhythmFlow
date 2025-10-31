@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Rhythm Flow</string>
-    <string name="pmj_music">Rhythm Flow</string>
+    <string name="app_name">RhythmFlow</string>
 </resources>

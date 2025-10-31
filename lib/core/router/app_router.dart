@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:pmj_music_player/utils/models/song/song_model.dart';
+import 'package:rhythmflow/utils/models/song/song_model.dart';
 import '../../screens/bottom_tab/bottom_tab.dart';
 import '../../screens/music_player/music_player_screen.dart';
 import '../../screens/palying_queue_screen/playing_queue_screen.dart';

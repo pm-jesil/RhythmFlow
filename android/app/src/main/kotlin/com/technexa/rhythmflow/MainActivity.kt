@@ -1,4 +1,4 @@
-package com.example.pmj_music_player
+package com.technexa.rhythmflow
 
 import io.flutter.embedding.android.FlutterActivity
 

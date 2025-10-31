@@ -26,7 +26,7 @@ class RemoteControlService {
     _logger.i('🎧 Initializing remote control service...');
     
     // Set up method channel for handling remote control events
-    const MethodChannel('com.pmj.music_player/remote_control')
+    const MethodChannel('com.technexa.rhythmflow/remote_control')
         .setMethodCallHandler(_handleMethodCall);
     
     _logger.i('✅ Remote control service initialized');

@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:pmj_music_player/core/theme/theme_extension.dart';
+import 'package:rhythmflow/core/theme/theme_extension.dart';
 
 class AlbumArtWidget extends StatefulWidget {
   final String? albumArt;

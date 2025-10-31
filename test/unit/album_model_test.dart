@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pmj_music_player/utils/models/album/album_model.dart';
+import 'package:rhythmflow/utils/models/album/album_model.dart';
 
 void main() {
   group('Album Model', () {

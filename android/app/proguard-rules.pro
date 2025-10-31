@@ -69,15 +69,15 @@
     @freezed *;
 }
 
-# Equatable rules
--keep class * implements package:equatable.** { *; }
+# Equatable rules (Flutter packages are already compiled, no ProGuard rules needed)
+# -keep class * implements package:equatable.** { *; }
 
-# Bloc rules
--keep class * extends package:flutter_bloc.** { *; }
--keep class * implements package:flutter_bloc.** { *; }
+# Bloc rules (Flutter packages are already compiled, no ProGuard rules needed)
+# -keep class * extends package:flutter_bloc.** { *; }
+# -keep class * implements package:flutter_bloc.** { *; }
 
-# Go Router rules
--keep class * extends package:go_router.** { *; }
+# Go Router rules (Flutter packages are already compiled, no ProGuard rules needed)
+# -keep class * extends package:go_router.** { *; }
 
 # Lottie rules
 -keep class com.airbnb.lottie.** { *; }
@@ -128,11 +128,11 @@
 # Intl rules
 -keep class com.ibm.icu.** { *; }
 
-# Logger rules
--keep class * implements package:logger.** { *; }
+# Logger rules (Flutter packages are already compiled, no ProGuard rules needed)
+# -keep class * implements package:logger.** { *; }
 
-# Dartz rules
--keep class * implements package:dartz.** { *; }
+# Dartz rules (Flutter packages are already compiled, no ProGuard rules needed)
+# -keep class * implements package:dartz.** { *; }
 
 # RxDart rules
 -keep class io.reactivex.** { *; }
@@ -184,7 +184,7 @@
 }
 
 # Keep custom application class
--keep class com.pmj.music_player.** { *; }
+-keep class com.technexa.rhythmflow.** { *; }
 
 # Keep model classes
 -keep class **.models.** { *; }
@@ -221,3 +221,13 @@
     public static *** v(...);
     public static *** i(...);
 }
+
+# Google Play Core (optional, not needed for basic apps)
+-dontwarn com.google.android.play.core.splitcompat.**
+-dontwarn com.google.android.play.core.splitinstall.**
+-dontwarn com.google.android.play.core.tasks.**
+-keep class com.google.android.play.core.** { *; }
+
+# TensorFlow Lite GPU (optional, only needed if using GPU acceleration)
+-dontwarn org.tensorflow.lite.gpu.**
+-keep class org.tensorflow.lite.gpu.** { *; }

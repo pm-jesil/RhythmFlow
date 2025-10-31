@@ -1,5 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
-import 'package:pmj_music_player/utils/models/song_features/song_features.dart';
+import 'package:rhythmflow/utils/models/song_features/song_features.dart';
 
 part 'song_model.freezed.dart';
 part 'song_model.g.dart';

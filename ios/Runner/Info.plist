@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Rhythm Flow</string>
+	<string>RhythmFlow</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>pmj_music_player</string>
+	<string>rhythmflow</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -198,9 +198,9 @@
 	<array>
 		<dict>
 			<key>UTTypeIdentifier</key>
-			<string>com.pmj.music_player.playlist</string>
+			<string>com.technexa.rhythmflow.playlist</string>
 			<key>UTTypeDescription</key>
-			<string>Rhythm Flow Playlist</string>
+			<string>RhythmFlow Playlist</string>
 			<key>UTTypeConformsTo</key>
 			<array>
 				<string>public.data</string>
@@ -209,11 +209,13 @@
 			<dict>
 				<key>public.filename-extension</key>
 				<array>
-					<string>pmj</string>
+					<string>rfplaylist</string>
+					<string>rflow</string>
 				</array>
 				<key>public.mime-type</key>
 				<array>
-					<string>application/x-pmj-playlist</string>
+					<string>application/x-rfplaylist</string>
+					<string>application/x-rhythmflow-playlist</string>
 				</array>
 			</dict>
 		</dict>
@@ -224,10 +226,10 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.pmj.music_player</string>
+			<string>com.technexa.rhythmflow</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>pmjmusic</string>
+				<string>rhythmflow</string>
 			</array>
 		</dict>
 	</array>

@@ -78,6 +78,15 @@ integration_test/screenshots/
 .env.local
 .env.*.local
 
+# Keystore files (NEVER commit these!)
+*.keystore
+*.jks
+key.properties
+**/key.properties
+android/key.properties
+android/app/*.keystore
+android/app/*.jks
+
 # IDE specific
 .vscode/settings.json
 .vscode/launch.json

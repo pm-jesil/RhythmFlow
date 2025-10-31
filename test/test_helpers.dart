@@ -1,9 +1,9 @@
 import 'package:mocktail/mocktail.dart';
-import 'package:pmj_music_player/utils/models/song/song_model.dart';
-import 'package:pmj_music_player/utils/models/album/album_model.dart';
-import 'package:pmj_music_player/utils/models/artist/artist_model.dart';
-import 'package:pmj_music_player/utils/models/my_playlist/my_playlist_model.dart';
-import 'package:pmj_music_player/utils/models/my_player_state_model.dart';
+import 'package:rhythmflow/utils/models/song/song_model.dart';
+import 'package:rhythmflow/utils/models/album/album_model.dart';
+import 'package:rhythmflow/utils/models/artist/artist_model.dart';
+import 'package:rhythmflow/utils/models/my_playlist/my_playlist_model.dart';
+import 'package:rhythmflow/utils/models/my_player_state_model.dart';
 
 /// Test helper functions and mock data for unit tests
 class TestHelpers {

@@ -1,10 +1,10 @@
-# 🎵 Rhythm Flow
+# 🎵 RhythmFlow - AI Music Player
 
 A modern, feature-rich Flutter music player application with AI-powered music analysis, intelligent playlist management, and comprehensive local music library support.
 
 ## 📱 Overview
 
-Rhythm Flow is a sophisticated music player built with Flutter that offers advanced features like AI-powered music analysis, intelligent shuffle, comprehensive metadata extraction, and a beautiful modern UI. The app supports local music files and provides a personalized music experience.
+RhythmFlow is a sophisticated music player built with Flutter that offers advanced features like AI-powered music analysis, intelligent shuffle, comprehensive metadata extraction, and a beautiful modern UI. The app supports local music files and provides a personalized music experience.
 
 ## ✨ Key Features
 
@@ -299,7 +299,7 @@ For support, feature requests, or bug reports:
 
 ---
 
-**Rhythm Flow** - Where AI meets Music 🎵✨
+**RhythmFlow** - Where AI meets Music 🎵✨
  
 ## ℹ️ Notes
  

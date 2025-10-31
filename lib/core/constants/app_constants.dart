@@ -20,7 +20,9 @@ class TabLabels {
 class AppConstants {
   const AppConstants();
   
-  static const String appName = 'Rhythm Flow';
+  static const String appName = 'RhythmFlow';
+  static const String appNamePlayStore = 'RhythmFlow - AI Music Player';
+  static const String appTagline = 'Music that flows with you';
   static const Duration longAnimation = Duration(milliseconds: 800);
   
   // Music quotes for personalized experience

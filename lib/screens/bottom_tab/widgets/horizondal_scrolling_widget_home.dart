@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:pmj_music_player/screens/bottom_tab/bloc/music_bloc.dart';
+import 'package:rhythmflow/screens/bottom_tab/bloc/music_bloc.dart';
 import '../../../core/theme/theme_extension.dart';
 import '../../../utils/models/song/song_model.dart';
 import '../../../utils/models/artist/artist_model.dart';

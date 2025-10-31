@@ -1,6 +1,6 @@
 {
-    "name": "pmj_music_player",
-    "short_name": "pmj_music_player",
+    "name": "rhythmflow",
+    "short_name": "rhythmflow",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pmj_music_player/utils/models/my_playlist/my_playlist_model.dart';
+import 'package:rhythmflow/utils/models/my_playlist/my_playlist_model.dart';
 
 void main() {
   group('MyPlaylist Model', () {

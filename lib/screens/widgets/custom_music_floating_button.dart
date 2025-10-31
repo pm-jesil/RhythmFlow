@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'dart:math' show pi;
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -30,7 +30,7 @@ class _CustomMusicFloatingButtonState extends State<CustomMusicFloatingButton>
 
   void _updateRotation() {
     if (mounted) {
-      _rotation = _rotationController.value * 2 * pi;
+      _rotation = _rotationController.value * 2 * math.pi;
     }
   }
   
@@ -134,52 +134,28 @@ class _CustomMusicFloatingButtonState extends State<CustomMusicFloatingButton>
       }
     });
 
-    // Get current app settings and music state to determine shuffle behavior
+    // Enforce AI shuffle only: enable AI, pick a random song, and play it with AI shuffle
     final appSettingsBloc = context.read<AppSettingsBloc>();
     final musicBloc = context.read<MusicBloc>();
-    final appSettings = appSettingsBloc.state;
-    final musicState = musicBloc.state;
-    
-    if (appSettings.isAiShuffleEnabled) {
-      // AI → Normal: disable AI, enable regular shuffle (auto-start)
-      appSettingsBloc.add(
-        AppSettingsEvent.updateAiShuffle(isEnabled: false),
-      );
-      
-      musicBloc.add(
-        MusicEvent.toggleShuffle(
-          isShuffle: true,
-          currentPlayList: currentPlayList,
-          isAutoStart: true,
-        ),
-      );
-    } else if (musicState.myPlayerState.isShuffle) {
-      // Normal → None: disable regular shuffle, keep AI disabled
-      musicBloc.add(
-        MusicEvent.toggleShuffle(
-          isShuffle: false,
-          currentPlayList: currentPlayList,
-        ),
-      );
-      // Ensure AI remains disabled
-      if (appSettingsBloc.state.isAiShuffleEnabled) {
-        appSettingsBloc.add(
-          AppSettingsEvent.updateAiShuffle(isEnabled: false),
-        );
-      }
-    } else {
-      // None → AI: enable AI and trigger AI shuffle
-      appSettingsBloc.add(
-        AppSettingsEvent.updateAiShuffle(isEnabled: true),
-      );
-      
-      musicBloc.add(
-        MusicEvent.aiShuffle(
-          currentSongId: currentSongId,
-          currentPlayList: currentPlayList,
-        ),
-      );
+    final allSongs = musicBloc.state.allSongs;
+    if (allSongs.isEmpty) return;
+
+    // Pick a random song from the full library
+    final randomSong = allSongs[(allSongs.length * (math.Random().nextDouble())).floor()];
+    final allSongIds = allSongs.map((s) => s.id).toList();
+
+    // Ensure AI shuffle is enabled
+    if (!appSettingsBloc.state.isAiShuffleEnabled) {
+      appSettingsBloc.add(AppSettingsEvent.updateAiShuffle(isEnabled: true));
     }
+
+    // Start playing the random song with full library as playlist
+    musicBloc.add(
+      MusicEvent.playOrPauseSong(
+        songId: randomSong.id,
+        currentPlayList: allSongIds,
+      ),
+    );
   }
 
   Widget _buildIcon({

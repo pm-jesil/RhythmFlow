@@ -1,14 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:music_feature_analyzer/music_feature_analyzer.dart';
-import 'package:pmj_music_player/utils/models/song/song_model.dart';
-import 'package:pmj_music_player/utils/models/song_features/song_features.dart';
+import 'package:rhythmflow/utils/models/song/song_model.dart';
+import 'package:rhythmflow/utils/models/song_features/song_features.dart';
 
 /// ============================================================================
 /// PACKAGE INTEGRATION TEST SUITE
 /// ============================================================================
 /// 
 /// PURPOSE: Test the integration between the music_feature_analyzer package
-/// and the Rhythm Flow project
+/// and the RhythmFlow project
 /// 
 /// TEST COVERAGE:
 /// - Package initialization

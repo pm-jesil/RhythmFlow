@@ -3,7 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
-import 'package:pmj_music_player/screens/bottom_tab/widgets/album_artist_my_playlist_helper.dart';
+import 'package:rhythmflow/screens/bottom_tab/widgets/album_artist_my_playlist_helper.dart';
 import '../../../core/theme/theme_extension.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../widgets/custom_3d_card.dart';
@@ -331,7 +331,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
                         ),
                         SizedBox(height: 4.h),
                         Text(
-                          'Your personal music companion...',
+                          '${AppConstants.appTagline}...',
                           style: TextStyle(
                             color: context.onSurfaceVariantColor,
                             fontSize: 12.sp,

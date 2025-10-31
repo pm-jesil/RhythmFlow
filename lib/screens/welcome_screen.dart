@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../core/theme/theme_extension.dart';
 import '../screens/app_settings/bloc/app_settings_bloc.dart';
+import '../../core/constants/app_constants.dart';
 import 'package:go_router/go_router.dart';
 
 class WelcomeScreen extends StatefulWidget {
@@ -133,7 +134,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
         // App Title
         Text(
-          'Rhythm Flow',
+          'RhythmFlow',
           style: TextStyle(
             color: context.onSurfaceColor,
             fontSize: 25.sp,
@@ -145,7 +146,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
         // Subtitle
         Text(
-          'Your personal music companion',
+          AppConstants.appTagline,
           style: TextStyle(
             color: context.onSurfaceVariantColor,
             fontSize: 14.sp,
@@ -222,7 +223,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
         // Welcome Text
         Text(
-          'Welcome to Rhythm Flow!',
+          'Welcome to RhythmFlow!',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: context.onSurfaceColor,

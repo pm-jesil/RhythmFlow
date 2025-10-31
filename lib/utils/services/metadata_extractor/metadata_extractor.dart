@@ -5,8 +5,8 @@ import 'package:crypto/crypto.dart';
 import 'package:audiotags/audiotags.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:image/image.dart' as img;
-import 'package:pmj_music_player/utils/logger/logger.dart';
-import 'package:pmj_music_player/utils/models/song/song_model.dart';
+import 'package:rhythmflow/utils/logger/logger.dart';
+import 'package:rhythmflow/utils/models/song/song_model.dart';
 import '../permission_service.dart';
 
 part 'metadata_extractor_helper.dart';

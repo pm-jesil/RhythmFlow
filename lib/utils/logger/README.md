@@ -1,7 +1,7 @@
-# AppLogger - Rhythm Flow Logging System
+# AppLogger - RhythmFlow Logging System
 
 ## Overview
-The AppLogger provides a clean, simple logging system for the Rhythm Flow app with context-aware logging and essential logging methods.
+The AppLogger provides a clean, simple logging system for the RhythmFlow app with context-aware logging and essential logging methods.
 
 ## Features
 - ✅ **Context-aware logging** with component identification
@@ -88,7 +88,7 @@ AppLogger.enableFatalLogs(true);
 ### Main App
 ```dart
 final logger = AppLogger('Main');
-logger.i('🎵 Rhythm Flow starting...');
+logger.i('🎵 RhythmFlow starting...');
 ```
 
 ### Navigation

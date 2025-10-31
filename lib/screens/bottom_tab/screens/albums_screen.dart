@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:pmj_music_player/screens/bottom_tab/widgets/custom_tab_view_app_bar.dart';
+import 'package:rhythmflow/screens/bottom_tab/widgets/custom_tab_view_app_bar.dart';
 import '../../../core/theme/theme_extension.dart';
 import '../../../utils/logger/logger.dart';
 import '../../../utils/models/album/album_model.dart';

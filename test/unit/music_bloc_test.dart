@@ -2,15 +2,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:pmj_music_player/screens/bottom_tab/bloc/music_bloc.dart';
-import 'package:pmj_music_player/utils/models/song/song_model.dart';
-import 'package:pmj_music_player/utils/models/album/album_model.dart';
-import 'package:pmj_music_player/utils/models/artist/artist_model.dart';
-import 'package:pmj_music_player/utils/models/my_playlist/my_playlist_model.dart';
-import 'package:pmj_music_player/utils/models/my_player_state_model.dart';
-import 'package:pmj_music_player/utils/services/audio_service.dart';
-import 'package:pmj_music_player/utils/services/remote_control_service.dart';
-import 'package:pmj_music_player/screens/app_settings/bloc/app_settings_bloc.dart';
+import 'package:rhythmflow/screens/bottom_tab/bloc/music_bloc.dart';
+import 'package:rhythmflow/utils/models/song/song_model.dart';
+import 'package:rhythmflow/utils/models/album/album_model.dart';
+import 'package:rhythmflow/utils/models/artist/artist_model.dart';
+import 'package:rhythmflow/utils/models/my_playlist/my_playlist_model.dart';
+import 'package:rhythmflow/utils/models/my_player_state_model.dart';
+import 'package:rhythmflow/utils/services/audio_service.dart';
+import 'package:rhythmflow/utils/services/remote_control_service.dart';
+import 'package:rhythmflow/screens/app_settings/bloc/app_settings_bloc.dart';
 
 // Mock classes
 class MockAudioService extends Mock implements AudioService {}

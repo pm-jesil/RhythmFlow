@@ -2,8 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
-import 'package:pmj_music_player/utils/services/audio_service.dart';
-import 'package:pmj_music_player/utils/models/song/song_model.dart';
+import 'package:rhythmflow/utils/services/audio_service.dart';
+import 'package:rhythmflow/utils/models/song/song_model.dart';
 
 // Mock classes
 class MockAudioPlayer extends Mock implements AudioPlayer {}

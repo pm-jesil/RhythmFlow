@@ -1,14 +1,14 @@
-// Basic Flutter widget test for Rhythm Flow
+// Basic Flutter widget test for RhythmFlow
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:pmj_music_player/core/theme/app_theme.dart';
-import 'package:pmj_music_player/core/theme/theme_bloc.dart';
-import 'package:pmj_music_player/core/constants/app_constants.dart';
-import 'package:pmj_music_player/screens/bottom_tab/bloc/music_bloc.dart';
-import 'package:pmj_music_player/screens/bottom_tab/screens/for_you_screen.dart';
-import 'package:pmj_music_player/utils/models/my_player_state_model.dart';
+import 'package:rhythmflow/core/theme/app_theme.dart';
+import 'package:rhythmflow/core/theme/theme_bloc.dart';
+import 'package:rhythmflow/core/constants/app_constants.dart';
+import 'package:rhythmflow/screens/bottom_tab/bloc/music_bloc.dart';
+import 'package:rhythmflow/screens/bottom_tab/screens/for_you_screen.dart';
+import 'package:rhythmflow/utils/models/my_player_state_model.dart';
 import 'package:mocktail/mocktail.dart';
 
 // Mock classes for testing
@@ -203,7 +203,7 @@ void main() {
         home: Scaffold(
           body: Center(
             child: Text(
-              'Rhythm Flow',
+              'RhythmFlow',
               style: TextStyle(fontSize: 24),
             ),
           ),
@@ -213,6 +213,6 @@ void main() {
 
     // Verify that the app loads without crashing
     expect(find.byType(MaterialApp), findsOneWidget);
-    expect(find.text('Rhythm Flow'), findsOneWidget);
+    expect(find.text('RhythmFlow'), findsOneWidget);
   });
 }
