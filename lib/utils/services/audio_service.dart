@@ -1,20 +1,35 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:just_audio_background/just_audio_background.dart';
+import 'package:audio_service/audio_service.dart';
 import 'package:injectable/injectable.dart';
 import '../models/song/song_model.dart';
 import '../models/playlist_source/playlist_source_model.dart';
 import '../logger/logger.dart';
 import 'enhanced_notification_service.dart';
 import 'play_count_tracking_service.dart';
+import 'audio_handler.dart';
 
 @singleton
 class AudioService {
   static final AppLogger _logger = AppLogger('AudioService');
 
-  // Audio player instance
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  // Audio handler (bridges audio_service with just_audio)
+  RhythmFlowAudioHandler? _audioHandler;
+  
+  // Fallback player (used until handler is set)
+  AudioPlayer? _fallbackPlayer;
+  
+  // Get the audio player from handler or fallback
+  AudioPlayer get _audioPlayer {
+    if (_audioHandler != null) {
+      return _audioHandler!.player;
+    }
+    // Create fallback player if not exists
+    _fallbackPlayer ??= AudioPlayer();
+    return _fallbackPlayer!;
+  }
 
   // Callback to notify when song changes
   Function(Song song)? onSongChanged;
@@ -22,7 +37,18 @@ class AudioService {
   // Callback to notify when song is invalid
   Function(Song song, String? playlistId, PlaylistSource? playlistSource)? onInvalidSong;
 
-  // Play count tracking context (used by PlayCountTrackingService)
+  // Callbacks for skip actions (from notification buttons)
+  VoidCallback? onSkipToNext;
+  VoidCallback? onSkipToPrevious;
+  
+  // Callbacks for shuffle and repeat actions
+  // Changed: onToggleShuffle now triggers 3-state cycle (None → AI → Normal → None)
+  VoidCallback? onToggleShuffle;
+  VoidCallback? onToggleRepeat;
+  
+  // Callbacks for play/pause actions
+  VoidCallback? onPlay;
+  VoidCallback? onPause;
 
   // Stream controllers for state updates
   final StreamController<Duration> _positionController =
@@ -34,17 +60,125 @@ class AudioService {
   final StreamController<PlayerState> _playerStateController =
       StreamController<PlayerState>.broadcast();
 
+  // Stream subscriptions (to cancel when reinitializing)
+  StreamSubscription<Duration>? _positionSubscription;
+  StreamSubscription<Duration?>? _durationSubscription;
+  StreamSubscription<bool>? _playingSubscription;
+  StreamSubscription<PlayerState>? _playerStateSubscription;
+
   // Position tracking callback
   Function(Duration)? onPositionChanged;
 
   // Current song info
   Song? _currentSong;
 
-  // Removed playback settings - handled by MusicBloc
-
   // Getters
   AudioPlayer get player => _audioPlayer;
   Song? get currentSong => _currentSong;
+  
+  // Set audio handler (called after audio_service initialization)
+  void setAudioHandler(RhythmFlowAudioHandler handler) {
+    _audioHandler = handler;
+    _logger.i('✅ AudioHandler set for AudioService');
+    
+    // Wire skip callbacks from AudioHandler to AudioService callbacks
+    handler.setSkipCallbacks(
+      onNext: () {
+        _logger.i('⏭️ Skip to next requested from notification');
+        onSkipToNext?.call();
+      },
+      onPrevious: () {
+        _logger.i('⏮️ Skip to previous requested from notification');
+        onSkipToPrevious?.call();
+      },
+    );
+
+    // Wire shuffle and repeat callbacks
+    handler.setShuffleRepeatCallbacks(
+      onShuffle: () {
+        _logger.i('🔀 Shuffle button pressed - triggering 3-state cycle');
+        // Trigger the same logic as music player screen: None → AI → Normal → None
+        onToggleShuffle?.call();
+      },
+      onRepeat: () {
+        _logger.i('🔄 Repeat toggled');
+        onToggleRepeat?.call();
+      },
+    );
+
+    // Wire play/pause callbacks
+    handler.setPlayPauseCallbacks(
+      onPlay: () {
+        _logger.i('▶️ Play requested from notification');
+        onPlay?.call();
+      },
+      onPause: () {
+        _logger.i('⏸️ Pause requested from notification');
+        onPause?.call();
+      },
+    );
+    
+    // Dispose fallback player if it exists (handler has its own player)
+    if (_fallbackPlayer != null) {
+      _fallbackPlayer!.dispose();
+      _fallbackPlayer = null;
+    }
+    
+    // Reinitialize listeners with the handler's player
+    // This is critical because listeners were set up on fallback player
+    _initializeAudioPlayer();
+    _logger.i('✅ AudioService listeners reinitialized with AudioHandler player');
+  }
+  
+  /// Set callbacks for skip actions (called by MusicBloc)
+  void setSkipCallbacks({
+    VoidCallback? onNext,
+    VoidCallback? onPrevious,
+  }) {
+    onSkipToNext = onNext;
+    onSkipToPrevious = onPrevious;
+    _logger.i('✅ Skip callbacks set in AudioService');
+  }
+
+  /// Set callbacks for shuffle and repeat actions (called by MusicBloc)
+  void setShuffleRepeatCallbacks({
+    VoidCallback? onShuffle,
+    VoidCallback? onRepeat,
+  }) {
+    onToggleShuffle = onShuffle;
+    onToggleRepeat = onRepeat;
+    _logger.i('✅ Shuffle/Repeat callbacks set in AudioService');
+  }
+
+  /// Set callbacks for play/pause actions (called by MusicBloc)
+  void setPlayPauseCallbacks({
+    VoidCallback? onPlay,
+    VoidCallback? onPause,
+  }) {
+    this.onPlay = onPlay;
+    this.onPause = onPause;
+    _logger.i('✅ Play/Pause callbacks set in AudioService');
+  }
+
+  /// Update shuffle and repeat state in notification
+  void updateShuffleRepeatState({
+    bool? isShuffle,
+    bool? isAiShuffle,
+    int? repeatModeIndex,
+  }) {
+    if (_audioHandler != null) {
+      if (isShuffle != null) {
+        _audioHandler!.updateShuffleState(isShuffle);
+      }
+      if (isAiShuffle != null) {
+        _audioHandler!.updateAiShuffleState(isAiShuffle);
+      }
+      if (repeatModeIndex != null) {
+        _audioHandler!.updateRepeatState(repeatModeIndex);
+      }
+      _logger.i('📱 Updated notification shuffle/repeat state');
+    }
+  }
 
   // Streams
   Stream<Duration> get positionStream => _positionController.stream;
@@ -70,8 +204,14 @@ class AudioService {
   void _initializeAudioPlayer() {
     _logger.i('Initializing audio player...');
 
+    // Cancel existing subscriptions if any
+    _positionSubscription?.cancel();
+    _durationSubscription?.cancel();
+    _playingSubscription?.cancel();
+    _playerStateSubscription?.cancel();
+
     // Set up position listener
-    _audioPlayer.positionStream.listen(
+    _positionSubscription = _audioPlayer.positionStream.listen(
       (position) {
         _positionController.add(position);
 
@@ -87,7 +227,7 @@ class AudioService {
     );
 
     // Set up duration listener
-    _audioPlayer.durationStream.listen(
+    _durationSubscription = _audioPlayer.durationStream.listen(
       (duration) {
         if (duration != null) {
           _durationController.add(duration);
@@ -99,7 +239,7 @@ class AudioService {
     );
 
     // Set up playing state listener
-    _audioPlayer.playingStream.listen(
+    _playingSubscription = _audioPlayer.playingStream.listen(
       (playing) {
         _logger.i(
           'Playing state changed: $playing | Song: ${_currentSong?.title ?? "None"} | Position: ${_audioPlayer.position.inSeconds}s',
@@ -112,7 +252,7 @@ class AudioService {
     );
 
     // Set up player state listener
-    _audioPlayer.playerStateStream.listen(
+    _playerStateSubscription = _audioPlayer.playerStateStream.listen(
       (state) {
         _logger.i(
           'Player state changed: ${state.processingState} | Playing: ${state.playing} | Song: ${_currentSong?.title ?? "None"}',
@@ -142,19 +282,15 @@ class AudioService {
       _currentSong = song;
 
       // Create media item for notification
-      final mediaItem = MediaItem(
-        id: song.id,
-        title: song.title,
-        artist: song.artists.join(', '),
-        album: song.albums.isNotEmpty ? song.albums.first : null,
-        duration: song.duration,
-        artUri: song.albumArt != null ? Uri.file(song.albumArt!) : null,
-      );
+      final mediaItem = EnhancedNotificationService.createEnhancedMediaItem(song);
 
-      // Set audio source
-      final audioSource = AudioSource.file(song.path, tag: mediaItem);
+      // Set audio source (no tag needed - we'll update through audio_service)
+      final audioSource = AudioSource.file(song.path);
 
       await _audioPlayer.setAudioSource(audioSource);
+      
+      // Update media item in audio_service for notification
+      _audioHandler?.updateMediaItem(mediaItem);
 
       _logger.i('✅ Song loaded successfully (not playing)');
     } catch (e) {
@@ -196,9 +332,16 @@ class AudioService {
 
       // Create MediaItem and play directly
       final mediaItem = _createMediaItem(song);
-      final audioSource = AudioSource.file(song.path, tag: mediaItem);
+      final audioSource = AudioSource.file(song.path);
 
       await _audioPlayer.setAudioSource(audioSource);
+      
+      // Update media item in audio_service for notification BEFORE playing
+      // This ensures the notification appears immediately
+      // Note: Shuffle/repeat state should already be synced by MusicBloc before playSong is called
+      await _audioHandler?.updateMediaItem(mediaItem);
+      
+      // Start playback - this triggers PlaybackState update which shows notification
       await _audioPlayer.play();
 
       // Start play count tracking
@@ -259,6 +402,15 @@ class AudioService {
       _logger.i(
         '▶️ Resuming playback | Song: ${_currentSong?.title ?? "None"} | Position: ${_audioPlayer.position.inSeconds}s',
       );
+      
+      // Ensure MediaItem is set in AudioHandler before resuming
+      // This is critical for notification to appear when resuming
+      if (_currentSong != null && _audioHandler != null) {
+        final mediaItem = _createMediaItem(_currentSong!);
+        await _audioHandler!.updateMediaItem(mediaItem);
+        _logger.i('📱 MediaItem updated for resume - notification should appear');
+      }
+      
       await _audioPlayer.play();
       _logger.i(
         '✅ Playback resumed successfully | Song: ${_currentSong?.title ?? "None"} | Position: ${_audioPlayer.position.inSeconds}s',
@@ -279,6 +431,10 @@ class AudioService {
 
       await _audioPlayer.stop();
       _currentSong = null;
+      
+      // Clear media item from notification
+      await _audioHandler?.clearMediaItem();
+      
       _logger.i('Playback stopped');
     } catch (e) {
       _logger.e('Error stopping playback: $e');
@@ -323,9 +479,6 @@ class AudioService {
       rethrow;
     }
   }
-
-  // Removed playNext, playPrevious, setShuffle, setRepeat, and _handleSongCompletion methods
-  // All queue management and playback logic is now handled by MusicBloc
 
   /// Set volume
   Future<void> setVolume(double volume) async {
@@ -389,8 +542,6 @@ class AudioService {
     return EnhancedNotificationService.createEnhancedMediaItem(song);
   }
 
-  // Removed playlist management functions - handled by MusicBloc
-
   /// Get current MediaItem
   MediaItem? get currentMediaItem {
     if (_currentSong == null) return null;
@@ -401,7 +552,18 @@ class AudioService {
   Future<void> dispose() async {
     _logger.i('Disposing audio service...');
 
-    await _audioPlayer.dispose();
+    // Cancel subscriptions
+    await _positionSubscription?.cancel();
+    await _durationSubscription?.cancel();
+    await _playingSubscription?.cancel();
+    await _playerStateSubscription?.cancel();
+
+    // Dispose fallback player if exists
+    if (_fallbackPlayer != null) {
+      await _fallbackPlayer!.dispose();
+      _fallbackPlayer = null;
+    }
+    
     await _positionController.close();
     await _durationController.close();
     await _playingController.close();

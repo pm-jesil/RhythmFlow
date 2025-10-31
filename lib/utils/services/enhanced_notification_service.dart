@@ -1,10 +1,8 @@
 import 'dart:io';
-import 'package:just_audio_background/just_audio_background.dart';
-import 'package:injectable/injectable.dart';
+import 'package:audio_service/audio_service.dart';
 import '../models/song/song_model.dart';
 import '../logger/logger.dart';
 
-@singleton
 class EnhancedNotificationService {
   static final AppLogger _logger = AppLogger('EnhancedNotificationService');
 
@@ -66,34 +64,4 @@ class EnhancedNotificationService {
     }
   }
 
-  /// Create playlist MediaItems with enhanced metadata
-  static List<MediaItem> createEnhancedPlaylistMediaItems(List<Song> songs) {
-    _logger.i('📋 Creating enhanced playlist with ${songs.length} songs');
-    return songs.map((song) => createEnhancedMediaItem(song)).toList();
-  }
-
-  /// Show enhanced notification when music starts playing
-  static Future<void> showEnhancedNotification({
-    required Song song,
-    required bool isPlaying,
-  }) async {
-    try {
-      _logger.i('📱 Showing enhanced notification | Song: "${song.title}" | Playing: $isPlaying');
-      // Notification is automatically managed by just_audio_background
-      _logger.i('✅ Enhanced notification shown by just_audio_background');
-    } catch (e) {
-      _logger.e('❌ Error showing enhanced notification: $e | Song: "${song.title}"');
-    }
-  }
-
-  /// Hide enhanced notification when music stops
-  static Future<void> hideEnhancedNotification() async {
-    try {
-      _logger.i('📱 Hiding enhanced notification');
-      // Notification is automatically hidden by just_audio_background
-      _logger.i('✅ Enhanced notification hidden by just_audio_background');
-    } catch (e) {
-      _logger.e('❌ Error hiding enhanced notification: $e');
-    }
-  }
 }

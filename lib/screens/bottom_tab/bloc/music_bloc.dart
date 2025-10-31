@@ -17,7 +17,6 @@ import '../../../utils/logger/logger.dart';
 import '../../../utils/services/fetch_songs.dart';
 import '../../../utils/services/music_service.dart';
 import '../../../utils/services/audio_service.dart';
-import '../../../utils/services/enhanced_notification_service.dart';
 import '../../../utils/services/remote_control_service.dart';
 import '../../../utils/services/song_cleanup_service.dart';
 import '../../../utils/services/play_count_tracking_service.dart';
@@ -101,6 +100,77 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     _audioService.onSongChanged = _onAudioServiceSongChanged;
     _audioService.setPositionChangedCallback(_onPositionChanged);
     _audioService.setInvalidSongCallback(_onInvalidSong);
+    _audioService.setSkipCallbacks(
+      onNext: () => add(const MusicEvent.playNext()),
+      onPrevious: () => add(const MusicEvent.playPrevious()),
+    );
+    _audioService.setShuffleRepeatCallbacks(
+      onShuffle: () {
+        // Trigger the same 3-state cycle logic as music player screen
+        // None → AI → Normal → None
+        final currentPlayList = state.myPlayerState.currentPlayList;
+        final currentSongId = state.myPlayerState.currentSongId;
+        final appSettings = _appSettingsBloc.state;
+        final isAiShuffleEnabled = appSettings.isAiShuffleEnabled;
+        final isShuffleActive = state.myPlayerState.isShuffle;
+
+        if (isAiShuffleEnabled) {
+          // AI → Normal: disable AI, then enable regular shuffle (auto-start)
+          _appSettingsBloc.add(
+            AppSettingsEvent.updateAiShuffle(isEnabled: false),
+          );
+          add(MusicEvent.toggleShuffle(
+            isShuffle: true,
+            currentPlayList: currentPlayList,
+            isAutoStart: false,
+          ));
+        } else if (isShuffleActive) {
+          // Normal → None: disable regular shuffle
+          add(MusicEvent.toggleShuffle(
+            isShuffle: false,
+            currentPlayList: currentPlayList,
+          ));
+        } else {
+          // None → AI: enable AI and trigger AI shuffle
+          _appSettingsBloc.add(
+            AppSettingsEvent.updateAiShuffle(isEnabled: true),
+          );
+          if (currentSongId != null) {
+            add(MusicEvent.aiShuffle(
+              currentSongId: currentSongId,
+              currentPlayList: currentPlayList,
+            ));
+          }
+        }
+      },
+      onRepeat: () => add(const MusicEvent.toggleRepeat()),
+    );
+    _audioService.setPlayPauseCallbacks(
+      onPlay: () {
+        // When play is pressed from notification, trigger play/pause event
+        if (state.myPlayerState.currentSongId != null &&
+            !state.myPlayerState.isPlaying) {
+          add(
+            MusicEvent.playOrPauseSong(
+              songId: state.myPlayerState.currentSongId,
+              currentPlayList: state.myPlayerState.currentPlayList,
+            ),
+          );
+        }
+      },
+      onPause: () {
+        // When pause is pressed from notification, trigger play/pause event
+        if (state.myPlayerState.currentSongId != null &&
+            state.myPlayerState.isPlaying) {
+          add(
+            MusicEvent.playOrPauseSong(
+              songId: state.myPlayerState.currentSongId,
+              currentPlayList: state.myPlayerState.currentPlayList,
+            ),
+          );
+        }
+      },
+    );
     _remoteControlService.setActionCallback(_handleRemoteControlAction);
 
     SyncAppSettingsHelper.initializeSettingsSync(
@@ -108,6 +178,15 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
       audioService: _audioService,
     );
     
+    // Sync initial shuffle/repeat state to notification when bloc is created
+    // This ensures notification shows correct icons on first song play
+    _audioService.updateShuffleRepeatState(
+      isShuffle: state.myPlayerState.isShuffle,
+      isAiShuffle: _appSettingsBloc.state.isAiShuffleEnabled,
+      repeatModeIndex: state.myPlayerState.repeatModeIndex,
+    );
+    _logger.i('📱 Initial shuffle/repeat state synced to notification');
+
     // Listen to app settings changes for mutual exclusivity
     _appSettingsBloc.stream.listen((appSettingsState) {
       // When AI shuffle is enabled, disable regular shuffle
@@ -117,6 +196,16 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           isShuffle: false,
           currentPlayList: [],
         ));
+        // Update notification to show AI shuffle
+        _audioService.updateShuffleRepeatState(
+          isShuffle: false,
+          isAiShuffle: true,
+        );
+      } else if (!appSettingsState.isAiShuffleEnabled) {
+        // When AI shuffle is disabled, clear AI shuffle state in notification
+        _audioService.updateShuffleRepeatState(
+          isAiShuffle: false,
+        );
       }
     });
 
@@ -879,6 +968,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           previousSongId: null,
           completedSongs: [],
           repeatModeIndex: state.myPlayerState.repeatModeIndex,
+          isShuffle: state.myPlayerState.isShuffle,
         ).reorderToStartWith(event.songId!).copyWith(
           isPlaying: true,
           lastPosition: null, // Clear position for new song
@@ -898,6 +988,14 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         // Reset invalid song attempts counter when starting new song
         _invalidSongAttempts = 0;
 
+        // Sync shuffle/repeat state to notification BEFORE playing
+        // This ensures notification shows correct icons from the start
+        _audioService.updateShuffleRepeatState(
+          isShuffle: newPlayerState.isShuffle,
+          isAiShuffle: _appSettingsBloc.state.isAiShuffleEnabled,
+          repeatModeIndex: newPlayerState.repeatModeIndex,
+        );
+
         // Play the song with the complete allSongs list to maintain order
         // Play the song from beginning
         _audioService.playSong(
@@ -905,6 +1003,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           playlistId: playlistId,
           playlistSource: source,
         );
+        
         _showNotificationForCurrentSong();
 
         // Start sleep timer when song starts playing
@@ -1002,6 +1101,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           previousSongId: state.myPlayerState.currentSongId,
           completedSongs: [],
           repeatModeIndex: state.myPlayerState.repeatModeIndex,
+          isShuffle: state.myPlayerState.isShuffle,
         ).reorderToStartWith(event.songId!).copyWith(
           isPlaying: true,
           lastPosition: null, // Clear position for new song
@@ -1017,6 +1117,14 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         // Reset invalid song attempts counter when starting new song
         _invalidSongAttempts = 0;
 
+        // Sync shuffle/repeat state to notification BEFORE playing
+        // This ensures notification shows correct icons from the start
+        _audioService.updateShuffleRepeatState(
+          isShuffle: newPlayerState.isShuffle,
+          isAiShuffle: _appSettingsBloc.state.isAiShuffleEnabled,
+          repeatModeIndex: newPlayerState.repeatModeIndex,
+        );
+
         // Play the song with the complete allSongs list to maintain order
         // Play the song from beginning
         _audioService.playSong(
@@ -1024,6 +1132,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           playlistId: playlistId,
           playlistSource: source,
         );
+        
         _showNotificationForCurrentSong();
 
         // Start sleep timer when playing different song
@@ -1055,7 +1164,8 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
       _logger.i('Playing next song from queue');
 
       if (state.myPlayerState.currentPlayList.isNotEmpty) {
-        final updatedQueue = state.myPlayerState.nextSong();
+        // Use nextSongIgnoringRepeat() - Next button should NOT respect repeat mode
+        final updatedQueue = state.myPlayerState.nextSongIgnoringRepeat();
 
         if (updatedQueue.currentSongId != null &&
             updatedQueue.currentSongId != state.myPlayerState.currentSongId) {
@@ -1077,6 +1187,14 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
             ),
           );
 
+          // Sync shuffle/repeat state to notification BEFORE playing
+          // This ensures notification shows correct icons from the start
+          _audioService.updateShuffleRepeatState(
+            isShuffle: updatedQueue.isShuffle,
+            isAiShuffle: _appSettingsBloc.state.isAiShuffleEnabled,
+            repeatModeIndex: updatedQueue.repeatModeIndex,
+          );
+
           // Play the song
           await _audioService.playSong(
             nextSong,
@@ -1095,7 +1213,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
             musicBloc: this,
           );
         } else {
-          _logger.w('⚠️ No next song in queue or same song (loop/repeat mode)');
+          _logger.w('⚠️ Next button: No next song available (playlist has only one song or is empty)');
         }
       } else {
         _logger.w('⚠️ No songs in queue');
@@ -1135,6 +1253,14 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
             state.copyWith(
               myPlayerState: updatedQueue.copyWith(isPlaying: true),
             ),
+          );
+
+          // Sync shuffle/repeat state to notification BEFORE playing
+          // This ensures notification shows correct icons from the start
+          _audioService.updateShuffleRepeatState(
+            isShuffle: updatedQueue.isShuffle,
+            isAiShuffle: _appSettingsBloc.state.isAiShuffleEnabled,
+            repeatModeIndex: updatedQueue.repeatModeIndex,
           );
 
           // Play the song
@@ -1254,6 +1380,12 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         state.copyWith(myPlayerState: shuffledQueue.copyWith(isShuffle: true)),
       );
 
+      // Update notification shuffle state (disable AI shuffle when enabling normal shuffle)
+      _audioService.updateShuffleRepeatState(
+        isShuffle: true,
+        isAiShuffle: false,
+      );
+
       // Track regular shuffle usage
       _appSettingsBloc.add(
         AppSettingsEvent.trackShuffleUsage(shuffleType: 'regular_shuffle'),
@@ -1368,6 +1500,12 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         state.copyWith(myPlayerState: revertedQueue.copyWith(isShuffle: false)),
       );
 
+      // Update notification shuffle state
+      _audioService.updateShuffleRepeatState(
+        isShuffle: false,
+        isAiShuffle: false,
+      );
+
       _logger.i(
         '✅ Shuffle disabled | Queue: ${revertedQueue.remainingSongs} songs',
       );
@@ -1388,6 +1526,9 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
     // Update myPlayerState with new repeat mode
     emit(state.copyWith(myPlayerState: updatedQueue));
+
+    // Update notification repeat state
+    _audioService.updateShuffleRepeatState(repeatModeIndex: newRepeatModeIndex);
   }
 
   // ==================== SORTING AND SEEKING EVENT HANDLERS ====================
@@ -1581,6 +1722,12 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
       // Emit new state
       emit(currentState.copyWith(myPlayerState: updatedPlayerState));
 
+      // Update notification with AI shuffle state
+      _audioService.updateShuffleRepeatState(
+        isShuffle: false,
+        isAiShuffle: true,
+      );
+
       _logger.i(
         '✅ AI Shuffle completed: ${reorderedPlaylist.length} songs reordered',
       );
@@ -1689,12 +1836,13 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         ),
       );
     } else {
-      // Same song or no previous song - just update current song
+      // Same song or no previous song - just update current song and previousSongId
       add(
         MusicEvent.updateMusicBlocState(
           newState: state.copyWith(
             myPlayerState: state.myPlayerState.copyWith(
               currentSongId: newSong.id,
+              previousSongId: state.myPlayerState.currentSongId, // Update previousSongId
               currentPlayList: state.myPlayerState.currentPlayList,
               isPlaying: true,
             ),
@@ -1733,10 +1881,12 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
   }
 
   /// Try to play next song, if not available try previous song
+  /// This is a fallback for invalid songs - should ignore repeat mode
   void _tryPlayNextSong() {
     try {
       if (state.myPlayerState.currentPlayList.isNotEmpty) {
-        final updatedQueue = state.myPlayerState.nextSong();
+        // Use nextSongIgnoringRepeat() - fallback should move to next song regardless of repeat mode
+        final updatedQueue = state.myPlayerState.nextSongIgnoringRepeat();
 
         if (updatedQueue.currentSongId != null) {
           // Found next song - play it
@@ -1753,6 +1903,14 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
                 myPlayerState: updatedQueue.copyWith(isPlaying: true),
               ),
             ),
+          );
+
+          // Sync shuffle/repeat state to notification BEFORE playing
+          // This ensures notification shows correct icons from the start
+          _audioService.updateShuffleRepeatState(
+            isShuffle: updatedQueue.isShuffle,
+            isAiShuffle: _appSettingsBloc.state.isAiShuffleEnabled,
+            repeatModeIndex: updatedQueue.repeatModeIndex,
           );
 
           _audioService.playSong(
@@ -1797,6 +1955,14 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
                 myPlayerState: updatedQueue.copyWith(isPlaying: true),
               ),
             ),
+          );
+
+          // Sync shuffle/repeat state to notification BEFORE playing
+          // This ensures notification shows correct icons from the start
+          _audioService.updateShuffleRepeatState(
+            isShuffle: updatedQueue.isShuffle,
+            isAiShuffle: _appSettingsBloc.state.isAiShuffleEnabled,
+            repeatModeIndex: updatedQueue.repeatModeIndex,
           );
 
           _audioService.playSong(
@@ -1911,11 +2077,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           (song) => song.id == state.myPlayerState.currentSongId,
         );
 
-        EnhancedNotificationService.showEnhancedNotification(
-          song: currentSong,
-          isPlaying: state.myPlayerState.isPlaying,
-        );
-
+        // Notification is automatically managed by audio_service
         _logger.i('📱 Notification updated for: "${currentSong.title}"');
       } catch (e) {
         _logger.e('❌ Error updating notification: $e');
@@ -1931,11 +2093,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           (song) => song.id == state.myPlayerState.currentSongId,
         );
 
-        EnhancedNotificationService.showEnhancedNotification(
-          song: currentSong,
-          isPlaying: state.myPlayerState.isPlaying,
-        );
-
+        // Notification is automatically managed by audio_service
         _logger.i('📱 Notification shown for: "${currentSong.title}"');
       } catch (e) {
         _logger.e('❌ Error showing notification: $e');
@@ -1946,7 +2104,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
   /// Hide notification when music stops
   void _hideNotification() {
     try {
-      EnhancedNotificationService.hideEnhancedNotification();
+      // Notification is automatically managed by audio_service
       _logger.i('📱 Notification hidden');
     } catch (e) {
       _logger.e('❌ Error hiding notification: $e');
@@ -1997,13 +2155,23 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           final nextSong = state.allSongs.firstWhere(
             (s) => s.id == updatedQueue.currentSongId,
           );
-          _audioService.playSong(
+          
+          // Sync shuffle/repeat state to notification BEFORE playing
+          // This ensures notification shows correct icons from the start
+          _audioService.updateShuffleRepeatState(
+            isShuffle: updatedQueue.isShuffle,
+            isAiShuffle: _appSettingsBloc.state.isAiShuffleEnabled,
+            repeatModeIndex: updatedQueue.repeatModeIndex,
+          );
+          
+          await _audioService.playSong(
             nextSong,
             playlistId: state.myPlayerState.playlistId,
             playlistSource: _getPlaylistSourceFromId(
               state.myPlayerState.playlistId,
             ),
           );
+          
           _updateNotificationForCurrentSong();
         } else {
           // No next song - just move current to completed

@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Shuffle icon matching CupertinoIcons.shuffle - crossing curved arrows -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M16.5,3l4.5,4.5l-4.5,4.5M19.5,7.5H5.25M7.5,21l-4.5,-4.5l4.5,-4.5M4.5,16.5H18.75"
+        android:strokeWidth="2"
+        android:strokeColor="#FFFFFF"
+        android:fillType="nonZero"/>
+</vector>

@@ -796,8 +796,7 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                                   ? MediaQuery.of(
                                                           context,
                                                         ).size.width -
-                                                        20
-                                                            .w // Full width minus left margin when expanded
+                                                        20.w // Full width minus left margin when expanded
                                                   : 140.w, // Show 3 icons initially (2 + arrow)
                                               decoration: BoxDecoration(
                                                 gradient: LinearGradient(

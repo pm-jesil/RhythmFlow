@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_bloc.dart';
 import '../../../core/router/app_router.dart';
 import 'bloc/app_settings_bloc.dart';
+import '../bottom_tab/bloc/music_bloc.dart';
 import '../../../core/widgets/app_custom.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -308,6 +309,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildAiShuffleSettings(AppSettingsState state) {
+    return BlocBuilder<MusicBloc, MusicState>(
+      builder: (context, musicState) {
+        final isNormalShuffleEnabled = musicState.myPlayerState.isShuffle;
+        
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16.w),
       decoration: BoxDecoration(
@@ -328,7 +333,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: 'Enable AI Shuffle',
             subtitle: 'Intelligently reorders playlist based on current song features',
             value: state.isAiShuffleEnabled,
-            onChanged: (value) => _updateAiShuffle(value),
+                onChanged: (value) => _updateAiShuffle(value, isNormalShuffleEnabled),
+              ),
+              _buildDivider(),
+              _buildNativeSwitchTile(
+                icon: CupertinoIcons.shuffle,
+                title: 'Enable Normal Shuffle',
+                subtitle: 'Randomly shuffle the playlist order',
+                value: isNormalShuffleEnabled,
+                onChanged: (value) => _updateNormalShuffle(value, state.isAiShuffleEnabled, musicState),
           ),
           _buildDivider(),
           _buildNativeListTile(
@@ -341,6 +354,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
       ),
+        );
+      },
     );
   }
 
@@ -492,9 +507,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _updateAiShuffle(bool isEnabled) {
+  void _updateAiShuffle(bool isEnabled, bool isNormalShuffleEnabled) {
+    // Update AI shuffle setting first
+    // MusicBloc's listener will automatically handle disabling normal shuffle if needed
     context.read<AppSettingsBloc>().add(
       AppSettingsEvent.updateAiShuffle(isEnabled: isEnabled),
+    );
+    
+    // If enabling AI shuffle and normal shuffle is currently enabled,
+    // manually disable normal shuffle for immediate response
+    // (MusicBloc listener will also handle this, but doing it here ensures UI updates immediately)
+    if (isEnabled && isNormalShuffleEnabled) {
+      final musicBloc = context.read<MusicBloc>();
+      final currentPlayList = musicBloc.state.myPlayerState.currentPlayList;
+      musicBloc.add(
+        MusicEvent.toggleShuffle(
+          isShuffle: false,
+          currentPlayList: currentPlayList,
+        ),
+      );
+    }
+  }
+
+  void _updateNormalShuffle(bool isEnabled, bool isAiShuffleEnabled, MusicState musicState) {
+    final musicBloc = context.read<MusicBloc>();
+    final currentPlayList = musicState.myPlayerState.currentPlayList;
+    
+    // If enabling normal shuffle, disable AI shuffle first
+    // (MusicBloc's _onToggleShuffle will also handle this, but doing it here ensures consistency)
+    if (isEnabled && isAiShuffleEnabled) {
+      context.read<AppSettingsBloc>().add(
+        AppSettingsEvent.updateAiShuffle(isEnabled: false),
+      );
+    }
+    
+    // Update normal shuffle via MusicBloc
+    // Note: MusicBloc's _onToggleShuffle will also disable AI shuffle if it's enabled,
+    // but we do it above for immediate UI response
+    musicBloc.add(
+      MusicEvent.toggleShuffle(
+        isShuffle: isEnabled,
+        currentPlayList: currentPlayList,
+        isAutoStart: false,
+      ),
     );
   }
 

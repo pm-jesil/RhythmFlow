@@ -74,32 +74,74 @@ class MyPlayerStateModel {
   }
 
   // Get next song based on repeat settings and add current to completed
+  // This is used ONLY when a song completes playing (respects repeat mode)
   MyPlayerStateModel nextSong() {
     if (currentPlayList.isEmpty || currentSongId == null) return this;
     
-    // If loop mode, play current song again (don't add to completed)
-    if (isLoop) {
-      return copyWith(
-        currentSongId: currentSongId,
-        previousSongId: currentSongId,
-      );
+    // If repeat one mode, check previousSongId to determine behavior
+    if (isRepeatOne) {
+      // If previousSongId == currentSongId, it means we just repeated this song
+      // Now we should play the next song and add current to completed
+      if (previousSongId == currentSongId) {
+        // Already repeated once - now play next song
+        final currentIndex = currentPlayList.indexOf(currentSongId!);
+        if (currentIndex >= 0 && currentIndex < currentPlayList.length - 1) {
+          final nextSongId = currentPlayList[currentIndex + 1];
+          return _addCurrentToCompletedAndSetNext(nextSongId);
+        }
+        // At end of playlist - can't play next
+        return this;
+      } else {
+        // First time completing - repeat the same song and update previousSongId
+        return copyWith(
+          currentSongId: currentSongId,
+          previousSongId: currentSongId, // Update previousSongId to current
+        );
+      }
     }
     
-    // If repeat one mode, play same song again (don't add to completed)
-    if (isRepeatOne) {
-      return copyWith(
-        currentSongId: currentSongId,
-        previousSongId: currentSongId,
-      );
+    // If loop mode (repeat all), loop back to first song if at end, otherwise play next
+    final currentIndex = currentPlayList.indexOf(currentSongId!);
+    if (isLoop) {
+      if (currentIndex >= 0 && currentIndex < currentPlayList.length - 1) {
+        // Not at end - play next song
+        final nextSongId = currentPlayList[currentIndex + 1];
+        return _addCurrentToCompletedAndSetNext(nextSongId);
+      } else {
+        // At end of playlist - loop back to first song
+        final firstSongId = currentPlayList.first;
+        return _addCurrentToCompletedAndSetNext(firstSongId);
+      }
     }
     
     // Normal mode (repeat off) - play next song and add current to completed
-    final currentIndex = currentPlayList.indexOf(currentSongId!);
     if (currentIndex >= 0 && currentIndex < currentPlayList.length - 1) {
       final nextSongId = currentPlayList[currentIndex + 1];
       return _addCurrentToCompletedAndSetNext(nextSongId);
     }
     
+    return this;
+  }
+
+  // Get next song IGNORING repeat mode - used for Next button
+  // This always moves to the next song in playlist and adds current to completed
+  // If at end of playlist, loops back to first song (ignoring repeat mode)
+  MyPlayerStateModel nextSongIgnoringRepeat() {
+    if (currentPlayList.isEmpty || currentSongId == null) return this;
+    
+    // Always play next song and add current to completed (ignore repeat mode)
+    final currentIndex = currentPlayList.indexOf(currentSongId!);
+    if (currentIndex >= 0 && currentIndex < currentPlayList.length - 1) {
+      // Not at end - play next song
+      final nextSongId = currentPlayList[currentIndex + 1];
+      return _addCurrentToCompletedAndSetNext(nextSongId);
+    } else if (currentIndex >= 0 && currentPlayList.length > 1) {
+      // At end of playlist - loop back to first song (ignore repeat mode)
+      final firstSongId = currentPlayList.first;
+      return _addCurrentToCompletedAndSetNext(firstSongId);
+    }
+    
+    // Only one song in playlist - can't move to next
     return this;
   }
 
@@ -193,6 +235,7 @@ class MyPlayerStateModel {
 
   // Reorder playlist to start with the specified song
   // Tapped song becomes first, then songs after it, then songs before it
+  // If currentSongId is changing, preserve it as previousSongId
   MyPlayerStateModel reorderToStartWith(String songId) {
     if (currentPlayList.isEmpty || !currentPlayList.contains(songId)) {
       return this;
@@ -220,9 +263,14 @@ class MyPlayerStateModel {
       newPlaylist.add(currentPlayList[i]);
     }
     
+    // If currentSongId is changing, update previousSongId
+    // Otherwise preserve existing previousSongId
+    final shouldUpdatePrevious = currentSongId != null && currentSongId != songId;
+    
     return copyWith(
       currentPlayList: newPlaylist,
       currentSongId: songId,
+      previousSongId: shouldUpdatePrevious ? currentSongId : previousSongId,
     );
   }
 

@@ -1,14 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:just_audio_background/just_audio_background.dart';
+import 'package:audio_service/audio_service.dart' as audio_service_pkg;
 import 'package:rhythmflow/utils/services/audio_service.dart';
 import 'package:rhythmflow/utils/models/song/song_model.dart';
 
 // Mock classes
 class MockAudioPlayer extends Mock implements AudioPlayer {}
 class MockAudioSource extends Fake implements AudioSource {}
-class MockMediaItem extends Fake implements MediaItem {}
+class MockMediaItem extends Fake implements audio_service_pkg.MediaItem {}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

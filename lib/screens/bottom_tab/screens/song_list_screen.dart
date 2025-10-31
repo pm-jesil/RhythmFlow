@@ -207,7 +207,7 @@ class _SongListScreenState extends State<SongListScreen> {
                     onSortPressed: _showSortingMenu,
                     scrollController: _scrollController,
                   ),
-                  SizedBox(height: 20.h),
+                  SizedBox(height: 10.h),
                   Expanded(
                     child: Stack(
                       children: [
@@ -251,106 +251,90 @@ class _SongListScreenState extends State<SongListScreen> {
                                     borderRadius: BorderRadius.circular(28.r),
                                     onTap: () {
                                       if (_filteredSongs.isNotEmpty) {
-                                        final appSettingsState = context
-                                            .read<AppSettingsBloc>()
-                                            .state;
-                                        final musicState = context
-                                            .read<MusicBloc>()
-                                            .state;
-                                        final isShuffleActive = musicState.myPlayerState.isShuffle;
+                                        final appSettingsBloc = context
+                                            .read<AppSettingsBloc>();
+                                        final musicBloc = context
+                                            .read<MusicBloc>();
+                                        final appSettingsState =
+                                            appSettingsBloc.state;
+                                        final musicState = musicBloc.state;
 
-                                        if (appSettingsState.isAiShuffleEnabled) {
-                                          // AI shuffle is enabled - disable it
-                                          context.read<AppSettingsBloc>().add(
-                                            AppSettingsEvent.updateAiShuffle(
-                                              isEnabled: false,
-                                            ),
-                                          );
-                                        } else if (isShuffleActive) {
-                                          // Regular shuffle is enabled - disable it
-                                          context.read<MusicBloc>().add(
-                                            MusicEvent.toggleShuffle(
-                                              isShuffle: false,
-                                              currentPlayList: musicState
-                                                  .myPlayerState
-                                                  .currentPlayList,
-                                            ),
-                                          );
-                                        } else {
-                                          // Both are disabled - check last used shuffle type
-                                          final shuffleHistory = appSettingsState.shuffleHistory;
-                                          if (shuffleHistory.isNotEmpty) {
-                                            final lastShuffleType = shuffleHistory.first;
-                                            if (lastShuffleType == 'ai_shuffle') {
-                                              // Enable AI shuffle and play random song
-                                              context.read<AppSettingsBloc>().add(
-                                                AppSettingsEvent.updateAiShuffle(
-                                                  isEnabled: true,
-                                                ),
-                                              );
-                                              
-                                              final randomSong = _filteredSongs[DateTime.now()
-                                                  .millisecondsSinceEpoch % _filteredSongs.length];
-                                              
-                                              context.read<MusicBloc>().add(
-                                                MusicEvent.playOrPauseSong(
-                                                  songId: randomSong.id,
-                                                  currentPlayList: _filteredSongs
-                                                      .map((song) => song.id)
-                                                      .toList(),
-                                                  playlistSource: PlaylistSource.allSongs(),
-                                                ),
-                                              );
-                                            } else {
-                                              // Enable regular shuffle and play random song
-                                              final randomSong = _filteredSongs[DateTime.now()
-                                                  .millisecondsSinceEpoch % _filteredSongs.length];
-                                              
-                                              context.read<MusicBloc>().add(
-                                                MusicEvent.toggleShuffle(
-                                                  isShuffle: true,
-                                                  isAutoStart: true,
-                                                  currentPlayList: _filteredSongs
-                                                      .map((song) => song.id)
-                                                      .toList(),
-                                                  playlistSource: PlaylistSource.allSongs(),
-                                                ),
-                                              );
-                                              
-                                              context.read<MusicBloc>().add(
-                                                MusicEvent.playOrPauseSong(
-                                                  songId: randomSong.id,
-                                                  currentPlayList: _filteredSongs
-                                                      .map((song) => song.id)
-                                                      .toList(),
-                                                ),
-                                              );
-                                            }
-                                          } else {
-                                            // No history - default to regular shuffle
-                                            final randomSong = _filteredSongs[DateTime.now()
-                                                .millisecondsSinceEpoch % _filteredSongs.length];
-                                            
-                                            context.read<MusicBloc>().add(
+                                        final isAiShuffleEnabled =
+                                            appSettingsState.isAiShuffleEnabled;
+                                        final isNormalShuffleEnabled =
+                                            musicState.myPlayerState.isShuffle;
+
+                                        // Determine which shuffle mode to use based on visible icon
+                                        // AI icon: AI enabled OR both disabled (defaults to AI)
+                                        // Normal icon: Normal enabled AND AI disabled
+                                        final bool useAiShuffle =
+                                            isAiShuffleEnabled ||
+                                            !isNormalShuffleEnabled;
+
+                                        // Pick a random song
+                                        final randomIndex = DateTime.now()
+                                                .millisecondsSinceEpoch %
+                                            _filteredSongs.length;
+                                        final randomSong =
+                                            _filteredSongs[randomIndex];
+                                        final allSongIds = _filteredSongs
+                                            .map((song) => song.id)
+                                            .toList();
+
+                                        if (useAiShuffle) {
+                                          // AI Shuffle mode: Enable AI, disable normal, then play
+                                          if (isNormalShuffleEnabled) {
+                                            musicBloc.add(
                                               MusicEvent.toggleShuffle(
-                                                isShuffle: true,
-                                                isAutoStart: true,
-                                                currentPlayList: _filteredSongs
-                                                    .map((song) => song.id)
-                                                    .toList(),
-                                                playlistSource: PlaylistSource.allSongs(),
-                                              ),
-                                            );
-                                            
-                                            context.read<MusicBloc>().add(
-                                              MusicEvent.playOrPauseSong(
-                                                songId: randomSong.id,
-                                                currentPlayList: _filteredSongs
-                                                    .map((song) => song.id)
-                                                    .toList(),
+                                                isShuffle: false,
+                                                currentPlayList: allSongIds,
                                               ),
                                             );
                                           }
+                                          if (!isAiShuffleEnabled) {
+                                            appSettingsBloc.add(
+                                              AppSettingsEvent.updateAiShuffle(
+                                                isEnabled: true,
+                                              ),
+                                            );
+                                          }
+                                          musicBloc.add(
+                                            MusicEvent.playOrPauseSong(
+                                              songId: randomSong.id,
+                                              currentPlayList: allSongIds,
+                                              playlistSource:
+                                                  PlaylistSource.allSongs(),
+                                            ),
+                                          );
+                                        } else {
+                                          // Normal Shuffle mode: Enable normal, disable AI, then play
+                                           print(
+                                            '🔄 Normal Shuffle icon is visible: Ensure normal shuffle is enabled, AI is disabled BEFORE playing',
+                                          );
+                                          if (isAiShuffleEnabled) {
+                                            appSettingsBloc.add(
+                                              AppSettingsEvent.updateAiShuffle(
+                                                isEnabled: false,
+                                              ),
+                                            );
+                                          }
+                                          if (!isNormalShuffleEnabled) {
+                                            musicBloc.add(
+                                              MusicEvent.toggleShuffle(
+                                                isShuffle: true,
+                                                isAutoStart: false,
+                                                currentPlayList: allSongIds,
+                                              ),
+                                            );
+                                          }
+                                          musicBloc.add(
+                                            MusicEvent.playOrPauseSong(
+                                              songId: randomSong.id,
+                                              currentPlayList: allSongIds,
+                                              playlistSource:
+                                                  PlaylistSource.allSongs(),
+                                            ),
+                                          );
                                         }
                                       }
                                     },
@@ -362,56 +346,42 @@ class _SongListScreenState extends State<SongListScreen> {
                                           28.r,
                                         ),
                                       ),
-                                      child:
-                                          BlocBuilder<
-                                            AppSettingsBloc,
-                                            AppSettingsState
+                                      child: BlocBuilder<AppSettingsBloc, AppSettingsState>(
+                                        builder: (context, appSettingsState) {
+                                          return BlocBuilder<
+                                            MusicBloc,
+                                            MusicState
                                           >(
-                                            builder:
-                                                (context, appSettingsState) {
-                                                  return BlocBuilder<MusicBloc, MusicState>(
-                                                    builder: (context, musicState) {
-                                                      final bool isAi = appSettingsState.isAiShuffleEnabled;
-                                                      final bool isNormal = musicState.myPlayerState.isShuffle;
+                                            builder: (context, musicState) {
+                                              final bool isAi = appSettingsState
+                                                  .isAiShuffleEnabled;
+                                              final bool isNormal = musicState
+                                                  .myPlayerState
+                                                  .isShuffle;
 
-                                                      if (isAi) {
-                                                        return Icon(
-                                                          CupertinoIcons.sparkles,
-                                                          color: Colors.white,
-                                                          size: 24.sp,
-                                                        );
-                                                      }
-                                                      if (isNormal) {
-                                                  return Icon(
-                                                          CupertinoIcons.shuffle,
-                                                          color: Colors.white,
-                                                          size: 24.sp,
-                                                        );
-                                                      }
+                                              // Show AI shuffle icon if AI is enabled OR both are disabled (default to AI)
+                                              // Show normal shuffle icon only if normal is enabled (and AI is disabled)
+                                              final bool showAiIcon =
+                                                  isAi || (!isAi && !isNormal);
 
-                                                      // None: show shuffle with cross line (inactive)
-                                                      return Stack(
-                                                        alignment: Alignment.center,
-                                                        children: [
-                                                          Icon(
-                                                            CupertinoIcons.shuffle,
-                                                    color: Colors.white,
-                                                    size: 24.sp,
-                                                          ),
-                                                          Transform.rotate(
-                                                            angle: 0.8,
-                                                            child: Container(
-                                                              width: 18.w,
-                                                              height: 2.h,
-                                                              color: Colors.white.withValues(alpha: 0.7),
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      );
-                                                    },
-                                                  );
-                                                },
-                                          ),
+                                              if (showAiIcon) {
+                                                return Icon(
+                                                  CupertinoIcons.sparkles,
+                                                  color: Colors.white,
+                                                  size: 24.sp,
+                                                );
+                                              } else {
+                                                // Normal shuffle is enabled and AI is disabled
+                                                return Icon(
+                                                  CupertinoIcons.shuffle,
+                                                  color: Colors.white,
+                                                  size: 24.sp,
+                                                );
+                                              }
+                                            },
+                                          );
+                                        },
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -515,7 +485,7 @@ class _SongListScreenState extends State<SongListScreen> {
 
         // Songs List - Optimized with better performance
         SliverPadding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          padding: EdgeInsets.only(left: 16.w, right: 16.w, top: 0.h),
           sliver: SliverList(
             delegate: SliverChildBuilderDelegate(
               (context, index) {
@@ -648,9 +618,9 @@ class _SongListScreenState extends State<SongListScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: context.primaryStart,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(12.r),
               ),
             ),
           ),

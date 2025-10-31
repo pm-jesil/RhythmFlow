@@ -93,6 +93,7 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
               title: 'Albums',
               scrollController: _scrollController,
             ),
+            SizedBox(height: 10.h),
             Expanded(
               child: BlocBuilder<MusicBloc, MusicState>(
                 builder: (context, state) {

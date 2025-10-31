@@ -1,0 +1,20 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- AI Shuffle icon matching CupertinoIcons.sparkles - sparkles/stars -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,2l2,6l6,2l-6,2l-2,6l-2,-6l-6,-2l6,-2z"
+        android:fillType="nonZero"/>
+    <!-- Additional sparkles -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M4,4l1,2l2,1l-2,1l-1,2l-1,-2l-2,-1l2,-1z"
+        android:fillType="nonZero"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M20,18l1,2l2,1l-2,1l-1,2l-1,-2l-2,-1l2,-1z"
+        android:fillType="nonZero"/>
+</vector>

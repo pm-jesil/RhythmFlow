@@ -35,7 +35,7 @@ class CustomTabViewAppBar extends StatefulWidget
   State<CustomTabViewAppBar> createState() => _CustomTabViewAppBarState();
 
   @override
-  Size get preferredSize => Size.fromHeight(80.h);
+  Size get preferredSize => Size.fromHeight(56.h);
 }
 
 class _CustomTabViewAppBarState extends State<CustomTabViewAppBar>
@@ -155,18 +155,18 @@ class _CustomTabViewAppBarState extends State<CustomTabViewAppBar>
   @override
   Widget build(BuildContext context) {
     return SafeArea(
+      bottom: false,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
-        height: (_isVisible || !widget.isRequiredHideAppBar) ? 66.h : 0,
+        height: (_isVisible || !widget.isRequiredHideAppBar) ? 56.h : 0,
         decoration: const BoxDecoration(color: Colors.transparent),
         child: ClipRect(
           child: Container(
-            height: kToolbarHeight + MediaQuery.of(context).padding.top,
+            height: 56.h,
             decoration: const BoxDecoration(color: Colors.transparent),
-            child: SafeArea(
-              child: Padding(
-                padding: EdgeInsets.only(left: 16.w, right: 16.w, top: 10.h),
+            child: Padding(
+              padding: EdgeInsets.only(left: 16.w, right: 16.w, top: 4.h, bottom: 0.h),
                 child: Stack(
                   children: [
                     // Normal app bar content
@@ -282,8 +282,7 @@ class _CustomTabViewAppBarState extends State<CustomTabViewAppBar>
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 
   IconButton _buildActionButton({

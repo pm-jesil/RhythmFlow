@@ -7,8 +7,10 @@ import 'package:flutter/foundation.dart';
 import 'package:rhythmflow/core/di/injection.dart';
 import 'package:rhythmflow/screens/app_settings/bloc/app_settings_bloc.dart';
 import 'package:music_feature_analyzer/music_feature_analyzer.dart';
+import 'package:audio_service/audio_service.dart' as audio_service_pkg;
 import 'utils/logger/logger.dart';
-import 'package:just_audio_background/just_audio_background.dart';
+import 'utils/services/audio_handler.dart';
+import 'utils/services/audio_service.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_bloc.dart';
@@ -32,15 +34,33 @@ void main() async {
     logger.e('❌ Error initializing dependencies: $e');
   }
 
+  // Initialize audio_service for background playback and notifications
   try {
-    await JustAudioBackground.init(
+    final audioHandler = RhythmFlowAudioHandler();
+    await audio_service_pkg.AudioService.init(
+      builder: () => audioHandler,
+      config: audio_service_pkg.AudioServiceConfig(
       androidNotificationChannelId: 'com.technexa.rhythmflow.channel.audio',
       androidNotificationChannelName: 'RhythmFlow',
       androidNotificationOngoing: true,
+        androidStopForegroundOnPause: true, // Must be true when androidNotificationOngoing is true
+        androidShowNotificationBadge: true,
+        androidNotificationClickStartsActivity: true,
+      ),
     );
-    logger.i('✅ JustAudioBackground initialized successfully');
+    
+    // Set the audio handler in AudioService after initialization
+    try {
+      final audioService = getIt<AudioService>();
+      audioService.setAudioHandler(audioHandler);
+      logger.i('✅ AudioService handler connected');
+    } catch (e) {
+      logger.w('⚠️ Could not connect AudioService handler: $e');
+    }
+    
+    logger.i('✅ AudioService initialized successfully');
   } catch (e) {
-    logger.e('❌ JustAudioBackground initialization failed: $e');
+    logger.e('❌ AudioService initialization failed: $e');
   }
 
   // Initialize Music Feature Analyzer

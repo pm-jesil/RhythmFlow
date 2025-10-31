@@ -187,7 +187,7 @@ class AlbumArtistPlaylistHelper {
     int initialLoadCount = 15,
   }) {
     return SliverPadding(
-      padding: EdgeInsets.only(left: 16.w, right: 16.w, top: 0.h),
+      padding: EdgeInsets.only(left: 16.w, right: 16.w, top: 0.h, bottom: 0.h),
       sliver: SliverToBoxAdapter(
         child: AnimatedOpacity(
           opacity: 1.0,
@@ -197,6 +197,7 @@ class AlbumArtistPlaylistHelper {
             crossAxisCount: 3,
             mainAxisSpacing: 8.h,
             crossAxisSpacing: 8.w,
+            padding: EdgeInsets.zero,
             itemCount: items.length,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -234,7 +235,7 @@ class AlbumArtistPlaylistHelper {
     final showAllItems = !hasMoreItems || !isLoadingMore;
 
     return SliverPadding(
-      padding: EdgeInsets.only(left: 16.w, right: 16.w, top: 0.h),
+      padding: EdgeInsets.only(left: 16.w, right: 16.w, top: 0.h, bottom: 0.h),
       sliver: SliverToBoxAdapter(
         child: AnimatedOpacity(
           opacity: 1.0,
@@ -247,6 +248,7 @@ class AlbumArtistPlaylistHelper {
                 crossAxisCount: 3,
                 mainAxisSpacing: 8.h,
                 crossAxisSpacing: 8.w,
+                padding: EdgeInsets.zero,
                 itemCount: showAllItems ? allItems.length : itemsToShow.length,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),

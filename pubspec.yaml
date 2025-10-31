@@ -36,7 +36,6 @@ dependencies:
   audio_service: ^0.18.18
   audiotags: ^1.4.5
   rxdart: ^0.28.0
-  just_audio_background: ^0.0.1-beta.17
 
   # Network & HTTP
   dio: ^5.9.0
