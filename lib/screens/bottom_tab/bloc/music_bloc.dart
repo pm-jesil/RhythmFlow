@@ -249,6 +249,38 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         _handleSongCompletion();
       }
     });
+
+    // Ensure favorites playlist exists after HydratedBloc initialization
+    // Use a delayed check to ensure state is loaded from storage first
+    Future.delayed(const Duration(milliseconds: 100), () {
+      _ensureFavoritesPlaylistOnInit();
+    });
+  }
+
+  /// Ensure favorites playlist exists in the current state
+  /// This method checks if favorites exists and adds it if missing
+  void _ensureFavoritesPlaylistOnInit() {
+    final currentPlaylists = state.myPlaylist;
+    final hasFavorites = currentPlaylists.any(
+      (p) => p.id == MyPlaylistService.createDefaultFavoritesPlaylist().id,
+    );
+
+    if (!hasFavorites) {
+      _logger.i(
+        '❤️ Favorites playlist not found in state, adding default favorites playlist',
+      );
+      final playlistsWithFavorites = MyPlaylistService.ensureFavoritesPlaylist(
+        currentPlaylists,
+      );
+      // Update state with favorites playlist
+      add(
+        MusicEvent.updateMusicBlocState(
+          newState: state.copyWith(myPlaylist: playlistsWithFavorites),
+        ),
+      );
+    } else {
+      _logger.d('✅ Favorites playlist already exists in state');
+    }
   }
 
   @override

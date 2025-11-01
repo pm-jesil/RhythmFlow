@@ -45,24 +45,30 @@ abstract class MusicState with _$MusicState {
     @Default(false) bool appSettingsFetchSong,
   }) = _Initial;
 
-  factory MusicState.initial() => const MusicState(
-    // Player state
-    myPlayerState: MyPlayerStateModel(
-      completedSongs: [],
-      currentPlayList: [],
-      currentSongId: null,
-      repeatModeIndex: 0,
-      playlistId: null,
-      previousSongId: null,
-      isPlaying: false,
-      isShuffle: false,
-    ),
+  factory MusicState.initial() {
+    // Ensure favorites playlist exists in initial state
+    final defaultPlaylists = [
+      MyPlaylistService.createDefaultFavoritesPlaylist(),
+    ];
+    
+    return MusicState(
+      // Player state
+      myPlayerState: const MyPlayerStateModel(
+        completedSongs: [],
+        currentPlayList: [],
+        currentSongId: null,
+        repeatModeIndex: 0,
+        playlistId: null,
+        previousSongId: null,
+        isPlaying: false,
+        isShuffle: false,
+      ),
 
-    // Core data
-    allSongs: [],
-    albumList: [],
-    artistList: [],
-    myPlaylist: [],
+      // Core data
+      allSongs: const [],
+      albumList: const [],
+      artistList: const [],
+      myPlaylist: defaultPlaylists,
 
     // Sorting state (0 = Newest First)
     sortingIndex: 0,
@@ -82,5 +88,6 @@ abstract class MusicState with _$MusicState {
     // General loading and error states (for backward compatibility)
     isLoading: false,
     isError: false,
-  );
+    );
+  }
 }

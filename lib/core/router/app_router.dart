@@ -11,6 +11,7 @@ import '../../screens/app_settings/settings_screen.dart';
 import '../../screens/app_settings/music_library_settings_screen.dart';
 import '../../screens/app_settings/profile_edit_screen.dart';
 import '../../screens/app_settings/comprehensive_features_settings_screen.dart';
+import '../../screens/app_settings/custom_webview.dart';
 import '../../screens/welcome_screen.dart';
 import '../../screens/app_settings/bloc/app_settings_bloc.dart';
 import '../../utils/services/app_update_service.dart';
@@ -120,6 +121,15 @@ class AppRouter {
         path: '/comprehensive-features-settings',
         builder: (context, state) {
           return const ComprehensiveFeaturesSettingsScreen();
+        },
+      ),
+      GoRoute(
+        path: '/about-us',
+        builder: (context, state) {
+          return const CustomWebView(
+            url: 'https://pm-jesil.web.app/',
+            title: 'Developer Profile',
+          );
         },
       ),
     ],
@@ -285,6 +295,10 @@ extension NavigationExtension on BuildContext {
 
   void navigateToComprehensiveFeaturesSettings() {
     GoRouter.of(this).push('/comprehensive-features-settings');
+  }
+
+  void navigateToAboutUs() {
+    GoRouter.of(this).push('/about-us');
   }
 }
 

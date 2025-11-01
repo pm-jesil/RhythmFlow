@@ -157,7 +157,8 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                         ),
                       ),
 
-                      // SliverToBoxAdapter(child: SizedBox(height: 16.h)),
+                      // Gap above grid view
+                      SliverToBoxAdapter(child: SizedBox(height: 16.h)),
 
                       // Playlists List
                       if (_filteredPlaylists.isEmpty)

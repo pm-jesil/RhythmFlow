@@ -42,6 +42,7 @@ dependencies:
   connectivity_plus: ^6.0.5
   url_launcher: ^6.3.1
   share_plus: ^10.0.2
+  webview_flutter: ^4.9.0
 
   # File System & Permissions
   file_picker: ^10.3.2

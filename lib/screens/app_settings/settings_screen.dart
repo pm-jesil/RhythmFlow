@@ -72,6 +72,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _buildMusicSection(state),
             SizedBox(height: 24.h),
             _buildAdvancedSection(state),
+            SizedBox(height: 24.h),
+            _buildAboutSection(),
             SizedBox(height: 80.h),
           ],
         );
@@ -116,6 +118,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       children: [
         _buildSectionHeader('Advanced'),
         _buildAdvancedSettings(state),
+      ],
+    );
+  }
+
+  Widget _buildAboutSection() {
+    return Column(
+      children: [
+        _buildSectionHeader('About'),
+        _buildAboutSettings(),
       ],
     );
   }
@@ -399,6 +410,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
             icon: CupertinoIcons.info,
             title: 'App Version',
             subtitle: '1.0.0',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAboutSettings() {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16.w),
+      decoration: BoxDecoration(
+        color: context.surfaceColor,
+        borderRadius: BorderRadius.circular(12.r),
+        boxShadow: [
+          BoxShadow(
+            color: context.onSurfaceColor.withValues(alpha: 0.05),
+            blurRadius: 8.r,
+            offset: Offset(0, 2.h),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _buildNativeActionTile(
+            icon: CupertinoIcons.info_circle,
+            title: 'Developer Profile',
+            subtitle: 'View my portfolio and projects',
+            onTap: _openAboutUsWebsite,
           ),
         ],
       ),
@@ -851,5 +889,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _navigateToProfileEdit() {
     context.navigateToProfileEdit();
+  }
+
+  void _openAboutUsWebsite() {
+    context.navigateToAboutUs();
   }
 }
