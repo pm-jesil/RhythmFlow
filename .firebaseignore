@@ -1,0 +1,42 @@
+# Firebase ignore file
+# Files and folders to ignore during deployment
+
+# Flutter build files
+build/
+.idea/
+.vscode/
+*.iml
+*.lock
+*.log
+
+# Git
+.git/
+.gitignore
+
+# Flutter/Dart
+.dart_tool/
+.packages
+.pub/
+.pubspec.lock
+
+# Android
+android/
+ios/
+linux/
+macos/
+windows/
+web/
+
+# Source code (not needed for hosting)
+lib/
+test/
+assets/
+
+# Config files
+analysis_options.yaml
+pubspec.yaml
+README.md
+
+# Only deploy the policies folder contents
+!policies/**/*
+
