@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
@@ -69,6 +70,11 @@ class _ForYouScreenState extends State<ForYouScreen> {
             horizondalScrollingWidgetHomeIndex: newHorizontalIndex,
           ),
         ),
+      );
+      
+      // Check and update daily quote if needed
+      context.read<AppSettingsBloc>().add(
+        const AppSettingsEvent.updateDailyQuote(),
       );
     });
   }
@@ -285,15 +291,12 @@ class _ForYouScreenState extends State<ForYouScreen> {
     return BlocBuilder<AppSettingsBloc, AppSettingsState>(
       builder: (context, appSettingsState) {
         final nickName = appSettingsState.nickName ?? 'Music Lover';
-        final userName = appSettingsState.userName ?? 'User';
-
-        // Select quote based on current time and user name for variety
-        final now = DateTime.now();
-        final timeBasedSeed = now.millisecondsSinceEpoch;
-        final userBasedSeed = userName.hashCode.abs();
-        final combinedSeed =
-            (timeBasedSeed + userBasedSeed) % AppConstants.musicQuotes.length;
-        final selectedQuote = AppConstants.musicQuotes[combinedSeed];
+        
+        // Get quote from bloc state (updated daily)
+        final quoteIndex = appSettingsState.currentQuoteIndex;
+        // Ensure quote index is within bounds
+        final safeQuoteIndex = quoteIndex.clamp(0, AppConstants.musicQuotes.length - 1);
+        final selectedQuote = AppConstants.musicQuotes[safeQuoteIndex];
 
         return Custom3DCard(
           enableAnimation: true,
@@ -346,33 +349,61 @@ class _ForYouScreenState extends State<ForYouScreen> {
               SizedBox(height: 16.h),
 
               // Music Quote Section
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.all(10.w),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      context.primaryStart.withValues(alpha: 0.1),
-                      context.primaryEnd.withValues(alpha: 0.1),
-                    ],
+              GestureDetector(
+                onTap: () {
+                  // Force update quote on tap with smooth animation
+                  HapticFeedback.lightImpact();
+                  context.read<AppSettingsBloc>().add(
+                    const AppSettingsEvent.updateDailyQuote(forceUpdate: true),
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.all(10.w),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        context.primaryStart.withValues(alpha: 0.1),
+                        context.primaryEnd.withValues(alpha: 0.1),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(12.r),
+                    border: Border.all(
+                      color: context.primaryStart.withValues(alpha: 0.2),
+                      width: 1,
+                    ),
                   ),
-                  borderRadius: BorderRadius.circular(12.r),
-                  border: Border.all(
-                    color: context.primaryStart.withValues(alpha: 0.2),
-                    width: 1,
-                  ),
-                ),
-                child: Text(
-                  selectedQuote,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: context.onSurfaceColor,
-                    fontSize: 12.sp,
-                    fontStyle: FontStyle.italic,
-                    fontFamily: 'Poppins',
-                    height: 1.4,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 400),
+                    transitionBuilder: (Widget child, Animation<double> animation) {
+                      return FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0.0, 0.3),
+                            end: Offset.zero,
+                          ).animate(CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeOut,
+                          )),
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: Text(
+                      selectedQuote,
+                      key: ValueKey<String>(selectedQuote),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: context.onSurfaceColor,
+                        fontSize: 12.sp,
+                        fontStyle: FontStyle.italic,
+                        fontFamily: 'Poppins',
+                        height: 1.4,
+                      ),
+                    ),
                   ),
                 ),
               ),

@@ -95,6 +95,14 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
     return Container(
       width: widget.width,
       height: widget.height,
+      constraints: widget.width != null && widget.height != null
+          ? BoxConstraints(
+              minWidth: widget.width!,
+              maxWidth: widget.width!,
+              minHeight: widget.height!,
+              maxHeight: widget.height!,
+            )
+          : null,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(widget.borderRadius),
         gradient: context.primaryGradient,
@@ -110,10 +118,12 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
               ),
             ],
       ),
-      child: Icon(
-        widget.defaultIcon,
-        size: widget.defaultIconSize.sp,
-        color: Colors.white.withValues(alpha: 0.8),
+      child: Center(
+        child: Icon(
+          widget.defaultIcon,
+          size: widget.defaultIconSize.sp,
+          color: Colors.white.withValues(alpha: 0.9),
+        ),
       ),
     );
   }
@@ -122,9 +132,19 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
     return Container(
       width: widget.width,
       height: widget.height,
+      constraints: widget.width != null && widget.height != null
+          ? BoxConstraints(
+              minWidth: widget.width!,
+              maxWidth: widget.width!,
+              minHeight: widget.height!,
+              maxHeight: widget.height!,
+            )
+          : null,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(widget.borderRadius),
-        color: context.surfaceColor.withValues(alpha: 0.1),
+        color: context.isDark
+            ? context.cardColor.withValues(alpha: 0.5)
+            : context.cardColor.withValues(alpha: 0.3),
         boxShadow:
             widget.boxShadow ??
             [
@@ -154,9 +174,19 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
     return Container(
       width: widget.width,
       height: widget.height,
+      constraints: widget.width != null && widget.height != null
+          ? BoxConstraints(
+              minWidth: widget.width!,
+              maxWidth: widget.width!,
+              minHeight: widget.height!,
+              maxHeight: widget.height!,
+            )
+          : null,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(widget.borderRadius),
-        color: context.error.withValues(alpha: 0.1),
+        color: context.isDark
+            ? context.error.withValues(alpha: 0.15)
+            : context.error.withValues(alpha: 0.1),
         boxShadow:
             widget.boxShadow ??
             [
@@ -169,10 +199,12 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
               ),
             ],
       ),
-      child: Icon(
-        Icons.broken_image,
-        size: widget.defaultIconSize.sp,
-        color: context.error.withValues(alpha: 0.6),
+      child: Center(
+        child: Icon(
+          Icons.broken_image,
+          size: widget.defaultIconSize.sp,
+          color: context.error.withValues(alpha: 0.7),
+        ),
       ),
     );
   }
@@ -181,6 +213,14 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
     return Container(
       width: widget.width,
       height: widget.height,
+      constraints: widget.width != null && widget.height != null
+          ? BoxConstraints(
+              minWidth: widget.width!,
+              maxWidth: widget.width!,
+              minHeight: widget.height!,
+              maxHeight: widget.height!,
+            )
+          : null,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(widget.borderRadius),
         boxShadow:
@@ -200,6 +240,8 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
         child: widget.isNetworkImage
             ? Image.network(
                 widget.albumArt!,
+                width: widget.width,
+                height: widget.height,
                 fit: BoxFit.cover,
                 loadingBuilder: (context, child, loadingProgress) {
                   if (loadingProgress == null) return child;
@@ -211,6 +253,8 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
               )
             : Image.file(
                 File(widget.albumArt!),
+                width: widget.width,
+                height: widget.height,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) {
                   return _buildErrorWidget();

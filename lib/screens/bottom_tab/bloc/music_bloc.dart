@@ -61,6 +61,9 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
   // Counter to prevent infinite loops with invalid songs
   int _invalidSongAttempts = 0;
   static const int maxInvalidSongAttempts = 3;
+  
+  // Track previous AI shuffle state to detect when it's enabled
+  bool _previousAiShuffleState = false;
 
   // Sorting options constants
   static const List<String> sortingOptions = [
@@ -188,9 +191,12 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     _logger.i('📱 Initial shuffle/repeat state synced to notification');
 
     // Listen to app settings changes for mutual exclusivity
+    _previousAiShuffleState = _appSettingsBloc.state.isAiShuffleEnabled;
     _appSettingsBloc.stream.listen((appSettingsState) {
+      final isAiShuffleNowEnabled = appSettingsState.isAiShuffleEnabled;
+      
       // When AI shuffle is enabled, disable regular shuffle
-      if (appSettingsState.isAiShuffleEnabled && state.myPlayerState.isShuffle) {
+      if (isAiShuffleNowEnabled && state.myPlayerState.isShuffle) {
         _logger.i('🤖 AI Shuffle enabled - disabling regular shuffle');
         add(const MusicEvent.toggleShuffle(
           isShuffle: false,
@@ -201,13 +207,32 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           isShuffle: false,
           isAiShuffle: true,
         );
-      } else if (!appSettingsState.isAiShuffleEnabled) {
+      } else if (!isAiShuffleNowEnabled) {
         // When AI shuffle is disabled, clear AI shuffle state in notification
         _audioService.updateShuffleRepeatState(
           isAiShuffle: false,
         );
       }
+      
+      // Check and trigger music features analysis when AI shuffle is enabled
+      // Only check if AI shuffle was just enabled (not if it was already enabled)
+      if (isAiShuffleNowEnabled && !_previousAiShuffleState) {
+        _logger.i('🤖 AI Shuffle enabled - checking music features analysis');
+        _checkAndTriggerFeatureAnalysis();
+      }
+      
+      // Update previous state for next comparison
+      _previousAiShuffleState = isAiShuffleNowEnabled;
     });
+
+    // Check if AI shuffle is already enabled on startup and verify features
+    if (_appSettingsBloc.state.isAiShuffleEnabled) {
+      _logger.i('🤖 AI Shuffle already enabled on startup - checking music features analysis');
+      // Use a small delay to ensure state is fully initialized
+      Future.delayed(const Duration(milliseconds: 500), () {
+        _checkAndTriggerFeatureAnalysis();
+      });
+    }
 
     // Initialize app lifecycle handler
     AppLifecycleHandler.initialize(
@@ -2879,6 +2904,49 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         ),
       );
       _logger.e('❌ Error in comprehensive features extraction: $e');
+      _logger.e('Stack trace: $stackTrace');
+    }
+  }
+
+  /// Check if music features are analyzed and trigger background analysis if needed
+  void _checkAndTriggerFeatureAnalysis() {
+    try {
+      final currentState = state;
+      final allSongs = currentState.allSongs;
+      
+      // Skip if no songs available
+      if (allSongs.isEmpty) {
+        _logger.d('📊 No songs available for feature analysis check');
+        return;
+      }
+      
+      // Skip if already analyzing
+      if (currentState.isComprehensiveFeaturesExtractingLoading) {
+        _logger.d('📊 Feature analysis already in progress, skipping');
+        return;
+      }
+      
+      // Check if there are songs without features
+      final songsWithoutFeatures = allSongs.where((song) => song.features == null).toList();
+      
+      if (songsWithoutFeatures.isEmpty) {
+        _logger.i('✅ All songs already have features analyzed');
+        return;
+      }
+      
+      // Get progress to check completion percentage
+      final progress = MusicFeatureAnalyzer.getExtractionProgressWithSongs(allSongs);
+      final completionPercentage = progress['completionPercentage'] as double? ?? 0.0;
+      
+      _logger.i(
+        '📊 Feature analysis check: ${songsWithoutFeatures.length} songs need analysis (${completionPercentage.toStringAsFixed(1)}% complete)',
+      );
+      
+      // Trigger background analysis for songs without features
+      _logger.i('🚀 Starting background feature analysis for AI shuffle...');
+      add(const MusicEvent.extractComprehensiveFeatures(isForce: false));
+    } catch (e, stackTrace) {
+      _logger.e('❌ Error checking feature analysis: $e');
       _logger.e('Stack trace: $stackTrace');
     }
   }

@@ -18,6 +18,8 @@ class AppSettingsState with _$AppSettingsState {
     String? userName,
     String? nickName,
     required List<String> shuffleHistory,
+    DateTime? quoteUpdateDateTime,
+    required int currentQuoteIndex,
   }) = _Initial;
 
   factory AppSettingsState.initial() => AppSettingsState(
@@ -54,12 +56,14 @@ class AppSettingsState with _$AppSettingsState {
     sleepTimerMinutes: 30,
     isSleepTimerEnabled: false,
     autoPlayNext: true,
-    isAiShuffleEnabled: true, // Enable AI shuffle by default
+    isAiShuffleEnabled: false, // Disable AI shuffle by default
     showNotifications: true,
     playbackSpeed: 1.0,
-    appBackgroundRefreshTimeGap: 5,
+    appBackgroundRefreshTimeGap: 10,
     userName: null,
     nickName: null,
     shuffleHistory: [],
+    quoteUpdateDateTime: null,
+    currentQuoteIndex: 0,
   );
 }

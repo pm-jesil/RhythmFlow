@@ -3,6 +3,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:injectable/injectable.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/constants/app_constants.dart';
 
 part 'app_settings_event.dart';
 part 'app_settings_state.dart';
@@ -23,9 +24,15 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
     on<_UpdateUserProfile>(_onUpdateUserProfile);
     on<_UpdateAiShuffle>(_onUpdateAiShuffle);
     on<_TrackShuffleUsage>(_onTrackShuffleUsage);
+    on<_UpdateDailyQuote>(_onUpdateDailyQuote);
 
     // Initialize theme sync
     _initializeThemeSync();
+    
+    // Initialize quote if needed (when quoteUpdateDateTime is null)
+    if (state.quoteUpdateDateTime == null) {
+      add(const AppSettingsEvent.updateDailyQuote());
+    }
   }
 
   void _initializeThemeSync() {
@@ -169,10 +176,10 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
       sleepTimerMinutes: 30,
       isSleepTimerEnabled: false,
       autoPlayNext: true,
-      isAiShuffleEnabled: true,
+      isAiShuffleEnabled: false,
       showNotifications: true,
       playbackSpeed: 1.0,
-      appBackgroundRefreshTimeGap: 5,
+      appBackgroundRefreshTimeGap: 10,
 
       // Preserve these values
       userName: currentUserName,
@@ -180,6 +187,8 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
       isDarkMode: currentIsDarkMode,
       followSystemTheme: currentFollowSystemTheme,
       shuffleHistory: [],
+      quoteUpdateDateTime: state.quoteUpdateDateTime,
+      currentQuoteIndex: state.currentQuoteIndex,
     );
 
     emit(resetState);
@@ -284,6 +293,47 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
     emit(state.copyWith(shuffleHistory: currentHistory));
   }
 
+  void _onUpdateDailyQuote(
+    _UpdateDailyQuote event,
+    Emitter<AppSettingsState> emit,
+  ) {
+    final now = DateTime.now();
+    final quoteUpdateDateTime = state.quoteUpdateDateTime;
+    
+    // Check if quote needs to be updated (more than a day has passed) or force update
+    bool shouldUpdate = event.forceUpdate;
+    if (!shouldUpdate) {
+      if (quoteUpdateDateTime == null) {
+        // First time, initialize with a quote
+        shouldUpdate = true;
+      } else {
+        // Check if more than a day has passed
+        final difference = now.difference(quoteUpdateDateTime);
+        shouldUpdate = difference.inDays >= 1;
+      }
+    }
+    
+    if (shouldUpdate) {
+      int newQuoteIndex;
+      
+      if (event.forceUpdate) {
+        // When forced (tap), move to next quote in sequence
+        newQuoteIndex = (state.currentQuoteIndex + 1) % AppConstants.musicQuotes.length;
+      } else {
+        // Calculate new quote index based on current date and user name for consistency
+        final userName = state.userName ?? 'User';
+        final dateBasedSeed = now.year * 10000 + now.month * 100 + now.day;
+        final userBasedSeed = userName.hashCode.abs();
+        newQuoteIndex = (dateBasedSeed + userBasedSeed) % AppConstants.musicQuotes.length;
+      }
+      
+      emit(state.copyWith(
+        quoteUpdateDateTime: now,
+        currentQuoteIndex: newQuoteIndex,
+      ));
+    }
+  }
+
   @override
   Map<String, dynamic>? toJson(AppSettingsState state) {
     try {
@@ -303,6 +353,8 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
         'userName': state.userName,
         'nickName': state.nickName,
         'shuffleHistory': state.shuffleHistory,
+        'quoteUpdateDateTime': state.quoteUpdateDateTime?.toIso8601String(),
+        'currentQuoteIndex': state.currentQuoteIndex,
       };
     } catch (_) {
       return null; // skip persisting on serialization errors
@@ -355,11 +407,15 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
         autoPlayNext: json['autoPlayNext'] ?? true,
         showNotifications: json['showNotifications'] ?? true,
         playbackSpeed: (json['playbackSpeed'] ?? 1.0).toDouble(),
-        appBackgroundRefreshTimeGap: json['appBackgroundRefreshTimeGap'] ?? 5,
+        appBackgroundRefreshTimeGap: json['appBackgroundRefreshTimeGap'] ?? 10,
         userName: json['userName'],
         nickName: json['nickName'],
-        isAiShuffleEnabled: json['isAiShuffleEnabled'] ?? true,
+        isAiShuffleEnabled: json['isAiShuffleEnabled'] ?? false,
         shuffleHistory: List<String>.from(json['shuffleHistory'] ?? []),
+        quoteUpdateDateTime: json['quoteUpdateDateTime'] != null
+            ? DateTime.parse(json['quoteUpdateDateTime'])
+            : null,
+        currentQuoteIndex: json['currentQuoteIndex'] ?? 0,
       );
     } catch (e) {
       return null;

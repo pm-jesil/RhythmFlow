@@ -56,4 +56,8 @@ class AppSettingsEvent with _$AppSettingsEvent {
     required String shuffleType,
   }) = _TrackShuffleUsage;
 
+  const factory AppSettingsEvent.updateDailyQuote({
+    @Default(false) bool forceUpdate,
+  }) = _UpdateDailyQuote;
+
 }

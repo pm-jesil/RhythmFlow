@@ -217,17 +217,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           _buildDivider(),
-          _buildNativeSwitchTile(
-            icon: CupertinoIcons.bell,
-            title: 'Show Notifications',
-            value: state.showNotifications,
-            onChanged: (value) => _updatePlaybackSettings(
-              state.autoPlayNext,
-              value,
-              state.playbackSpeed,
-            ),
-          ),
-          _buildDivider(),
           _buildNativeSliderTile(
             icon: CupertinoIcons.speedometer,
             title: 'Playback Speed',
