@@ -152,9 +152,17 @@
 -keepattributes SourceFile,LineNumberTable
 -keep public class * extends java.lang.Exception
 
-# Keep native methods
--keepclasseswithmembernames class * {
+# Keep native methods - CRITICAL for JNI
+# This preserves all native methods with full signatures (needed for JNI)
+-keepclasseswithmembernames,includedescriptorclasses class * {
     native <methods>;
+}
+
+# Keep JNI OnLoad and OnUnload methods (critical for native library initialization)
+# These are entry points that native libraries call when loading
+-keepclasseswithmembernames class * {
+    public static *** JNI_OnLoad(...);
+    public static *** JNI_OnUnLoad(...);
 }
 
 # Keep enum values
@@ -231,3 +239,50 @@
 # TensorFlow Lite GPU (optional, only needed if using GPU acceleration)
 -dontwarn org.tensorflow.lite.gpu.**
 -keep class org.tensorflow.lite.gpu.** { *; }
+
+# ============================================================================
+# FFmpegKit Rules - CRITICAL for release builds
+# ============================================================================
+# FFmpegKit is a transitive dependency (from music_feature_analyzer)
+# These rules prevent crashes in release builds
+
+# Keep all FFmpegKit classes
+-keep class com.antonkarpenko.ffmpegkit.** { *; }
+-keep class com.ffmpegkit.** { *; }
+-keep class org.chromium.support_lib_boundary.** { *; }
+
+# Keep FFmpegKit native methods
+-keepclasseswithmembernames class com.antonkarpenko.ffmpegkit.** {
+    native <methods>;
+}
+
+# Keep AbiDetect class (critical for native library loading)
+-keep class com.antonkarpenko.ffmpegkit.AbiDetect { *; }
+-keep class com.antonkarpenko.ffmpegkit.FFmpegKitConfig { *; }
+-keep class com.antonkarpenko.ffmpegkit.FFmpegKitFlutterPlugin { *; }
+
+# Don't warn about missing classes (FFmpegKit has optional dependencies)
+-dontwarn com.antonkarpenko.ffmpegkit.**
+-dontwarn com.ffmpegkit.**
+-dontwarn org.chromium.support_lib_boundary.**
+
+# Keep native library loading methods
+-keepclassmembers class * {
+    native <methods>;
+}
+
+# Preserve JNI method names and signatures
+-keepclasseswithmembernames,includedescriptorclasses class * {
+    native <methods>;
+}
+
+# Keep all reflection-accessed classes (FFmpegKit uses reflection)
+-keepattributes Signature
+-keepattributes *Annotation*
+-keepattributes EnclosingMethod
+-keepattributes InnerClasses
+
+# Keep class names for native code (JNI uses class names)
+-keepnames class * {
+    native <methods>;
+}

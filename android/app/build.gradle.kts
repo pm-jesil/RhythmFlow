@@ -45,6 +45,17 @@ android {
         
         // Vector drawables support
         vectorDrawables.useSupportLibrary = true
+        
+        // FIX: Support for 16KB page size devices
+        // Exclude x86 and x86_64 architectures (mainly for emulators)
+        // These architectures have libraries incompatible with 16KB page size
+        // Real Android devices use ARM architectures (armeabi-v7a, arm64-v8a)
+        ndk {
+            //noinspection ChromeOsAbiSupport
+            // Only include ARM architectures - these support 16KB page size
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a")
+            // Excluded: "x86", "x86_64" - incompatible with 16KB page size
+        }
     }
 
     signingConfigs {
@@ -72,7 +83,12 @@ android {
             // Enable minification and obfuscation
             isMinifyEnabled = true
             isShrinkResources = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Use proguard-android.txt instead of optimize to prevent aggressive optimizations
+            // that might break JNI initialization
+            proguardFiles(
+                getDefaultProguardFile("proguard-android.txt"),
+                "proguard-rules.pro"
+            )
             
             // Disable debugging in release
             isDebuggable = false
@@ -107,6 +123,29 @@ android {
             excludes += "META-INF/notice.txt"
             excludes += "META-INF/ASL2.0"
             excludes += "META-INF/*.kotlin_module"
+        }
+        
+        // IMPORTANT: Exclude 16KB incompatible libraries
+        // Ensure FFmpegKit native libraries are properly included
+        // This prevents conflicts when multiple libraries provide the same .so files
+        jniLibs {
+            useLegacyPackaging = true
+            pickFirsts += listOf(
+                "lib/**/libffmpegkit*.so",
+                "lib/**/libffmpeg*.so",
+                "lib/**/libabidetect*.so"
+            )
+            // Exclude 16KB incompatible libraries
+            // Note: x86_64 is already excluded via abiFilters, but we explicitly exclude here too
+            excludes += listOf(
+                "lib/x86_64/libaudiotags.so",
+                "lib/x86_64/libtensorflowlite_gpu_jni.so",
+                "lib/x86_64/libtensorflowlite_jni.so",
+                // Exclude arm64-v8a audiotags - it's incompatible with 16KB page size
+                // The app has fallback metadata extraction that will work without this library
+                // This only affects metadata quality, not core functionality
+                "lib/arm64-v8a/libaudiotags.so"
+            )
         }
     }
     

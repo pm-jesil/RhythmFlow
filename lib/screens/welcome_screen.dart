@@ -158,39 +158,31 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   }
 
   Widget _buildAppIcon() {
-    // Try different Android icon paths in order of preference
-    final iconPaths = [
-      'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png',
-      'android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png',
-      'android/app/src/main/res/mipmap-xhdpi/ic_launcher.png',
-      'android/app/src/main/res/mipmap-hdpi/ic_launcher.png',
-      'android/app/src/main/res/mipmap-mdpi/ic_launcher.png',
-      'android/app/src/main/res/drawable/ic_launcher.png',
-    ];
-
-    return _tryImagePaths(iconPaths, 0);
-  }
-
-  Widget _tryImagePaths(List<String> paths, int index) {
-    if (index >= paths.length) {
-      // All paths failed, return fallback
-      return Container(
-        decoration: BoxDecoration(
-          gradient: context.primaryGradient,
-          borderRadius: BorderRadius.circular(20.r),
-        ),
-        child: Icon(Icons.music_note_rounded, color: Colors.white, size: 50.sp),
-      );
-    }
-
+    // Use app icon from assets
     return Image.asset(
-      paths[index],
-      width: 100.w,
-      height: 100.w,
+      'assets/images/rhythmflow_icon_512x512.png',
+      width: 80.w,
+      height: 80.w,
       fit: BoxFit.cover,
       errorBuilder: (context, error, stackTrace) {
-        // Try next path
-        return _tryImagePaths(paths, index + 1);
+        // Fallback to gradient container with app name if image fails to load
+        return Container(
+          decoration: BoxDecoration(
+            gradient: context.primaryGradient,
+            borderRadius: BorderRadius.circular(20.r),
+          ),
+          child: Center(
+            child: Text(
+              'RF',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 32.sp,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Poppins',
+              ),
+            ),
+          ),
+        );
       },
     );
   }

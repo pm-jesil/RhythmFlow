@@ -30,7 +30,8 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:requestLegacyExternalStorage="true"
-        android:preserveLegacyExternalStorage="true">
+        android:preserveLegacyExternalStorage="true"
+>
 
         <!-- Audio Service for background playback -->
         <service
