@@ -32,8 +32,6 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
   void initState() {
     super.initState();
     _logger.i('PlaylistsScreen initialized');
-
-    // Reset loading states when screen initializes
     _isLoadingMore = false;
     _hasTriggeredBackgroundLoad = false;
   }
@@ -43,8 +41,6 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
       setState(() {
         _isLoadingMore = true;
       });
-
-      // Simulate background loading with proper error handling
       Future.delayed(const Duration(milliseconds: 800), () {
         if (mounted) {
           setState(() {
@@ -81,22 +77,14 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
             ),
             Expanded(
               child: BlocBuilder<MusicBloc, MusicState>(
+                buildWhen: (previous, current) {
+                  return previous.myPlaylist.length != current.myPlaylist.length ||
+                      !identical(previous.myPlaylist, current.myPlaylist) ||
+                      previous.allSongs.length != current.allSongs.length;
+                },
                 builder: (context, state) {
-                  // Update filtered playlists when state changes
-                  if (_filteredPlaylists.isEmpty &&
-                      state.myPlaylist.isNotEmpty) {
-                    _filteredPlaylists = state.myPlaylist;
-                  } else if (state.myPlaylist.length !=
-                      _filteredPlaylists.length) {
-                    // Update when playlist count changes (new playlist added/deleted)
-                    _filteredPlaylists = state.myPlaylist;
-                  } else {
-                    // Always update filtered playlists to reflect any changes in playlist data
-                    // (e.g., when songs are added/removed from playlists)
-                    _filteredPlaylists = state.myPlaylist;
-                  }
+                  _filteredPlaylists = state.myPlaylist;
 
-                  // Trigger background loading after initial display
                   if (_filteredPlaylists.isNotEmpty &&
                       !_hasTriggeredBackgroundLoad &&
                       _filteredPlaylists.length > 15 &&
@@ -114,8 +102,11 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
 
                   return CustomScrollView(
                     controller: _scrollController,
+                    physics: const BouncingScrollPhysics(
+                      parent: AlwaysScrollableScrollPhysics(),
+                    ),
+                    cacheExtent: 400,
                     slivers: [
-                      // Create Playlist Button
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: EdgeInsets.symmetric(horizontal: 16.w),
@@ -156,11 +147,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                           ),
                         ),
                       ),
-
-                      // Gap above grid view
                       SliverToBoxAdapter(child: SizedBox(height: 16.h)),
-
-                      // Playlists List
                       if (_filteredPlaylists.isEmpty)
                         AlbumArtistPlaylistHelper.buildEmptyState(
                           context: context,
@@ -179,7 +166,9 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                           allItems: _filteredPlaylists,
                           itemBuilder: (context, index) {
                             final playlist = _filteredPlaylists[index];
-                            return _buildPlaylistCard(playlist, state.allSongs);
+                            return RepaintBoundary(
+                              child: _buildPlaylistCard(playlist, state.allSongs),
+                            );
                           },
                           onLoadMore: _loadMorePlaylists,
                           isLoadingMore: _isLoadingMore,
@@ -190,11 +179,11 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                           items: _filteredPlaylists,
                           itemBuilder: (context, index) {
                             final playlist = _filteredPlaylists[index];
-                            return _buildPlaylistCard(playlist, state.allSongs);
+                            return RepaintBoundary(
+                              child: _buildPlaylistCard(playlist, state.allSongs),
+                            );
                           },
                         ),
-
-                      // Bottom padding for navigation
                       AlbumArtistPlaylistHelper.buildBottomPadding(),
                     ],
                   );
@@ -223,7 +212,6 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Playlist Album Art Section
           AlbumArtistPlaylistHelper.buildCardImageSection(
             imageWidget: AlbumArtistPlaylistHelper.buildPlaylistImage(
               context: context,
@@ -233,8 +221,6 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
           ),
 
           SizedBox(height: 8.h),
-
-          // Playlist Info Section
           AlbumArtistPlaylistHelper.buildCardInfoSection(
             context: context,
             title: playlist.name,
@@ -326,8 +312,6 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
             onPressed: () {
               if (nameController.text.isNotEmpty) {
                 _logger.i('Creating playlist: ${nameController.text}');
-
-                // Create playlist using the new event
                 context.read<MusicBloc>().add(
                   MusicEvent.addOrUpdateMyPlayList(
                     operation: MyPlaylistOperation.create,

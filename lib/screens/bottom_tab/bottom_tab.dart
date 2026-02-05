@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
@@ -35,6 +36,7 @@ class BottomTabState extends State<BottomTab> with TickerProviderStateMixin {
   late Animation<Offset> _slideAnimation;
 
   int _selectedIndex = 0;
+  late PageController _pageController;
 
   final AppLogger _logger = AppLogger('BottomTab');
 
@@ -42,8 +44,6 @@ class BottomTabState extends State<BottomTab> with TickerProviderStateMixin {
   static const double iconScaleMin = 0.8;
   static const double iconScaleMax = 1.0;
   static const double scaleAnimationMax = 1.0;
-  static const double shadowOpacity = 0.15;
-  static const double backdropBlurSigma = 25.0;
 
   final List<IconData> _iconList = [
     CupertinoIcons.house,
@@ -65,11 +65,11 @@ class BottomTabState extends State<BottomTab> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _selectedIndex = widget.initialTabIndex;
+    _pageController = PageController(initialPage: widget.initialTabIndex);
     _logger.i(
-      '💡 BottomTab: 🎵 Initializing BottomTab with initial index: $_selectedIndex',
+      'BottomTab initializing with index: $_selectedIndex',
     );
 
-    // Initialize animation controllers with faster durations
     _iconController = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
@@ -90,7 +90,6 @@ class BottomTabState extends State<BottomTab> with TickerProviderStateMixin {
       vsync: this,
     );
 
-    // Initialize animations
     _iconAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _iconController, curve: Curves.easeInOutCubic),
     );
@@ -109,24 +108,20 @@ class BottomTabState extends State<BottomTab> with TickerProviderStateMixin {
           CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
         );
 
-    // Start animations
     _iconController.forward();
     _textController.forward();
     _slideController.forward();
 
-    // Initialize app with all required data (non-blocking)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        // Run initialization in background without blocking UI
-        AppInitializationService.initializeApp(context).catchError((error) {
-          // Silently handle initialization errors to prevent UI blocking
-        });
+        AppInitializationService.initializeApp(context).catchError((_) {});
       }
     });
   }
 
   @override
   void dispose() {
+    _pageController.dispose();
     _iconController.dispose();
     _textController.dispose();
     _scaleController.dispose();
@@ -134,7 +129,6 @@ class BottomTabState extends State<BottomTab> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  // Lazy loading screens for better performance
   Widget _getScreen(int index) {
     switch (index) {
       case 0:
@@ -152,33 +146,33 @@ class BottomTabState extends State<BottomTab> with TickerProviderStateMixin {
     }
   }
 
+  void _syncTabUiToIndex(int index) {
+    if (index == _selectedIndex) return;
+    setState(() => _selectedIndex = index);
+    _scaleController.forward().then((_) => _scaleController.reverse());
+    _iconController.reset();
+    _textController.reset();
+    _slideController.reset();
+    Future.wait([
+      _iconController.forward(),
+      _textController.forward(),
+      _slideController.forward(),
+    ]);
+  }
+
   void onTabTapped(int index) {
-    if (index != _selectedIndex) {
-      HapticFeedback.lightImpact();
-      _logger.i('👉 User tapped on tab index: $index');
+    if (index == _selectedIndex) return;
+    HapticFeedback.lightImpact();
+    _syncTabUiToIndex(index);
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 380),
+      curve: Curves.fastOutSlowIn,
+    );
+  }
 
-      // Instant tab switch - no delays
-      setState(() {
-        _selectedIndex = index;
-      });
-
-      // Optimized animations - start all at once for better performance
-      _scaleController.forward().then((_) {
-        _scaleController.reverse();
-      });
-
-      // Reset and start animations in parallel (non-blocking)
-      _iconController.reset();
-      _textController.reset();
-      _slideController.reset();
-
-      // Start all animations simultaneously for faster response
-      Future.wait([
-        _iconController.forward(),
-        _textController.forward(),
-        _slideController.forward(),
-      ]);
-    }
+  void _onPageChanged(int index) {
+    _syncTabUiToIndex(index);
   }
 
   @override
@@ -186,13 +180,21 @@ class BottomTabState extends State<BottomTab> with TickerProviderStateMixin {
     return Scaffold(
       body: Stack(
         children: [
-          // Main content with lazy loading
-          _getScreen(_selectedIndex),
-
-          // Pop-up Music Player Widget (appears on all screens)
+          PageView.builder(
+            controller: _pageController,
+            onPageChanged: _onPageChanged,
+            dragStartBehavior: DragStartBehavior.down,
+            physics: const _SmoothPageScrollPhysics(),
+            itemCount: _iconList.length,
+            itemBuilder: (context, index) {
+              return _PageTransitionWrapper(
+                pageIndex: index,
+                controller: _pageController,
+                child: _getScreen(index),
+              );
+            },
+          ),
           const PopUpMusicPlayerWidget(),
-
-          // Bottom navigation overlay
           Positioned(
             bottom: MediaQuery.of(context).padding.bottom + 8.h,
             left: 16.w,
@@ -209,7 +211,6 @@ class BottomTabState extends State<BottomTab> with TickerProviderStateMixin {
       height: 55.h,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(navigationBarBorderRadius.r),
-        // Little shadow on bottom
         boxShadow: [
           BoxShadow(
             color: context.isDark
@@ -219,7 +220,6 @@ class BottomTabState extends State<BottomTab> with TickerProviderStateMixin {
             offset: Offset(0, 4.h),
           ),
         ],
-        // Little border on all sides
         border: Border.all(
           color: context.onSurfaceColor.withValues(alpha: 0.1),
           width: 0.5.w,
@@ -281,7 +281,6 @@ class BottomTabState extends State<BottomTab> with TickerProviderStateMixin {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Icon with smooth animation
                   Transform.scale(
                     scale: isSelected
                         ? iconScaleMin +
@@ -299,8 +298,6 @@ class BottomTabState extends State<BottomTab> with TickerProviderStateMixin {
                       ),
                     ),
                   ),
-
-                  // Text with slide animation
                   if (isSelected) ...[
                     SizedBox(width: 8.w),
                     SlideTransition(
@@ -327,5 +324,59 @@ class BottomTabState extends State<BottomTab> with TickerProviderStateMixin {
         },
       ),
     );
+  }
+}
+
+/// Wraps each page with scale + fade based on scroll position for an
+/// attractive, smooth transition when swiping or animating between tabs.
+class _PageTransitionWrapper extends StatelessWidget {
+  const _PageTransitionWrapper({
+    required this.pageIndex,
+    required this.controller,
+    required this.child,
+  });
+
+  final int pageIndex;
+  final PageController controller;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, child) {
+        if (!controller.position.hasContentDimensions) return child!;
+        final page = controller.page ?? pageIndex.toDouble();
+        final delta = (page - pageIndex).abs().clamp(0.0, 1.0);
+        final scale = 1.0 - (delta * 0.04);
+        final opacity = (1.0 - (delta * 0.15)).clamp(0.0, 1.0);
+        return Transform.scale(
+          alignment: Alignment.center,
+          scale: scale,
+          child: Opacity(
+            opacity: opacity,
+            child: child,
+          ),
+        );
+      },
+      child: child,
+    );
+  }
+}
+
+/// Makes horizontal tab swipe feel smoother: page follows finger more
+/// and a light swipe is enough to move to the next tab. Keeps PageScrollPhysics
+/// so pages still snap correctly.
+class _SmoothPageScrollPhysics extends PageScrollPhysics {
+  const _SmoothPageScrollPhysics({super.parent});
+
+  @override
+  _SmoothPageScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return _SmoothPageScrollPhysics(parent: buildParent(ancestor));
+  }
+
+  @override
+  double applyPhysicsToUserOffset(ScrollMetrics position, double offset) {
+    return offset * 1.2;
   }
 }

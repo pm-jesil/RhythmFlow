@@ -346,61 +346,94 @@ class _AlbumArtWidgetOnMusicPlayerScreenState extends State<AlbumArtWidgetOnMusi
         scale: scale,
         child: Opacity(
           opacity: opacity,
-          child: _buildAlbumArt(song, isCurrent),
+          child: RepaintBoundary(child: _buildAlbumArt(song, isCurrent)),
         ),
       ),
     );
   }
 
+  static const Duration _artTransitionDuration = Duration(milliseconds: 300);
+  static const Curve _artTransitionCurve = Curves.easeOut;
+
   Widget _buildAlbumArt(Song song, bool isCurrent) {
+    final hasValidArt = song.albumArt != null && song.albumArt!.trim().isNotEmpty;
+    final Widget content = hasValidArt
+        ? SizedBox(
+            width: 180.r,
+            height: 180.r,
+            child: Image.file(
+              File(song.albumArt!),
+              width: 180.r,
+              height: 180.r,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return _buildDefaultAlbumArt(context);
+              },
+            ),
+          )
+        : _buildDefaultAlbumArt(context);
+    final Object switchKey = hasValidArt ? song.albumArt! : 'default';
+
     return Container(
       width: 180.r,
       height: 180.r,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18.r),
-              boxShadow: [
-                BoxShadow(
-                  color: context.isDark
-                      ? Colors.black.withValues(alpha: 0.5)
-                      : Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 20.r,
-                  offset: Offset(0, 10.h),
-                ),
-                BoxShadow(
-                  color: context.primaryStart.withValues(alpha: 0.2),
-                  blurRadius: 30.r,
-                  offset: Offset(0, 5.h),
-                ),
-              ],
+        boxShadow: [
+          BoxShadow(
+            color: context.isDark
+                ? Colors.black.withValues(alpha: 0.5)
+                : Colors.black.withValues(alpha: 0.2),
+            blurRadius: 20.r,
+            offset: Offset(0, 10.h),
+          ),
+          BoxShadow(
+            color: context.primaryStart.withValues(alpha: 0.2),
+            blurRadius: 30.r,
+            offset: Offset(0, 5.h),
+          ),
+        ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(18.r),
-        child: song.albumArt != null
-            ? Image.file(
-                File(song.albumArt!),
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return _buildDefaultAlbumArt(context);
-                },
-              )
-            : _buildDefaultAlbumArt(context),
+        child: AnimatedSwitcher(
+          duration: _artTransitionDuration,
+          switchInCurve: _artTransitionCurve,
+          switchOutCurve: _artTransitionCurve,
+          transitionBuilder: (Widget child, Animation<double> animation) {
+            return FadeTransition(
+              opacity: animation,
+              child: RepaintBoundary(child: child),
+            );
+          },
+          child: KeyedSubtree(key: ValueKey(switchKey), child: content),
+        ),
       ),
     );
   }
 
+  /// Default album art: same look as shared AlbumArtWidget (gradient + centered icon).
   Widget _buildDefaultAlbumArt(BuildContext context) {
+    const double size = 180.0; // .r applied below
+    final double w = size.r;
+    final double h = size.r;
+    final double iconSize = (size * 0.5).r; // ~50% of container like AlbumArtWidget
+    final double padding = (size * 0.12).r; // classic ~12% padding like AlbumArtWidget
     return Container(
+      width: w,
+      height: h,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [context.primaryStart, context.primaryEnd],
-        ),
+        gradient: context.primaryGradient,
       ),
-      child: Icon(
-        Icons.music_note,
-        size: 60.sp,
-        color: Colors.white.withValues(alpha: 0.8),
+      child: Center(
+        child: Padding(
+          padding: EdgeInsets.all(padding),
+          child: Icon(
+            Icons.music_note,
+            size: iconSize,
+            color: Colors.white.withValues(alpha: 0.9),
+          ),
+        ),
       ),
     );
   }

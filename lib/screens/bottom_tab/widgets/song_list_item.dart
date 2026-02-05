@@ -39,45 +39,44 @@ class SongListItem extends StatefulWidget {
 
 class _SongListItemState extends State<SongListItem>
     with TickerProviderStateMixin {
-  late AnimationController _waveController;
-  late AnimationController _pulseController;
   late AnimationController _scaleController;
-  late List<Animation<double>> _waveAnimations;
   late Animation<double> _scaleAnimation;
+
+  AnimationController? _waveController;
+  AnimationController? _pulseController;
+  List<Animation<double>>? _waveAnimations;
 
   @override
   void initState() {
     super.initState();
-    
-    _waveController = AnimationController(
-      duration: const Duration(milliseconds: 1200),
-      vsync: this,
-    );
-    
-    _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    );
-    
     _scaleController = AnimationController(
       duration: const Duration(milliseconds: 120),
       vsync: this,
     );
-    
     _scaleAnimation = Tween<double>(begin: 1.0, end: 0.88).animate(
       CurvedAnimation(
         parent: _scaleController,
         curve: Curves.elasticOut,
       ),
     );
-    
-    // Create wave animations for 3 bars
+  }
+
+  void _ensurePlayingAnimations() {
+    if (_waveController != null) return;
+    _waveController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
     _waveAnimations = List.generate(3, (index) {
       return Tween<double>(begin: 0.0, end: 1.0).animate(
         CurvedAnimation(
-          parent: _waveController,
+          parent: _waveController!,
           curve: Interval(
-            index * 0.2, // Stagger the animations
+            index * 0.2,
             (index * 0.2) + 0.6,
             curve: Curves.easeInOut,
           ),
@@ -86,15 +85,17 @@ class _SongListItemState extends State<SongListItem>
     });
   }
 
-  @override
-  void didUpdateWidget(SongListItem oldWidget) {
-    super.didUpdateWidget(oldWidget);
+  void _disposePlayingAnimations() {
+    _waveController?.dispose();
+    _waveController = null;
+    _pulseController?.dispose();
+    _pulseController = null;
+    _waveAnimations = null;
   }
 
   @override
   void dispose() {
-    _waveController.dispose();
-    _pulseController.dispose();
+    _disposePlayingAnimations();
     _scaleController.dispose();
     super.dispose();
   }
@@ -156,20 +157,24 @@ class _SongListItemState extends State<SongListItem>
 
   void _controlAnimations(bool isPlaying, bool isCurrentSong) {
     if (isCurrentSong && isPlaying) {
-      if (!_waveController.isAnimating) {
-        _waveController.repeat();
+      _ensurePlayingAnimations();
+      if (!_waveController!.isAnimating) {
+        _waveController!.repeat();
       }
-      if (!_pulseController.isAnimating) {
-        _pulseController.repeat(reverse: true);
+      if (!_pulseController!.isAnimating) {
+        _pulseController!.repeat(reverse: true);
       }
     } else {
-      if (_waveController.isAnimating) {
-        _waveController.stop();
-        _waveController.reset();
+      if (_waveController?.isAnimating ?? false) {
+        _waveController!.stop();
+        _waveController!.reset();
       }
-      if (_pulseController.isAnimating) {
-        _pulseController.stop();
-        _pulseController.reset();
+      if (_pulseController?.isAnimating ?? false) {
+        _pulseController!.stop();
+        _pulseController!.reset();
+      }
+      if (!isCurrentSong && _waveController != null) {
+        _disposePlayingAnimations();
       }
     }
   }
@@ -182,151 +187,32 @@ class _SongListItemState extends State<SongListItem>
         final currSongId = current.myPlayerState.currentSongId;
         final prevIsPlaying = previous.myPlayerState.isPlaying;
         final currIsPlaying = current.myPlayerState.isPlaying;
-        
-        return prevSongId != currSongId || 
-               prevIsPlaying != currIsPlaying ||
-               (prevSongId == widget.songId) != (currSongId == widget.songId);
+        return prevSongId != currSongId ||
+            prevIsPlaying != currIsPlaying ||
+            (prevSongId == widget.songId) != (currSongId == widget.songId);
       },
       builder: (context, state) {
-        final isCurrentlyPlaying = state.myPlayerState.currentSongId == widget.songId && state.myPlayerState.isPlaying;
+        final isCurrentlyPlaying = state.myPlayerState.currentSongId == widget.songId &&
+            state.myPlayerState.isPlaying;
         final isCurrentSong = state.myPlayerState.currentSongId == widget.songId;
-        
         _controlAnimations(isCurrentlyPlaying, isCurrentSong);
         final isSelected = isCurrentSong;
+        final isScaleAnimating = _scaleController.isAnimating;
 
+        // When not scaling (idle), avoid AnimatedBuilder + Transform for smoother list scrolling
+        if (!isScaleAnimating && _scaleAnimation.value == 1.0) {
+          return _buildTileContent(context, isSelected, isCurrentlyPlaying, 1.0);
+        }
         return AnimatedBuilder(
           animation: _scaleAnimation,
           builder: (context, child) {
             return Transform.scale(
               scale: _scaleAnimation.value,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isSelected 
-                      ? context.primaryStart.withValues(alpha: 0.1)
-                      : context.cardColor.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(10.r),
-                  border: Border.all(
-                    color: isSelected 
-                        ? context.primaryStart.withValues(alpha: 0.3)
-                        : context.onSurfaceColor.withValues(alpha: 0.1),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1 + (1 - _scaleAnimation.value) * 0.1),
-                      blurRadius: 8 + (1 - _scaleAnimation.value) * 4,
-                      offset: Offset(0, 2 + (1 - _scaleAnimation.value) * 2),
-                    ),
-                  ],
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                    child: GestureDetector(
-                    onTap: _handleTileTap,
-                    onLongPress: _handleLongPress,
-                    onLongPressStart: (_) => _handleLongPressStart(),
-                    onLongPressEnd: (_) => _handleLongPressEnd(),
-                    onLongPressCancel: () => _handleLongPressCancel(),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(10.r),
-                      onTap: _handleTileTap,
-                      child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h), // Further reduced padding
-                child: Row(
-                  children: [
-                    // Album Art
-                    AlbumArtWidget(
-                      albumArt: widget.albumArtPath,
-                      width: 40.w,
-                      height: 40.h,
-                      borderRadius: 6.r,
-                      boxShadow: [
-                        BoxShadow(
-                          color: context.isDark 
-                              ? Colors.black.withValues(alpha: 0.4)
-                              : Colors.black.withValues(alpha: 0.2),
-                          blurRadius: 6.r,
-                          offset: Offset(0, 1.h),
-                        ),
-                      ],
-                      defaultIconSize: 20.0,
-                    ),
-                    
-                    SizedBox(width: 10.w), // Further reduced spacing between album art and text
-                    
-                    // Song Info
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.songTitle,
-                            style: TextStyle(
-                              color: isSelected ? context.primaryStart : context.onSurfaceColor,
-                              fontSize: 14.sp, // Reduced font size
-                              fontWeight: FontWeight.w600,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          SizedBox(height: 1.h), // Further reduced spacing
-                          Text(
-                            widget.artistName,
-                            style: TextStyle(
-                              color: isSelected 
-                                  ? context.primaryStart.withValues(alpha: 0.8)
-                                  : context.onSurfaceVariantColor,
-                              fontSize: 12.sp, // Reduced font size
-                              fontWeight: FontWeight.w400,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          SizedBox(height: 0.5.h), // Further reduced spacing
-                          Text(
-                            widget.albumName,
-                            style: TextStyle(
-                              color: isSelected 
-                                  ? context.primaryStart.withValues(alpha: 0.6)
-                                  : context.onSurfaceVariantColor.withValues(alpha: 0.8),
-                              fontSize: 10.sp, // Reduced font size
-                              fontWeight: FontWeight.w400,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    SizedBox(width: 10.w), // Further reduced spacing
-                    
-                    // Duration and Play Button
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _formatDuration(widget.duration),
-                          style: TextStyle(
-                            color: isSelected 
-                                ? context.primaryStart
-                                : context.onSurfaceVariantColor,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        GestureDetector(
-                          onTap: _handlePlayButtonTap,
-                          child: _buildPlayButton(context, isCurrentlyPlaying, isSelected),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                      ),
-                    ),
-                  ),
-                ),
+              child: _buildTileContent(
+                context,
+                isSelected,
+                isCurrentlyPlaying,
+                _scaleAnimation.value,
               ),
             );
           },
@@ -335,11 +221,155 @@ class _SongListItemState extends State<SongListItem>
     );
   }
 
-  Widget _buildPlayButton(BuildContext context, bool isPlaying, bool isCurrentSong) {
-    if (isCurrentSong && isPlaying) {
-      // Show wave animation for currently playing song
+  Widget _buildTileContent(
+    BuildContext context,
+    bool isSelected,
+    bool isCurrentlyPlaying, [
+    double scaleValue = 1.0,
+  ]) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isSelected
+            ? context.primaryStart.withValues(alpha: 0.1)
+            : context.cardColor.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(10.r),
+        border: Border.all(
+          color: isSelected
+              ? context.primaryStart.withValues(alpha: 0.3)
+              : context.onSurfaceColor.withValues(alpha: 0.1),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(
+              alpha: 0.1 + (1 - scaleValue) * 0.1,
+            ),
+            blurRadius: 8 + (1 - scaleValue) * 4,
+            offset: Offset(0, 2 + (1 - scaleValue) * 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: GestureDetector(
+          onTap: _handleTileTap,
+          onLongPress: _handleLongPress,
+          onLongPressStart: (_) => _handleLongPressStart(),
+          onLongPressEnd: (_) => _handleLongPressEnd(),
+          onLongPressCancel: () => _handleLongPressCancel(),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10.r),
+            onTap: _handleTileTap,
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: 12.w,
+                vertical: 4.h,
+              ),
+              child: Row(
+                children: [
+                  AlbumArtWidget(
+                    albumArt: widget.albumArtPath,
+                    width: 40.w,
+                    height: 40.h,
+                    borderRadius: 6.r,
+                    boxShadow: [
+                      BoxShadow(
+                        color: context.isDark
+                            ? Colors.black.withValues(alpha: 0.4)
+                            : Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 6.r,
+                        offset: Offset(0, 1.h),
+                      ),
+                    ],
+                    defaultIconSize: 20.0,
+                  ),
+                  SizedBox(width: 10.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.songTitle,
+                          style: TextStyle(
+                            color: isSelected
+                                ? context.primaryStart
+                                : context.onSurfaceColor,
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        SizedBox(height: 1.h),
+                        Text(
+                          widget.artistName,
+                          style: TextStyle(
+                            color: isSelected
+                                ? context.primaryStart.withValues(alpha: 0.8)
+                                : context.onSurfaceVariantColor,
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.w400,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        SizedBox(height: 0.5.h),
+                        Text(
+                          widget.albumName,
+                          style: TextStyle(
+                            color: isSelected
+                                ? context.primaryStart.withValues(alpha: 0.6)
+                                : context.onSurfaceVariantColor.withValues(alpha: 0.8),
+                            fontSize: 10.sp,
+                            fontWeight: FontWeight.w400,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: 10.w),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _formatDuration(widget.duration),
+                        style: TextStyle(
+                          color: isSelected
+                              ? context.primaryStart
+                              : context.onSurfaceVariantColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: _handlePlayButtonTap,
+                        child: _buildPlayButton(
+                          context,
+                          isCurrentlyPlaying,
+                          isSelected,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlayButton(
+    BuildContext context,
+    bool isPlaying,
+    bool isCurrentSong,
+  ) {
+    if (isCurrentSong && isPlaying && _waveController != null && _pulseController != null) {
       return AnimatedBuilder(
-        animation: Listenable.merge([_waveController, _pulseController]),
+        animation: Listenable.merge([_waveController!, _pulseController!]),
         builder: (context, child) {
           return Container(
             width: 36,
@@ -349,8 +379,10 @@ class _SongListItemState extends State<SongListItem>
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: context.primaryStart.withValues(alpha: 0.3 + (_pulseController.value * 0.2)),
-                  blurRadius: 8 + (_pulseController.value * 4),
+                  color: context.primaryStart.withValues(
+                    alpha: 0.3 + (_pulseController!.value * 0.2),
+                  ),
+                  blurRadius: 8 + (_pulseController!.value * 4),
                   offset: const Offset(0, 2),
                 ),
               ],
@@ -385,15 +417,19 @@ class _SongListItemState extends State<SongListItem>
   }
 
   Widget _buildWaveAnimation() {
+    final animations = _waveAnimations;
+    if (animations == null || animations.length < 3) {
+      return const Icon(Icons.music_note, color: Colors.white, size: 20);
+    }
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(3, (index) {
         return AnimatedBuilder(
-          animation: _waveAnimations[index],
+          animation: animations[index],
           builder: (context, child) {
             return Container(
               width: 3,
-              height: 12 * _waveAnimations[index].value,
+              height: 12 * animations[index].value,
               margin: const EdgeInsets.symmetric(horizontal: 1),
               decoration: BoxDecoration(
                 color: Colors.white,

@@ -20,7 +20,7 @@ class MyPlayerStateModel {
     this.completedSongs = const [],
     this.repeatModeIndex = 0,
     this.filterKeyword = '',
-    this.isShuffle = false,
+    this.isShuffle = true, // Normal shuffle on by default
     this.isPlaying = false,
     this.lastPosition,
   });

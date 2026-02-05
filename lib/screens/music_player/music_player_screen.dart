@@ -271,24 +271,62 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                         ),
                                         child: Row(
                                           children: [
-                                            Icon(
-                                              Icons.queue_music,
-                                              color: context.primaryStart,
-                                              size: 22.sp,
-                                            ),
-                                            SizedBox(width: 8.w),
-                                            Text(
-                                              'Playing queue',
-                                              style: TextStyle(
-                                                color: context.isDark
-                                                    ? context.onSurfaceColor
-                                                    : Colors.white,
-                                                fontSize: 18.sp,
-                                                fontWeight: FontWeight.w600,
-                                                fontFamily: 'Poppins',
+                                            Container(
+                                              padding: EdgeInsets.all(6.r),
+                                              decoration: BoxDecoration(
+                                                color: context.primaryStart
+                                                    .withValues(alpha: 0.1),
+                                                borderRadius:
+                                                    BorderRadius.circular(8.r),
                                               ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
+                                              child: Icon(
+                                                Icons.queue_music,
+                                                color: context.primaryStart,
+                                                size: 18.sp,
+                                              ),
+                                            ),
+                                            SizedBox(width: 10.w),
+                                            Expanded(
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Playing queue',
+                                                    style: TextStyle(
+                                                      color: context.isDark
+                                                          ? context.onSurfaceColor
+                                                          : Colors.white,
+                                                      fontSize: 14.sp,
+                                                      fontWeight: FontWeight.w600,
+                                                      fontFamily: 'Poppins',
+                                                      letterSpacing: 0.5,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                  Text(
+                                                    _nextSongSubtitle(context.read<MusicBloc>().state),
+                                                    style: TextStyle(
+                                                      color: context.isDark
+                                                          ? context.onSurfaceColor
+                                                                .withValues(
+                                                                  alpha: 0.5,
+                                                                )
+                                                          : Colors.white
+                                                                .withValues(
+                                                                  alpha: 0.5,
+                                                                ),
+                                                      fontSize: 10.sp,
+                                                      fontWeight: FontWeight.w400,
+                                                      fontFamily: 'Poppins',
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ],
+                                              ),
                                             ),
                                           ],
                                         ),
@@ -1831,6 +1869,29 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
 
     // Reset drag tracking
     _totalDragDistance = 0.0;
+  }
+
+    /// Subtitle for app bar: "Next - [next song title]" or "Next - End of list"
+  String _nextSongSubtitle(MusicState state) {
+    final playList = state.myPlayerState.currentPlayList;
+    final currentId = state.myPlayerState.currentSongId;
+    final completed = state.myPlayerState.completedSongs.toSet();
+    if (playList.isEmpty || currentId == null) return 'Next - End of list';
+    final currentIndex = playList.indexOf(currentId);
+    if (currentIndex < 0 || currentIndex >= playList.length - 1) {
+      return 'Next - End of list';
+    }
+    for (int i = currentIndex + 1; i < playList.length; i++) {
+      final id = playList[i];
+      if (!completed.contains(id)) {
+        try {
+          final nextSong = state.allSongs.firstWhere((s) => s.id == id);
+          final title = nextSong.title.trim().isEmpty ? 'Unknown' : nextSong.title;
+          return 'Next - $title';
+        } catch (_) {}
+      }
+    }
+    return 'Next - End of list';
   }
 
   /// Smooth slide to specific position with animation

@@ -306,6 +306,95 @@ class CustomPopup {
       ],
     );
   }
+
+  /// Result of notification permission dialog.
+  static const String notificationPermissionResultEnable = 'enable';
+  static const String notificationPermissionResultCancel = 'cancel';
+  static const String notificationPermissionResultMaybeLater = 'maybe_later';
+
+  /// Shows a short dialog when notification permission is needed. Enable button
+  /// triggers system permission (or opens Settings if not possible). Cancel and
+  /// Maybe later do not request permission. Matches app theme.
+  static Future<String?> showNotificationPermissionDialog(
+    BuildContext context,
+  ) async {
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: dialogContext.surfaceColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.r),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              Icons.notifications_active_outlined,
+              color: dialogContext.primaryStart,
+              size: 24.sp,
+            ),
+            SizedBox(width: 8.w),
+            Expanded(
+              child: Text(
+                'Notification permission',
+                style: TextStyle(
+                  color: dialogContext.onSurfaceColor,
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Show now playing in the notification bar and control playback from there.',
+          style: TextStyle(
+            color: dialogContext.onSurfaceVariantColor,
+            fontSize: 14.sp,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext)
+                .pop(notificationPermissionResultMaybeLater),
+            child: Text(
+              'Maybe later',
+              style: TextStyle(
+                color: dialogContext.onSurfaceVariantColor,
+                fontSize: 14.sp,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(notificationPermissionResultCancel),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: dialogContext.onSurfaceVariantColor,
+                fontSize: 14.sp,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(notificationPermissionResultEnable),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: dialogContext.primaryStart,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+            ),
+            child: Text(
+              'Enable',
+              style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Selection item for popup

@@ -1,8 +1,10 @@
+import 'dart:collection';
 import 'dart:io';
+import 'package:music_feature_analyzer/music_feature_analyzer.dart';
 import '../models/song/song_model.dart';
 import '../logger/logger.dart';
-import 'metadata_extractor/metadata_extractor.dart';
 import 'format_utils.dart';
+import 'music_metadata_service.dart';
 import 'song_cleanup_service.dart';
 import 'permission_service.dart';
 
@@ -40,6 +42,7 @@ class FetchSongsService {
     required Function(List<Song>, bool, int) onProgress,
     List<String>? supportedFormats,
     Map<String, List<String>>? whitelistedFolders,
+    Map<String, List<String>>? blockedFolders,
   }) async {
     _logger.i('🚀 Starting optimized progressive song fetching...');
 
@@ -47,6 +50,7 @@ class FetchSongsService {
       // Step 1: Get all song file paths first
       final songPaths = await fetchSongsPath(
         whitelistedFolders: whitelistedFolders,
+        blockedFolders: blockedFolders,
         supportedFormats: supportedFormats,
       );
 
@@ -58,47 +62,40 @@ class FetchSongsService {
 
       _logger.i('📋 Found ${songPaths.length} song paths, starting progressive metadata extraction...');
 
-      // Step 2: Process metadata extraction in batches of 10
+      // Step 2: Extract metadata in batches using music_feature_analyzer
       final List<Song> allSongs = [];
       const int batchSize = 10;
       int totalProcessed = 0;
 
       for (int i = 0; i < songPaths.length; i += batchSize) {
-        final batch = songPaths.skip(i).take(batchSize).toList();
+        final batchPaths = songPaths.skip(i).take(batchSize).toList();
         final batchNumber = (i ~/ batchSize) + 1;
         final totalBatches = (songPaths.length / batchSize).ceil();
-        
-        _logger.d('🔄 Processing batch $batchNumber/$totalBatches: ${batch.length} files');
+
+        _logger.d('🔄 Processing batch $batchNumber/$totalBatches: ${batchPaths.length} files');
 
         final List<Song> batchSongs = [];
-
-        // Process each file in the batch
-        for (final filePath in batch) {
-          try {
-            final file = File(filePath);
-            if (await file.exists()) {
-              final song = await processFile(file, supportedFormats: supportedFormats);
-              if (song != null) {
-                batchSongs.add(song);
-                allSongs.add(song);
-              }
+        try {
+          final results = await MusicFeatureAnalyzer.extractMetadataBatch(batchPaths);
+          for (final model in results) {
+            final song = MusicMetadataService.songModelToSong(model);
+            if (song != null) {
+              batchSongs.add(song);
+              allSongs.add(song);
             }
-          } catch (e) {
-            _logger.w('⚠️ Error processing file $filePath: $e');
           }
+        } catch (e) {
+          _logger.w('⚠️ Error in metadata batch: $e');
         }
 
-        // Apply filters to current batch
         final filteredBatch = _applyFilters(batchSongs);
         totalProcessed += filteredBatch.length;
 
-        // Report progress for this batch
         final isComplete = (i + batchSize) >= songPaths.length;
         onProgress(filteredBatch, isComplete, totalProcessed);
 
         _logger.d('📀 Batch $batchNumber completed: ${filteredBatch.length} songs (Total: $totalProcessed)');
 
-        // Small delay to prevent UI blocking
         if (!isComplete) {
           await Future.delayed(const Duration(milliseconds: 100));
         }
@@ -116,13 +113,19 @@ class FetchSongsService {
 
   /// OPTIMIZED: Fetch only new songs with new flow
   /// Returns a map with 'newSongs' and 'invalidSongIds' for comprehensive cleanup
-  static Future<Map<String, dynamic>> fetchNewSongs(List<Song> existingSongs, {List<String>? supportedFormats, Map<String, List<String>>? whitelistedFolders}) async {
+  static Future<Map<String, dynamic>> fetchNewSongs(
+    List<Song> existingSongs, {
+    List<String>? supportedFormats,
+    Map<String, List<String>>? whitelistedFolders,
+    Map<String, List<String>>? blockedFolders,
+  }) async {
     _logger.i('🆕 Starting optimized new songs fetch (excluding ${existingSongs.length} existing songs)');
 
     try {
       // Step 1: Get all song file paths first
       final songPaths = await fetchSongsPath(
         whitelistedFolders: whitelistedFolders,
+        blockedFolders: blockedFolders,
         supportedFormats: supportedFormats,
       );
 
@@ -162,30 +165,24 @@ class FetchSongsService {
 
       _logger.i('🆕 Found ${newSongPaths.length} new song paths, extracting metadata...');
 
-      // Step 3: Process metadata extraction for new songs only
+      // Step 3: Extract metadata in batches using music_feature_analyzer
       final List<Song> newSongs = [];
       const int batchSize = 10;
-      
-      for (int i = 0; i < newSongPaths.length; i += batchSize) {
-        final batch = newSongPaths.skip(i).take(batchSize).toList();
-        _logger.d('🔄 Processing new songs batch ${(i ~/ batchSize) + 1}/${(newSongPaths.length / batchSize).ceil()}: ${batch.length} files');
 
-        // Process each file in the batch
-        for (final filePath in batch) {
-          try {
-            final file = File(filePath);
-            if (await file.exists()) {
-              final song = await processFile(file, supportedFormats: supportedFormats);
-              if (song != null) {
-                newSongs.add(song);
-              }
-            }
-          } catch (e) {
-            _logger.w('⚠️ Error processing new file $filePath: $e');
+      for (int i = 0; i < newSongPaths.length; i += batchSize) {
+        final batchPaths = newSongPaths.skip(i).take(batchSize).toList();
+        _logger.d('🔄 Processing new songs batch ${(i ~/ batchSize) + 1}/${(newSongPaths.length / batchSize).ceil()}: ${batchPaths.length} files');
+
+        try {
+          final results = await MusicFeatureAnalyzer.extractMetadataBatch(batchPaths);
+          for (final model in results) {
+            final song = MusicMetadataService.songModelToSong(model);
+            if (song != null) newSongs.add(song);
           }
+        } catch (e) {
+          _logger.w('⚠️ Error in new songs metadata batch: $e');
         }
 
-        // Small delay to prevent UI blocking
         if (i + batchSize < newSongPaths.length) {
           await Future.delayed(const Duration(milliseconds: 50));
         }
@@ -211,32 +208,59 @@ class FetchSongsService {
 
   /// Get all folders recursively from whitelisted folders
   /// This function creates a comprehensive list of all subdirectories
-  static Future<List<String>> getAllFoldersFromWhitelist(Map<String, List<String>> whitelistedFolders) async {
+  static Future<List<String>> getAllFoldersFromWhitelist(
+    Map<String, List<String>> whitelistedFolders, {
+    Map<String, List<String>>? blockedFolders,
+  }) async {
     final List<String> allFolders = [];
-    
+    final platformKey = _resolvePlatformKey();
+    final platformFolders = whitelistedFolders[platformKey] ?? [];
+    final platformBlocked =
+        (blockedFolders ?? const {})[platformKey] ?? <String>[];
+    final blockedNormalized = <String>{
+      ...platformBlocked.map(_normalizePath),
+      ..._defaultBlockedFolders(platformKey).map(_normalizePath),
+    };
+
     try {
-      // Get platform-specific whitelisted folders
-    final platform = Platform.isAndroid ? 'android' : 'ios';
-    final platformFolders = whitelistedFolders[platform] ?? [];
-      _logger.d('🔍 Processing whitelisted folders for $platform: $platformFolders');
+      _logger.d(
+        '🔍 Processing whitelisted folders for $platformKey: $platformFolders',
+      );
 
       // Process each whitelisted folder recursively
       for (final whitelistFolder in platformFolders) {
-        final directory = Directory(whitelistFolder);
-      if (await directory.exists()) {
-          _logger.d('📁 Scanning whitelist folder: $whitelistFolder');
-          
-          // Add the whitelist folder itself
-          allFolders.add(whitelistFolder);
-          
-          // Recursively find all subdirectories
-          final subFolders = await _getAllSubdirectories(whitelistFolder);
-          allFolders.addAll(subFolders);
-          
-          _logger.d('📂 Found ${subFolders.length} subdirectories in $whitelistFolder');
-        } else {
-          _logger.w('⚠️ Whitelist folder does not exist: $whitelistFolder');
+        final normalizedFolder = _normalizePath(whitelistFolder);
+        if (_isHiddenPath(normalizedFolder)) {
+          _logger.d('⏭️ Skipping hidden folder: $normalizedFolder');
+          continue;
         }
+
+        if (_isBlockedPath(normalizedFolder, blockedNormalized)) {
+          _logger.d('⏭️ Skipping blocked folder: $normalizedFolder');
+          continue;
+        }
+
+        final directory = Directory(normalizedFolder);
+        if (!await directory.exists()) {
+          _logger.w('⚠️ Whitelist folder does not exist: $normalizedFolder');
+          continue;
+        }
+
+        _logger.d('📁 Scanning whitelist folder: $normalizedFolder');
+
+        // Add the whitelist folder itself
+        allFolders.add(normalizedFolder);
+
+        // Recursively find all subdirectories
+        final subFolders = await _getAllSubdirectories(
+          normalizedFolder,
+          blockedNormalized,
+        );
+        allFolders.addAll(subFolders);
+
+        _logger.d(
+          '📂 Found ${subFolders.length} subdirectories in $normalizedFolder',
+        );
       }
 
       // Remove duplicates and sort
@@ -254,20 +278,53 @@ class FetchSongsService {
   }
 
   /// Recursively get all subdirectories from a given folder
-  static Future<List<String>> _getAllSubdirectories(String folderPath) async {
+  static Future<List<String>> _getAllSubdirectories(
+    String folderPath,
+    Set<String> blockedFolders,
+  ) async {
     final List<String> subdirectories = [];
-    
-    try {
-      final directory = Directory(folderPath);
-      await for (final entity in directory.list(recursive: true)) {
-        if (entity is Directory) {
-          subdirectories.add(entity.path);
+    final Queue<String> pending = Queue<String>();
+    final String normalizedRoot = _normalizePath(folderPath);
+    final Set<String> visited = {normalizedRoot};
+    pending.add(normalizedRoot);
+
+    while (pending.isNotEmpty) {
+      final currentPath = pending.removeFirst();
+      final directory = Directory(currentPath);
+
+      try {
+        await for (final entity in directory
+            .list(followLinks: false)
+            .handleError((error, stackTrace) {
+          _logger.w(
+            '⚠️ Error scanning subdirectories in $currentPath: $error',
+            error: error,
+            stackTrace: stackTrace,
+          );
+        }, test: (error) => error is FileSystemException)) {
+          if (entity is Directory) {
+            final normalizedPath = _normalizePath(entity.path);
+
+            if (_isHiddenPath(normalizedPath)) {
+              continue;
+            }
+
+            if (_isBlockedPath(normalizedPath, blockedFolders)) {
+              _logger.d('⏭️ Skipping blocked subdirectory: $normalizedPath');
+              continue;
+            }
+
+            if (visited.add(normalizedPath)) {
+              subdirectories.add(normalizedPath);
+              pending.add(normalizedPath);
+            }
+          }
         }
+      } catch (e) {
+        _logger.w('⚠️ Error scanning subdirectories in $currentPath: $e');
       }
-    } catch (e) {
-      _logger.w('⚠️ Error scanning subdirectories in $folderPath: $e');
     }
-    
+
     return subdirectories;
   }
 
@@ -276,6 +333,7 @@ class FetchSongsService {
   /// This function finds all audio files in the comprehensive folder list
   static Future<List<String>> fetchSongsPath({
     Map<String, List<String>>? whitelistedFolders,
+    Map<String, List<String>>? blockedFolders,
     List<String>? supportedFormats,
   }) async {
     _logger.i('🎵 Starting to fetch song paths from device...');
@@ -288,7 +346,10 @@ class FetchSongsService {
       }
 
       // Get comprehensive folder list from whitelist
-      final allFolders = await getAllFoldersFromWhitelist(whitelistedFolders ?? {});
+      final allFolders = await getAllFoldersFromWhitelist(
+        whitelistedFolders ?? {},
+        blockedFolders: blockedFolders,
+      );
       if (allFolders.isEmpty) {
         _logger.w('⚠️ No folders found in whitelist');
         return [];
@@ -296,11 +357,23 @@ class FetchSongsService {
 
       final List<String> allSongPaths = [];
       final formats = supportedFormats ?? FormatUtils.defaultSupportedFormats;
+      final platformKey = _resolvePlatformKey();
+      final platformBlocked =
+          (blockedFolders ?? const {})[platformKey] ?? <String>[];
+      final blockedNormalized = <String>{
+        ...platformBlocked.map(_normalizePath),
+        ..._defaultBlockedFolders(platformKey).map(_normalizePath),
+      };
 
       _logger.i('🔍 Scanning ${allFolders.length} folders for audio files...');
 
       // Process each folder to find audio files
       for (final folder in allFolders) {
+        if (_isBlockedPath(folder, blockedNormalized)) {
+          _logger.d('⏭️ Skipping blocked folder during scan: $folder');
+          continue;
+        }
+
         try {
           final directory = Directory(folder);
           if (!await directory.exists()) {
@@ -311,15 +384,33 @@ class FetchSongsService {
           _logger.d('📁 Scanning folder: $folder');
           int fileCount = 0;
 
-          await for (final entity in directory.list(recursive: false)) {
+          await for (final entity in directory
+              .list(recursive: false, followLinks: false)
+              .handleError((error, stackTrace) {
+            _logger.w(
+              '⚠️ Error reading folder $folder: $error',
+              error: error,
+              stackTrace: stackTrace,
+            );
+          }, test: (error) => error is FileSystemException)) {
             if (entity is File) {
-              final filePath = entity.path.toLowerCase();
+              final normalizedFilePath = _normalizePath(entity.path);
+
+              if (_isHiddenPath(normalizedFilePath)) {
+                continue;
+              }
+
+              if (_isBlockedPath(normalizedFilePath, blockedNormalized)) {
+                continue;
+              }
+
+              final filePath = normalizedFilePath.toLowerCase();
               
               // Check if file is a supported audio format
               if (formats.any((format) => filePath.endsWith(format))) {
                 // Skip video files
                 if (!videoFormats.any((format) => filePath.endsWith(format))) {
-                  allSongPaths.add(entity.path);
+                  allSongPaths.add(normalizedFilePath);
                   fileCount++;
                 }
               }
@@ -341,67 +432,6 @@ class FetchSongsService {
     } catch (e) {
       _logger.e('❌ Error fetching song paths', error: e);
       return [];
-    }
-  }
-
-  /// Scan a folder for music files
-  static Future<List<Song>> scanFolderForSongs(String folderPath, {List<String>? supportedFormats}) async {
-    final List<Song> songs = [];
-
-    try {
-      final directory = Directory(folderPath);
-      if (!await directory.exists()) {
-        _logger.w('Folder does not exist: $folderPath');
-        return songs;
-      }
-
-      await for (final entity in directory.list(recursive: true)) {
-        if (entity is File) {
-          final song = await processFile(entity, supportedFormats: supportedFormats);
-          if (song != null) {
-            songs.add(song);
-          }
-        }
-      }
-    } catch (e) {
-      _logger.e('Error scanning folder: $folderPath', error: e);
-    }
-
-    return songs;
-  }
-
-  /// Process a file to extract song information using enhanced metadata extraction
-  static Future<Song?> processFile(File file, {List<String>? supportedFormats}) async {
-    try {
-      final path = file.path.toLowerCase();
-
-      // Check if file is a video format (exclude)
-      if (videoFormats.any((format) => path.endsWith(format))) {
-        _logger.d('⏭️ Skipping video file: ${file.path}');
-        return null;
-      }
-
-      // Use provided formats or default
-      final formats = supportedFormats ?? FormatUtils.defaultSupportedFormats;
-
-      // Check if file is a supported audio format
-      if (!formats.any((format) => path.endsWith(format))) {
-        return null;
-      }
-
-      // Skip invalid audio files (using provided formats)
-      if (!await _isValidAudioFileWithFormats(file.path, formats)) {
-        _logger.d('Skipping invalid audio file: ${file.path}');
-        return null;
-      }
-
-      // Use enhanced metadata extraction
-      final song = await MetadataExtractor.extractMetadata(file.path);
-
-      return song;
-    } catch (e) {
-      _logger.e('Error processing file: ${file.path}', error: e);
-      return null;
     }
   }
 
@@ -461,54 +491,69 @@ class FetchSongsService {
   /// Set duplicate detection mode
   static final bool _useFuzzyMatching = false;
 
-
-
-  /// Validate if file is a valid audio file using provided formats
-  static Future<bool> _isValidAudioFileWithFormats(String filePath, List<String> supportedFormats) async {
-    try {
-      final file = File(filePath);
-      if (!await file.exists()) return false;
-
-      final stat = await file.stat();
-      if (stat.size < 1024) return false;
-
-      // Check if file extension is in supported formats
-      final extension = '.${filePath.split('.').last.toLowerCase()}';
-      if (!supportedFormats.contains(extension)) return false;
-
-      // Basic header validation for common formats
-      final bytes = await file.openRead(0, 12).first;
-      return _validateAudioHeader(bytes, extension);
-    } catch (e) {
-      return false;
+  static List<String> _defaultBlockedFolders(String platformKey) {
+    if (platformKey == 'android') {
+      return const [
+        '/storage/emulated/0/Android',
+        '/storage/emulated/0/Android/data',
+        '/storage/emulated/0/Android/obb',
+        '/storage/emulated/0/Android/media',
+        '/storage/emulated/0/MIUI',
+        '/storage/emulated/0/LOST.DIR',
+      ];
     }
+
+    if (platformKey == 'ios') {
+      return const [
+        '/var/mobile/Media/DCIM',
+        '/var/mobile/Media/PhotoData',
+        '/var/mobile/Media/Books',
+      ];
+    }
+
+    return const [];
   }
 
-  /// Validate audio file header for common formats
-  static bool _validateAudioHeader(List<int> header, String extension) {
-    if (header.length < 4) return false;
-
-    switch (extension) {
-      case '.mp3':
-        // ID3v2 tag or MP3 frame header
-        if (header[0] == 0x49 && header[1] == 0x44 && header[2] == 0x33) return true;
-        if (header[0] == 0xFF && (header[1] & 0xE0) == 0xE0) return true;
-        return false;
-      case '.flac':
-        return header[0] == 0x66 && header[1] == 0x4C && header[2] == 0x61 && header[3] == 0x43;
-      case '.ogg':
-        return header[0] == 0x4F && header[1] == 0x67 && header[2] == 0x67 && header[3] == 0x53;
-      case '.wav':
-        return header[0] == 0x52 && header[1] == 0x49 && header[2] == 0x46 && header[3] == 0x46;
-      case '.m4a':
-      case '.m4p':
-        return header.length >= 8 && header[4] == 0x66 && header[5] == 0x74 && 
-               header[6] == 0x79 && header[7] == 0x70;
-      default:
-        return true; // For other formats, assume valid if extension matches
+  static String _normalizePath(String path) {
+    var normalized = path.replaceAll('\\', '/');
+    if (normalized.length > 1) {
+      normalized = normalized.replaceAll(RegExp(r'/+$'), '');
     }
+    return normalized;
   }
 
+  static bool _isHiddenPath(String path) {
+    final normalized = _normalizePath(path);
+    final segments = normalized.split('/');
+    for (final segment in segments) {
+      if (segment.isEmpty) continue;
+      if (segment.startsWith('.')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static bool _isBlockedPath(String path, Set<String> blockedFolders) {
+    if (blockedFolders.isEmpty) return false;
+    final normalized = _normalizePath(path);
+    for (final blocked in blockedFolders) {
+      if (normalized == blocked ||
+          normalized.startsWith('$blocked/')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static String _resolvePlatformKey() {
+    if (Platform.isAndroid) return 'android';
+    if (Platform.isIOS) return 'ios';
+    if (Platform.isWindows) return 'windows';
+    if (Platform.isMacOS) return 'macos';
+    if (Platform.isLinux) return 'linux';
+    return 'android';
+  }
 
   /// Validate existing songs to ensure their files still exist and are accessible
   /// This prevents processing songs that have been moved, deleted, or are inaccessible

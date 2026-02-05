@@ -4,7 +4,7 @@ part 'playlist_source_model.freezed.dart';
 part 'playlist_source_model.g.dart';
 
 @freezed
-class PlaylistSource with _$PlaylistSource {
+abstract class PlaylistSource with _$PlaylistSource {
   const factory PlaylistSource({
     required String source,
     String? albumId,

@@ -13,6 +13,7 @@ part 'app_settings_bloc.freezed.dart';
 class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
   AppSettingsBloc() : super(AppSettingsState.initial()) {
     on<_UpdateWhiteListFolder>(_onUpdateWhiteListFolder);
+    on<_UpdateBlockedFolderList>(_onUpdateBlockedFolderList);
     on<_UpdateSupportedAudioFormats>(_onUpdateSupportedAudioFormats);
     on<_UpdateLastMusicLibraryUpdate>(_onUpdateLastMusicLibraryUpdate);
     on<_ResetToDefaults>(_onResetToDefaults);
@@ -25,6 +26,8 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
     on<_UpdateAiShuffle>(_onUpdateAiShuffle);
     on<_TrackShuffleUsage>(_onTrackShuffleUsage);
     on<_UpdateDailyQuote>(_onUpdateDailyQuote);
+    on<_UpdateNotificationPermissionRejectedCount>(
+        _onUpdateNotificationPermissionRejectedCount);
 
     // Initialize theme sync
     _initializeThemeSync();
@@ -147,14 +150,16 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
     final resetState = AppSettingsState(
       // Reset these to defaults
       whiteListFolder: const {
+        'android': ['/storage/emulated/0'],
+        'ios': ['/var/mobile/Media'],
+      },
+      blockedFolderList: const {
         'android': [
-          '/storage/emulated/0/Music',
-          '/storage/emulated/0/Download',
+          '/storage/emulated/0/Alarms',
+          '/storage/emulated/0/Notifications',
+          '/storage/emulated/0/Ringtones',
         ],
-        'ios': [
-          '/var/mobile/Media/iTunes_Control/Music',
-          '/var/mobile/Media/Music',
-        ],
+        'ios': [],
       },
       supportedAudioFormats: const [
         '.mp3',
@@ -189,6 +194,7 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
       shuffleHistory: [],
       quoteUpdateDateTime: state.quoteUpdateDateTime,
       currentQuoteIndex: state.currentQuoteIndex,
+      notificationPermissionRejectedCount: 0,
     );
 
     emit(resetState);
@@ -200,6 +206,30 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
         isFollowingSystem: currentFollowSystemTheme,
       );
     }
+  }
+
+  void _onUpdateBlockedFolderList(
+    _UpdateBlockedFolderList event,
+    Emitter<AppSettingsState> emit,
+  ) {
+    final updatedBlockedList = Map<String, List<String>>.from(
+      state.blockedFolderList,
+    );
+
+    final platformFolders = List<String>.from(
+      updatedBlockedList[event.platform] ?? [],
+    );
+
+    if (event.isRemove) {
+      platformFolders.remove(event.folder);
+    } else {
+      if (!platformFolders.contains(event.folder)) {
+        platformFolders.add(event.folder);
+      }
+    }
+
+    updatedBlockedList[event.platform] = platformFolders;
+    emit(state.copyWith(blockedFolderList: updatedBlockedList));
   }
 
   void _onUpdateAppSettingsState(
@@ -334,11 +364,21 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
     }
   }
 
+  void _onUpdateNotificationPermissionRejectedCount(
+    _UpdateNotificationPermissionRejectedCount event,
+    Emitter<AppSettingsState> emit,
+  ) {
+    emit(state.copyWith(
+      notificationPermissionRejectedCount: event.value.clamp(0, 2),
+    ));
+  }
+
   @override
   Map<String, dynamic>? toJson(AppSettingsState state) {
     try {
       return {
         'whiteListFolder': state.whiteListFolder,
+        'blockedFolderList': state.blockedFolderList,
         'supportedAudioFormats': state.supportedAudioFormats,
         'lastUpdateMusicLibrary': state.lastUpdateMusicLibrary
             ?.toIso8601String(),
@@ -355,6 +395,8 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
         'shuffleHistory': state.shuffleHistory,
         'quoteUpdateDateTime': state.quoteUpdateDateTime?.toIso8601String(),
         'currentQuoteIndex': state.currentQuoteIndex,
+        'notificationPermissionRejectedCount':
+            state.notificationPermissionRejectedCount,
       };
     } catch (_) {
       return null; // skip persisting on serialization errors
@@ -368,14 +410,19 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
         whiteListFolder: Map<String, List<String>>.from(
           json['whiteListFolder'] ??
               {
+                'android': ['/storage/emulated/0'],
+                'ios': ['/var/mobile/Media'],
+              },
+        ),
+        blockedFolderList: Map<String, List<String>>.from(
+          json['blockedFolderList'] ??
+              {
                 'android': [
-                  '/storage/emulated/0/Music',
-                  '/storage/emulated/0/Download',
+                  '/storage/emulated/0/Alarms',
+                  '/storage/emulated/0/Notifications',
+                  '/storage/emulated/0/Ringtones',
                 ],
-                'ios': [
-                  '/var/mobile/Media/iTunes_Control/Music',
-                  '/var/mobile/Media/Music',
-                ],
+                'ios': [],
               },
         ),
         supportedAudioFormats: List<String>.from(
@@ -416,6 +463,8 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
             ? DateTime.parse(json['quoteUpdateDateTime'])
             : null,
         currentQuoteIndex: json['currentQuoteIndex'] ?? 0,
+        notificationPermissionRejectedCount:
+            json['notificationPermissionRejectedCount'] ?? 0,
       );
     } catch (e) {
       return null;

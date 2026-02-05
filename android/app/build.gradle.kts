@@ -138,13 +138,8 @@ android {
             // Exclude 16KB incompatible libraries
             // Note: x86_64 is already excluded via abiFilters, but we explicitly exclude here too
             excludes += listOf(
-                "lib/x86_64/libaudiotags.so",
                 "lib/x86_64/libtensorflowlite_gpu_jni.so",
-                "lib/x86_64/libtensorflowlite_jni.so",
-                // Exclude arm64-v8a audiotags - it's incompatible with 16KB page size
-                // The app has fallback metadata extraction that will work without this library
-                // This only affects metadata quality, not core functionality
-                "lib/arm64-v8a/libaudiotags.so"
+                "lib/x86_64/libtensorflowlite_jni.so"
             )
         }
     }

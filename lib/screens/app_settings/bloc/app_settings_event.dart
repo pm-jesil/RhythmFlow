@@ -13,6 +13,12 @@ class AppSettingsEvent with _$AppSettingsEvent {
     @Default(false) bool isRemove,
   }) = _UpdateSupportedAudioFormats;
 
+  const factory AppSettingsEvent.updateBlockedFolderList({
+    required String platform,
+    required String folder,
+    @Default(false) bool isRemove,
+  }) = _UpdateBlockedFolderList;
+
   const factory AppSettingsEvent.updateLastMusicLibraryUpdate({
     required DateTime timestamp,
   }) = _UpdateLastMusicLibraryUpdate;
@@ -60,4 +66,7 @@ class AppSettingsEvent with _$AppSettingsEvent {
     @Default(false) bool forceUpdate,
   }) = _UpdateDailyQuote;
 
+  const factory AppSettingsEvent.updateNotificationPermissionRejectedCount({
+    required int value,
+  }) = _UpdateNotificationPermissionRejectedCount;
 }

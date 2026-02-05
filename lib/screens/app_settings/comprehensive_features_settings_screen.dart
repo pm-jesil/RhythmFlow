@@ -129,9 +129,7 @@ class _ComprehensiveFeaturesSettingsScreenState extends State<ComprehensiveFeatu
           Container(
             padding: EdgeInsets.all(8.w),
             decoration: BoxDecoration(
-              color: (isInitialized ? Colors.green : Colors.orange).withOpacity(
-                0.1,
-              ),
+              color: (isInitialized ? Colors.green : Colors.orange).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10.r),
             ),
             child: Icon(
@@ -201,7 +199,7 @@ class _ComprehensiveFeaturesSettingsScreenState extends State<ComprehensiveFeatu
           SizedBox(height: 8.h),
           LinearProgressIndicator(
             value: percentage / 100,
-            backgroundColor: context.outlineColor.withOpacity(0.3),
+            backgroundColor: context.outlineColor.withValues(alpha: 0.3),
             valueColor: AlwaysStoppedAnimation<Color>(
               _getProgressColor(percentage),
             ),
@@ -347,7 +345,7 @@ class _ComprehensiveFeaturesSettingsScreenState extends State<ComprehensiveFeatu
                       vertical: 2.h,
                     ),
                     decoration: BoxDecoration(
-                      color: context.primaryStart.withOpacity(0.12),
+                      color: context.primaryStart.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8.r),
                     ),
                     child: Text(
@@ -562,9 +560,9 @@ class _ComprehensiveFeaturesSettingsScreenState extends State<ComprehensiveFeatu
         ),
         onPressed: (isEnabled == true) ? onTap : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: color.withOpacity(0.09),
+          backgroundColor: color.withValues(alpha: 0.09),
           shadowColor: Colors.transparent,
-          disabledBackgroundColor: context.outlineColor.withOpacity(0.1),
+          disabledBackgroundColor: context.outlineColor.withValues(alpha: 0.1),
         ),
       ),
     );
@@ -600,7 +598,7 @@ class _ComprehensiveFeaturesSettingsScreenState extends State<ComprehensiveFeatu
                       width: 24.w,
                       height: 24.h,
                       decoration: BoxDecoration(
-                        color: context.primaryStart.withOpacity(0.12),
+                        color: context.primaryStart.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10.r),
                       ),
                       child: Center(
@@ -654,7 +652,7 @@ class _ComprehensiveFeaturesSettingsScreenState extends State<ComprehensiveFeatu
       decoration: BoxDecoration(
         color: context.surfaceColor,
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: context.outlineColor.withOpacity(0.09)),
+        border: Border.all(color: context.outlineColor.withValues(alpha: 0.09)),
         boxShadow: [
           BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 1)),
         ],

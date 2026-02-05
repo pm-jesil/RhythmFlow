@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:in_app_update/in_app_update.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../logger/logger.dart';
@@ -34,8 +35,28 @@ class AppUpdateService {
       } else {
         _logger.i('✅ (Silent) App is up to date');
       }
+    } on PlatformException catch (e) {
+      // Handle expected errors gracefully
+      final errorMessage = e.message ?? '';
+      final isAppNotOwned = e.code == 'TASK_FAILURE' && 
+          (errorMessage.contains('ERROR_APP_NOT_OWNED') ||
+           errorMessage.contains('Install Error(-10)') ||
+           errorMessage.contains('app is not owned'));
+      
+      if (isAppNotOwned) {
+        // App not installed from Play Store (debug build, sideloaded, etc.)
+        // This is expected and not a real error
+        _logger.d(
+          'ℹ️ (Silent) Update check skipped - app not installed from Play Store '
+          '(this is normal for debug builds)',
+        );
+      } else {
+        // Other platform exceptions
+        _logger.w('⚠️ (Silent) Update check failed: ${e.message ?? e.code}');
+      }
     } catch (e) {
-      _logger.e('❌ (Silent) Error checking for updates: $e');
+      // Unexpected errors
+      _logger.e('❌ (Silent) Unexpected error checking for updates: $e');
     }
   }
 

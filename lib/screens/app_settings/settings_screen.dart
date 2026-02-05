@@ -1,11 +1,15 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../core/theme/theme_extension.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_bloc.dart';
 import '../../../core/router/app_router.dart';
+import '../../../utils/services/permission_service.dart';
 import 'bloc/app_settings_bloc.dart';
 import '../bottom_tab/bloc/music_bloc.dart';
 import '../../../core/widgets/app_custom.dart';
@@ -17,11 +21,38 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends State<SettingsScreen>
+    with WidgetsBindingObserver {
+  Future<bool>? _notificationPermissionFuture;
+
   @override
   void initState() {
     super.initState();
-    // Theme sync is handled by AppSettingsBloc initialization
+    WidgetsBinding.instance.addObserver(this);
+    if (Platform.isAndroid) {
+      _refreshNotificationPermission();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && Platform.isAndroid) {
+      _refreshNotificationPermission();
+    }
+  }
+
+  void _refreshNotificationPermission() {
+    if (!Platform.isAndroid) return;
+    setState(() {
+      _notificationPermissionFuture =
+          PermissionService.hasNotificationPermission();
+    });
   }
 
   @override
@@ -205,6 +236,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: 'Manage your music collection',
             onTap: _navigateToFetchSongsSettings,
           ),
+          if (Platform.isAndroid) ...[
+            _buildDivider(),
+            _buildNotificationBarWidgetTile(),
+          ],
           _buildDivider(),
           _buildNativeSwitchTile(
             icon: CupertinoIcons.forward,
@@ -585,6 +620,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
 
   // ==================== UI COMPONENTS ====================
+
+  Widget _buildNotificationBarWidgetTile() {
+    if (!Platform.isAndroid) return const SizedBox.shrink();
+    return FutureBuilder<bool>(
+      future: _notificationPermissionFuture,
+      builder: (context, snapshot) {
+        final enabled = snapshot.data ?? false;
+        return _buildNativeSwitchTile(
+          icon: CupertinoIcons.bell,
+          title: 'Notification bar widget',
+          subtitle: enabled
+              ? 'Show now playing in status bar and lock screen'
+              : 'Turn on in Settings to show now playing in notification bar',
+          value: enabled,
+          onChanged: (value) async {
+            if (value) {
+              await PermissionService.requestNotificationPermissionForPlayback();
+              final status = await Permission.notification.status;
+              if (status.isPermanentlyDenied && mounted) {
+                await openAppSettings();
+              }
+            } else {
+              // App cannot revoke permission; open Settings so user can disable.
+              if (mounted) await openAppSettings();
+            }
+            if (mounted) _refreshNotificationPermission();
+          },
+        );
+      },
+    );
+  }
 
   Widget _buildNativeSwitchTile({
     required IconData icon,

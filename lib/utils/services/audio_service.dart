@@ -10,6 +10,7 @@ import '../logger/logger.dart';
 import 'enhanced_notification_service.dart';
 import 'play_count_tracking_service.dart';
 import 'audio_handler.dart';
+import 'permission_service.dart';
 
 @singleton
 class AudioService {
@@ -310,6 +311,9 @@ class AudioService {
         '🎵 Starting to play song: "${song.title}" by ${song.artists.join(', ')} | Duration: ${song.duration.inSeconds}s | File: ${song.path}',
       );
 
+      // Ensure POST_NOTIFICATIONS on Android 13+ so now-playing notification can show.
+      await PermissionService.requestNotificationPermissionForPlayback();
+
       // Update current song and playlist context
       _currentSong = song;
 
@@ -402,7 +406,10 @@ class AudioService {
       _logger.i(
         '▶️ Resuming playback | Song: ${_currentSong?.title ?? "None"} | Position: ${_audioPlayer.position.inSeconds}s',
       );
-      
+
+      // Ensure POST_NOTIFICATIONS on Android 13+ so now-playing notification can show.
+      await PermissionService.requestNotificationPermissionForPlayback();
+
       // Ensure MediaItem is set in AudioHandler before resuming
       // This is critical for notification to appear when resuming
       if (_currentSong != null && _audioHandler != null) {

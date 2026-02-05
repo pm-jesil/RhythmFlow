@@ -4,7 +4,7 @@ part 'song_features.freezed.dart';
 part 'song_features.g.dart';
 
 @freezed
-class SongFeatures with _$SongFeatures {
+abstract class SongFeatures with _$SongFeatures {
   const factory SongFeatures({
     // Basic categorical features (existing)
     required String tempo, // e.g. "Fast", "Medium", "Slow"

@@ -1,9 +1,10 @@
 part of 'app_settings_bloc.dart';
 
 @freezed
-class AppSettingsState with _$AppSettingsState {
+abstract class AppSettingsState with _$AppSettingsState {
   const factory AppSettingsState({
     required Map<String, List<String>> whiteListFolder,
+    required Map<String, List<String>> blockedFolderList,
     required List<String> supportedAudioFormats,
     required DateTime? lastUpdateMusicLibrary,
     bool? isDarkMode,
@@ -20,16 +21,23 @@ class AppSettingsState with _$AppSettingsState {
     required List<String> shuffleHistory,
     DateTime? quoteUpdateDateTime,
     required int currentQuoteIndex,
+    @Default(0) int notificationPermissionRejectedCount,
   }) = _Initial;
 
   factory AppSettingsState.initial() => AppSettingsState(
     // Default music folders from fetch_songs.dart
     whiteListFolder: const {
-      'android': ['/storage/emulated/0/Music', '/storage/emulated/0/Download'],
-      'ios': [
-        '/var/mobile/Media/iTunes_Control/Music',
-        '/var/mobile/Media/Music',
+      'android': ['/storage/emulated/0'],
+      'ios': ['/var/mobile/Media'],
+    },
+
+    blockedFolderList: const {
+      'android': [
+        '/storage/emulated/0/Alarms',
+        '/storage/emulated/0/Notifications',
+        '/storage/emulated/0/Ringtones',
       ],
+      'ios': [],
     },
 
     // Default supported audio formats from fetch_songs.dart
@@ -56,14 +64,15 @@ class AppSettingsState with _$AppSettingsState {
     sleepTimerMinutes: 30,
     isSleepTimerEnabled: false,
     autoPlayNext: true,
-    isAiShuffleEnabled: false, // Disable AI shuffle by default
+    isAiShuffleEnabled: false,
     showNotifications: true,
     playbackSpeed: 1.0,
-    appBackgroundRefreshTimeGap: 10,
+    appBackgroundRefreshTimeGap: 20,
     userName: null,
     nickName: null,
     shuffleHistory: [],
     quoteUpdateDateTime: null,
     currentQuoteIndex: 0,
+    notificationPermissionRejectedCount: 0,
   );
 }

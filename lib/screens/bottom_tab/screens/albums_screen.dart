@@ -9,6 +9,7 @@ import '../../../utils/models/song/song_model.dart';
 import '../../../utils/models/playlist_source/playlist_source_model.dart';
 import '../bloc/music_bloc.dart';
 import '../widgets/album_artist_my_playlist_helper.dart';
+import '../../../screens/widgets/sorting_helper.dart';
 
 class AlbumsScreen extends StatefulWidget {
   const AlbumsScreen({super.key});
@@ -21,7 +22,6 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
   final AppLogger _logger = AppLogger('AlbumsScreen');
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  List<Album> _filteredAlbums = [];
   bool _isLoadingMore = false;
   bool _hasTriggeredBackgroundLoad = false;
 
@@ -30,19 +30,15 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
     super.initState();
     _logger.i('AlbumsScreen initialized');
     _searchController.addListener(_onSearchChanged);
-
-    // Reset loading states when screen initializes
     _isLoadingMore = false;
     _hasTriggeredBackgroundLoad = false;
   }
 
   void _loadMoreAlbums() {
-    if (!_isLoadingMore && _filteredAlbums.length > 15) {
+    if (!_isLoadingMore) {
       setState(() {
         _isLoadingMore = true;
       });
-
-      // Simulate background loading with proper error handling
       Future.delayed(const Duration(milliseconds: 800), () {
         if (mounted) {
           setState(() {
@@ -67,19 +63,18 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
   }
 
   void _onSearchChanged() {
-    setState(() {
-      final query = _searchController.text.toLowerCase();
-      if (query.isEmpty) {
-        _filteredAlbums = context.read<MusicBloc>().state.albumList;
-      } else {
-        _filteredAlbums = context
-            .read<MusicBloc>()
-            .state
-            .albumList
-            .where((album) => album.name.toLowerCase().contains(query))
-            .toList();
-      }
-    });
+    setState(() {});
+  }
+
+  /// Base list: top albums by play count when coming from "Top Albums", else all.
+  List<Album> _getDisplayBaseList(MusicState state) {
+    if (state.navigationFilterType == 'top_albums') {
+      final withPlays = state.albumList
+          .where((a) => (a.playCount ?? 0) > 0)
+          .toList();
+      return SortingHelper.sortAlbumsByPlayCount(withPlays, ascending: false);
+    }
+    return state.albumList;
   }
 
   @override
@@ -96,16 +91,25 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
             SizedBox(height: 10.h),
             Expanded(
               child: BlocBuilder<MusicBloc, MusicState>(
+                buildWhen: (previous, current) {
+                  return previous.albumList.length != current.albumList.length ||
+                      previous.isAlbumListLoading != current.isAlbumListLoading ||
+                      previous.isAlbumListError != current.isAlbumListError ||
+                      previous.navigationFilterType != current.navigationFilterType ||
+                      !identical(previous.albumList, current.albumList);
+                },
                 builder: (context, state) {
-                  // Update filtered albums when state changes
-                  if (_filteredAlbums.isEmpty && state.albumList.isNotEmpty) {
-                    _filteredAlbums = state.albumList;
-                  }
+                  final baseList = _getDisplayBaseList(state);
+                  final query = _searchController.text.toLowerCase();
+                  final displayList = query.isEmpty
+                      ? baseList
+                      : baseList
+                          .where((a) => a.name.toLowerCase().contains(query))
+                          .toList();
 
-                  // Trigger background loading after initial display
-                  if (_filteredAlbums.isNotEmpty &&
+                  if (displayList.isNotEmpty &&
                       !_hasTriggeredBackgroundLoad &&
-                      _filteredAlbums.length > 15 &&
+                      displayList.length > 15 &&
                       !_isLoadingMore) {
                     _hasTriggeredBackgroundLoad = true;
                     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -120,15 +124,11 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
 
                   return CustomScrollView(
                     controller: _scrollController,
+                    physics: const BouncingScrollPhysics(
+                      parent: AlwaysScrollableScrollPhysics(),
+                    ),
+                    cacheExtent: 400,
                     slivers: [
-                      // Search Bar
-                      // AlbumArtistPlaylistHelper.buildSearchBar(
-                      //   controller: _searchController,
-                      //   hintText: 'Search albums...',
-                      //   context: context,
-                      // ),
-
-                      // Albums List
                       if (state.isAlbumListLoading)
                         AlbumArtistPlaylistHelper.buildLoadingState(context)
                       else if (state.isAlbumListError)
@@ -145,24 +145,28 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
                             );
                           },
                         )
-                      else if (_filteredAlbums.isEmpty)
+                      else if (displayList.isEmpty)
                         AlbumArtistPlaylistHelper.buildEmptyState(
                           context: context,
                           icon: Icons.album_outlined,
-                          message: 'No albums found',
+                          message: state.navigationFilterType == 'top_albums'
+                              ? 'No albums with plays yet'
+                              : 'No albums found',
                         )
                       else if (AlbumArtistPlaylistHelper.shouldUseLazyLoading(
-                        _filteredAlbums,
+                        displayList,
                         15,
                       ))
                         AlbumArtistPlaylistHelper.buildLazyLoadingMasonryGrid<
                           Album
                         >(
                           context: context,
-                          allItems: _filteredAlbums,
+                          allItems: displayList,
                           itemBuilder: (context, index) {
-                            final album = _filteredAlbums[index];
-                            return _buildAlbumCard(album, state.allSongs);
+                            final album = displayList[index];
+                            return RepaintBoundary(
+                              child: _buildAlbumCard(album, state.allSongs),
+                            );
                           },
                           onLoadMore: _loadMoreAlbums,
                           isLoadingMore: _isLoadingMore,
@@ -170,14 +174,14 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
                         )
                       else
                         AlbumArtistPlaylistHelper.buildMasonryGrid<Album>(
-                          items: _filteredAlbums,
+                          items: displayList,
                           itemBuilder: (context, index) {
-                            final album = _filteredAlbums[index];
-                            return _buildAlbumCard(album, state.allSongs);
+                            final album = displayList[index];
+                            return RepaintBoundary(
+                              child: _buildAlbumCard(album, state.allSongs),
+                            );
                           },
                         ),
-
-                      // Bottom padding for navigation
                       AlbumArtistPlaylistHelper.buildBottomPadding(),
                     ],
                   );
@@ -201,7 +205,6 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Album Art Section - Square container with circular image
           AlbumArtistPlaylistHelper.buildCardImageSection(
             imageWidget: Center(
               child: SizedBox(
@@ -217,8 +220,6 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
           ),
 
           SizedBox(height: 8.h),
-
-          // Album Info Section
           AlbumArtistPlaylistHelper.buildCardInfoSection(
             context: context,
             title: album.name.isNotEmpty ? album.name : 'Unknown Album',

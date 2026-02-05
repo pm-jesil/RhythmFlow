@@ -46,6 +46,7 @@ void main() {
         isError: false,
         isComprehensiveFeaturesExtractingLoading: false,
         isComprehensiveFeaturesExtractingError: false,
+        comprehensiveFeatureExtractionFailureCount: const <String, int>{},
       );
       
       when(() => mockMusicBloc.state).thenReturn(testState);

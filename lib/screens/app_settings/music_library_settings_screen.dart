@@ -100,6 +100,9 @@ class _MusicLibrarySettingsScreenState extends State<MusicLibrarySettingsScreen>
   Widget _buildMusicFoldersSection(AppSettingsState state) {
     return Column(
       children: [
+        _buildSectionHeader('Blocked Folders'),
+        _buildBlockedFoldersSettings(state),
+        SizedBox(height: 16.h),
         _buildSectionHeader('Music Folders'),
         _buildMusicFoldersSettings(state),
       ],
@@ -139,6 +142,60 @@ class _MusicLibrarySettingsScreenState extends State<MusicLibrarySettingsScreen>
 
   // ==================== SETTINGS SECTIONS ====================
   
+  Widget _buildBlockedFoldersSettings(AppSettingsState state) {
+    final platform = Platform.isAndroid ? 'android' : 'ios';
+    final folders = state.blockedFolderList[platform] ?? [];
+    const maxBlockedFolders = 10;
+    final canAddMore = folders.length < maxBlockedFolders;
+
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16.w),
+      decoration: BoxDecoration(
+        color: context.surfaceColor,
+        borderRadius: BorderRadius.circular(12.r),
+        boxShadow: [
+          BoxShadow(
+            color: context.onSurfaceColor.withValues(alpha: 0.05),
+            blurRadius: 8.r,
+            offset: Offset(0, 2.h),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _buildNativeActionTile(
+            icon: Icons.block_rounded,
+            title: 'Add Blocked Folder',
+            subtitle: canAddMore
+                ? 'Folders here are skipped during scans (${folders.length}/$maxBlockedFolders)'
+                : 'Maximum $maxBlockedFolders folders allowed (${folders.length}/$maxBlockedFolders)',
+            onTap: canAddMore ? _addBlockedFolder : null,
+          ),
+          if (folders.isNotEmpty) ...[
+            _buildDivider(),
+            ...folders.map(
+              (folder) => _buildFolderTile(
+                folder: folder,
+                onRemove: () => _removeBlockedFolder(folder),
+              ),
+            ),
+          ],
+          if (folders.isEmpty) ...[
+            _buildDivider(),
+            _buildBlockedEmptyStateTile(),
+          ],
+          if (!canAddMore) ...[
+            _buildDivider(),
+            _buildBlockedLimitTile(
+              maxBlockedFolders,
+              folders.length,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildMusicFoldersSettings(AppSettingsState state) {
     final platform = Platform.isAndroid ? 'android' : 'ios';
     final folders = state.whiteListFolder[platform] ?? [];
@@ -169,7 +226,12 @@ class _MusicLibrarySettingsScreenState extends State<MusicLibrarySettingsScreen>
           ),
           if (folders.isNotEmpty) ...[
             _buildDivider(),
-            ...folders.map((folder) => _buildFolderTile(folder, state)),
+            ...folders.map(
+              (folder) => _buildFolderTile(
+                folder: folder,
+                onRemove: () => _removeFolder(folder),
+              ),
+            ),
           ],
           if (folders.isEmpty) ...[
             _buildDivider(),
@@ -225,7 +287,10 @@ class _MusicLibrarySettingsScreenState extends State<MusicLibrarySettingsScreen>
 
   // ==================== TILE BUILDERS ====================
   
-  Widget _buildFolderTile(String folder, AppSettingsState state) {
+  Widget _buildFolderTile({
+    required String folder,
+    required VoidCallback onRemove,
+  }) {
     return ListTile(
       leading: Icon(
         Icons.folder_rounded,
@@ -257,7 +322,7 @@ class _MusicLibrarySettingsScreenState extends State<MusicLibrarySettingsScreen>
           color: Colors.red,
           size: 20.sp,
         ),
-        onPressed: () => _removeFolder(folder, state),
+        onPressed: onRemove,
       ),
     );
   }
@@ -280,6 +345,60 @@ class _MusicLibrarySettingsScreenState extends State<MusicLibrarySettingsScreen>
       ),
       subtitle: Text(
         'Tap "Add Folder" to add music folders',
+        style: TextStyle(
+          color: context.onSurfaceVariantColor,
+          fontSize: 14.sp,
+          fontFamily: 'Poppins',
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBlockedEmptyStateTile() {
+    return ListTile(
+      leading: Icon(
+        Icons.block_outlined,
+        color: context.onSurfaceVariantColor,
+        size: 22.sp,
+      ),
+      title: Text(
+        'No blocked folders',
+        style: TextStyle(
+          color: context.onSurfaceVariantColor,
+          fontSize: 16.sp,
+          fontWeight: FontWeight.w400,
+          fontFamily: 'Poppins',
+        ),
+      ),
+      subtitle: Text(
+        'Add folders here to skip them during scans',
+        style: TextStyle(
+          color: context.onSurfaceVariantColor,
+          fontSize: 14.sp,
+          fontFamily: 'Poppins',
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBlockedLimitTile(int maxBlocked, int currentCount) {
+    return ListTile(
+      leading: Icon(
+        Icons.warning_amber_rounded,
+        color: Colors.orange,
+        size: 22.sp,
+      ),
+      title: Text(
+        'Blocked folder limit reached',
+        style: TextStyle(
+          color: Colors.orange,
+          fontSize: 16.sp,
+          fontWeight: FontWeight.w500,
+          fontFamily: 'Poppins',
+        ),
+      ),
+      subtitle: Text(
+        'Remove a folder to block a new one ($currentCount/$maxBlocked)',
         style: TextStyle(
           color: context.onSurfaceVariantColor,
           fontSize: 14.sp,
@@ -445,7 +564,7 @@ class _MusicLibrarySettingsScreenState extends State<MusicLibrarySettingsScreen>
     }
   }
 
-  void _removeFolder(String folder, AppSettingsState state) {
+  void _removeFolder(String folder) {
     _logger.i('🗑️ Removing folder: $folder');
     
     final platform = Platform.isAndroid ? 'android' : 'ios';
@@ -458,6 +577,63 @@ class _MusicLibrarySettingsScreenState extends State<MusicLibrarySettingsScreen>
     );
     
     AppCustom.success(context, 'Folder removed successfully');
+  }
+
+  Future<void> _addBlockedFolder() async {
+    try {
+      final platform = Platform.isAndroid ? 'android' : 'ios';
+      final blockedFolders =
+          context.read<AppSettingsBloc>().state.blockedFolderList[platform] ?? [];
+      const maxBlockedFolders = 10;
+
+      if (blockedFolders.length >= maxBlockedFolders) {
+        AppCustom.warning(
+          context,
+          'Maximum $maxBlockedFolders blocked folders allowed. Remove one to add another.',
+        );
+        return;
+      }
+
+      _logger.i('🚫 Opening folder picker for blocked folders...');
+
+      final selectedDirectory = await FilePicker.platform.getDirectoryPath(
+        dialogTitle: 'Select Folder to Block',
+      );
+
+      if (selectedDirectory != null) {
+        _logger.i('🚫 Selected blocked folder: $selectedDirectory');
+
+        context.read<AppSettingsBloc>().add(
+              AppSettingsEvent.updateBlockedFolderList(
+                platform: platform,
+                folder: selectedDirectory,
+                isRemove: false,
+              ),
+            );
+
+        AppCustom.success(context, 'Folder blocked successfully');
+      } else {
+        _logger.i('🚫 No blocked folder selected');
+      }
+    } catch (e) {
+      _logger.e('❌ Error blocking folder: $e');
+      AppCustom.error(context, 'Error blocking folder');
+    }
+  }
+
+  void _removeBlockedFolder(String folder) {
+    _logger.i('🚫 Removing blocked folder: $folder');
+
+    final platform = Platform.isAndroid ? 'android' : 'ios';
+    context.read<AppSettingsBloc>().add(
+          AppSettingsEvent.updateBlockedFolderList(
+            platform: platform,
+            folder: folder,
+            isRemove: true,
+          ),
+        );
+
+    AppCustom.success(context, 'Folder unblocked successfully');
   }
 
   Future<void> _refreshAllSongs() async {

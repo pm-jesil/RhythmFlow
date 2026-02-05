@@ -277,13 +277,19 @@ class _CustomMusicFloatingButtonState extends State<CustomMusicFloatingButton>
                             ],
                           ),
                           child: ClipOval(
-                            child: currentSong.albumArt != null && 
+                            child: currentSong.albumArt != null &&
                                    currentSong.albumArt!.isNotEmpty
-                                ? Image.file(
-                                    File(currentSong.albumArt!),
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) =>
-                                        _buildDefaultBackground(context),
+                                ? SizedBox(
+                                    width: 60.w,
+                                    height: 60.h,
+                                    child: Image.file(
+                                      File(currentSong.albumArt!),
+                                      width: 60.w,
+                                      height: 60.h,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) =>
+                                          _buildDefaultBackground(context),
+                                    ),
                                   )
                                 : _buildDefaultBackground(context),
                           ),

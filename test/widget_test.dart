@@ -53,6 +53,7 @@ void main() {
         isError: false,
         isComprehensiveFeaturesExtractingLoading: false,
         isComprehensiveFeaturesExtractingError: false,
+        comprehensiveFeatureExtractionFailureCount: const <String, int>{},
       ),
     );
     
@@ -135,6 +136,7 @@ void main() {
         isError: false,
         isComprehensiveFeaturesExtractingLoading: false,
         isComprehensiveFeaturesExtractingError: false,
+        comprehensiveFeatureExtractionFailureCount: const <String, int>{},
       ),
     );
     

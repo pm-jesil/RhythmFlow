@@ -8,14 +8,15 @@ class DurationSecondsConverter implements JsonConverter<Duration?, int?> {
   const DurationSecondsConverter();
 
   @override
-  Duration? fromJson(int? json) => json == null ? null : Duration(seconds: json);
+  Duration? fromJson(int? json) =>
+      json == null ? null : Duration(seconds: json);
 
   @override
   int? toJson(Duration? object) => object?.inSeconds;
 }
 
 @freezed
-class MyPlaylist with _$MyPlaylist {
+abstract class MyPlaylist with _$MyPlaylist {
   const factory MyPlaylist({
     required String id,
     required String name,
@@ -28,10 +29,12 @@ class MyPlaylist with _$MyPlaylist {
     bool? isPublic,
     String? createdBy,
     int? playCount,
-    @DurationSecondsConverter() Duration? totalDuration, // changed from int? → Duration?
+    @DurationSecondsConverter()
+    Duration? totalDuration, // changed from int? → Duration?
   }) = _MyPlaylist;
 
-  factory MyPlaylist.fromJson(Map<String, dynamic> json) => _$MyPlaylistFromJson(json);
+  factory MyPlaylist.fromJson(Map<String, dynamic> json) =>
+      _$MyPlaylistFromJson(json);
 }
 
 extension PlaylistExtension on MyPlaylist {
@@ -61,18 +64,12 @@ extension PlaylistExtension on MyPlaylist {
   }
 
   MyPlaylist copyWithSongIds(List<String> newSongIds) {
-    return copyWith(
-      songIds: newSongIds,
-      updatedAt: DateTime.now(),
-    );
+    return copyWith(songIds: newSongIds, updatedAt: DateTime.now());
   }
 
   MyPlaylist addSong(String songId) {
     if (!songIds.contains(songId)) {
-      return copyWith(
-        songIds: [...songIds, songId],
-        updatedAt: DateTime.now(),
-      );
+      return copyWith(songIds: [...songIds, songId], updatedAt: DateTime.now());
     }
     return this;
   }

@@ -1,15 +1,19 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../app_settings/bloc/app_settings_bloc.dart';
+import '../../../core/widgets/custom_popup.dart';
+import '../../../core/theme/theme_extension.dart';
+import '../../../core/router/app_router.dart';
 import '../../../utils/logger/logger.dart';
 import '../../../utils/models/song/song_model.dart';
-import '../../../core/theme/theme_extension.dart';
 import '../../../utils/models/playlist_source/playlist_source_model.dart';
 import '../widgets/custom_tab_view_app_bar.dart';
-import '../../../core/router/app_router.dart';
 import '../bloc/music_bloc.dart';
 import '../widgets/song_list_item.dart';
 import '../widgets/song_list_widget.dart';
@@ -24,25 +28,71 @@ class SongListScreen extends StatefulWidget {
   State<SongListScreen> createState() => _SongListScreenState();
 }
 
-class _SongListScreenState extends State<SongListScreen> {
+class _SongListScreenState extends State<SongListScreen>
+    with WidgetsBindingObserver {
   final AppLogger _logger = AppLogger('SongListScreen');
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   List<Song> _filteredSongs = [];
+  bool _autoFetchEnabled = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _searchController.addListener(_onSearchChanged);
-
-    // Request all required permissions on first entry
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      PermissionService.requestAllRequiredPermissions(context);
+      _autoFetchSongsIfNeeded(initialRequest: true);
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeShowNotificationPermissionDialog();
+    });
+  }
+
+  /// On Android, if notification permission is not granted and rejection count
+  /// < 2, show a short popup. Enable → system permission dialog or Settings;
+  /// Cancel / Maybe later → update count, no request.
+  Future<void> _maybeShowNotificationPermissionDialog() async {
+    if (!Platform.isAndroid) return;
+    if (!mounted) return;
+    final hasPermission = await PermissionService.hasNotificationPermission();
+    if (hasPermission) return;
+    if (!mounted) return;
+    final rejectedCount = context
+        .read<AppSettingsBloc>()
+        .state
+        .notificationPermissionRejectedCount;
+    if (rejectedCount >= 2) return;
+    if (!mounted) return;
+    final result = await CustomPopup.showNotificationPermissionDialog(context);
+    if (!mounted) return;
+    final appSettingsBloc = context.read<AppSettingsBloc>();
+    if (result == CustomPopup.notificationPermissionResultEnable) {
+      await PermissionService.requestNotificationPermissionForPlayback();
+      if (!mounted) return;
+      final status = await Permission.notification.status;
+      if (status.isPermanentlyDenied) {
+        await openAppSettings();
+      }
+    } else if (result == CustomPopup.notificationPermissionResultMaybeLater) {
+      appSettingsBloc.add(
+        const AppSettingsEvent.updateNotificationPermissionRejectedCount(
+          value: 2,
+        ),
+      );
+    } else if (result == CustomPopup.notificationPermissionResultCancel) {
+      final current = appSettingsBloc.state.notificationPermissionRejectedCount;
+      appSettingsBloc.add(
+        AppSettingsEvent.updateNotificationPermissionRejectedCount(
+          value: (current + 1).clamp(0, 2),
+        ),
+      );
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     if (_searchController.text.isNotEmpty) {
       context.read<MusicBloc>().add(
         const MusicEvent.updateFilterKeyword(filterKeyword: ''),
@@ -51,6 +101,60 @@ class _SongListScreenState extends State<SongListScreen> {
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _autoFetchSongsIfNeeded();
+    }
+  }
+
+  Future<void> _autoFetchSongsIfNeeded({bool initialRequest = false}) async {
+    if (!_autoFetchEnabled) return;
+
+    final musicBloc = context.read<MusicBloc>();
+    final musicState = musicBloc.state;
+
+    if (musicState.allSongs.isNotEmpty) {
+      _autoFetchEnabled = false;
+      return;
+    }
+
+    if (musicState.isSongListLoading) {
+      return;
+    }
+
+    _logger.i('Checking permissions for automatic song fetch...');
+
+    final hasPermissions = await PermissionService.hasAllRequiredPermissions();
+
+    if (!mounted) return;
+
+    if (hasPermissions) {
+      _logger.i(
+        'Permissions already granted and song list empty - auto fetching songs',
+      );
+      musicBloc.add(const MusicEvent.fetchAndUpdateSongs());
+      _autoFetchEnabled = false;
+      return;
+    }
+
+    if (!initialRequest) {
+      return;
+    }
+
+    final granted = await PermissionService.requestAllRequiredPermissions(
+      context,
+    );
+
+    if (!mounted) return;
+
+    if (granted && musicBloc.state.allSongs.isEmpty) {
+      _logger.i('Permissions granted on request - auto fetching songs');
+      musicBloc.add(const MusicEvent.fetchAndUpdateSongs());
+      _autoFetchEnabled = false;
+    }
   }
 
   void _updateFilteredSongs(MusicState musicState) {
@@ -62,7 +166,6 @@ class _SongListScreenState extends State<SongListScreen> {
     final query = _searchController.text.toLowerCase();
     List<Song> currentSongs = List<Song>.from(musicState.allSongs);
 
-    // Apply search filter (no navigation filters needed - sorting handles everything)
     List<Song> newFilteredSongs;
     if (query.isEmpty) {
       newFilteredSongs = currentSongs;
@@ -79,14 +182,11 @@ class _SongListScreenState extends State<SongListScreen> {
       }).toList();
     }
 
-    // Only update if the filtered songs have actually changed
     if (_filteredSongs.length != newFilteredSongs.length ||
         !_areSongListsEqual(_filteredSongs, newFilteredSongs)) {
       _filteredSongs = newFilteredSongs;
     }
   }
-
-  // Removed _updateSelectedSongFromBloc - no longer needed since we only use bloc state
 
   bool _areSongListsEqual(List<Song> list1, List<Song> list2) {
     if (list1.length != list2.length) return false;
@@ -99,8 +199,6 @@ class _SongListScreenState extends State<SongListScreen> {
   void _onSearchChanged() {
     final query = _searchController.text.toLowerCase();
     _logger.d('Search query changed: "$query"');
-
-    // Update bloc state with filter keyword
     context.read<MusicBloc>().add(
       MusicEvent.updateFilterKeyword(filterKeyword: query),
     );
@@ -127,39 +225,32 @@ class _SongListScreenState extends State<SongListScreen> {
     );
   }
 
-  /// Handle fetch songs from storage with permission check
+  /// Fetches songs from storage after ensuring required permissions.
   Future<void> _handleFetchSongsFromStorage() async {
-    _logger.i('🎵 User requested to fetch songs from storage');
-
+    _logger.i('User requested to fetch songs from storage');
     try {
-      // Check permissions first
       final hasPermissions =
           await PermissionService.hasAllRequiredPermissions();
 
       if (hasPermissions) {
-        _logger.i('✅ Permissions granted, proceeding with fetch');
+        _logger.i('Permissions granted, proceeding with fetch');
         context.read<MusicBloc>().add(const MusicEvent.fetchAndUpdateSongs());
       } else {
-        _logger.w('❌ Permissions not granted, requesting permissions');
-
-        // Request permissions with user-friendly dialog
+        _logger.w('Permissions not granted, requesting permissions');
         final granted = await PermissionService.requestAllRequiredPermissions(
           context,
         );
 
         if (granted) {
-          _logger.i(
-            '✅ Permissions granted after request, proceeding with fetch',
-          );
+          _logger.i('Permissions granted after request, proceeding with fetch');
           context.read<MusicBloc>().add(const MusicEvent.fetchAndUpdateSongs());
         } else {
-          _logger.w('❌ Permissions denied, showing permission required dialog');
+          _logger.w('Permissions denied, showing permission required dialog');
           await PermissionService.showPermissionRequiredDialog(context);
         }
       }
     } catch (e) {
-      _logger.e('❌ Error handling fetch songs request: $e');
-      // Show error message to user
+      _logger.e('Error handling fetch songs request: $e');
       if (mounted) {
         AppCustom.error(context, 'Error checking permissions: $e');
       }
@@ -172,29 +263,25 @@ class _SongListScreenState extends State<SongListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<MusicBloc, MusicState>(
-      listenWhen: (previous, current) {
-        // Only listen when song ID actually changes
-        return previous.myPlayerState.currentSongId !=
-            current.myPlayerState.currentSongId;
-      },
-      listener: (context, musicState) {
-        // No longer needed - bloc state changes automatically trigger rebuilds
-        // Selection is now handled purely by bloc state
-      },
-      child: BlocBuilder<MusicBloc, MusicState>(
+    return BlocBuilder<MusicBloc, MusicState>(
         buildWhen: (previous, current) {
-          // Rebuild when songs list, loading state, or sorting changes
-          return previous.allSongs.length != current.allSongs.length ||
+          if (previous.allSongs.length != current.allSongs.length ||
               previous.isSongListLoading != current.isSongListLoading ||
               previous.isSongListError != current.isSongListError ||
-              previous.sortingIndex != current.sortingIndex ||
-              !_areSongListsEqual(previous.allSongs, current.allSongs);
+              previous.sortingIndex != current.sortingIndex) {
+            return true;
+          }
+          if (identical(previous.allSongs, current.allSongs)) return false;
+          return !_areSongListsEqual(previous.allSongs, current.allSongs);
         },
         builder: (context, musicState) {
-          // Update filtered songs when music state changes (including sorting)
           _updateFilteredSongs(musicState);
-          // No longer need to update selected song - handled by bloc state
+          if (!musicState.isSongListLoading &&
+              musicState.allSongs.isEmpty &&
+              !_autoFetchEnabled) {
+            _autoFetchEnabled = true;
+            _logger.d('Auto-fetch re-enabled - song list is empty');
+          }
 
           return Scaffold(
             body: Container(
@@ -212,12 +299,10 @@ class _SongListScreenState extends State<SongListScreen> {
                     child: Stack(
                       children: [
                         _buildContent(musicState),
-                        // Floating shuffle button
                         BlocBuilder<MusicBloc, MusicState>(
                           builder: (context, state) {
                             final showMiniPlayer =
                                 state.myPlayerState.currentSongId != null;
-                            // Position above pop-up music player when visible, otherwise above bottom tab
                             final bottomPosition = showMiniPlayer
                                 ? MediaQuery.of(context).padding.bottom +
                                       16.h +
@@ -263,16 +348,11 @@ class _SongListScreenState extends State<SongListScreen> {
                                             appSettingsState.isAiShuffleEnabled;
                                         final isNormalShuffleEnabled =
                                             musicState.myPlayerState.isShuffle;
-
-                                        // Determine which shuffle mode to use based on visible icon
-                                        // AI icon: AI enabled OR both disabled (defaults to AI)
-                                        // Normal icon: Normal enabled AND AI disabled
                                         final bool useAiShuffle =
                                             isAiShuffleEnabled ||
                                             !isNormalShuffleEnabled;
-
-                                        // Pick a random song
-                                        final randomIndex = DateTime.now()
+                                        final randomIndex =
+                                            DateTime.now()
                                                 .millisecondsSinceEpoch %
                                             _filteredSongs.length;
                                         final randomSong =
@@ -282,7 +362,6 @@ class _SongListScreenState extends State<SongListScreen> {
                                             .toList();
 
                                         if (useAiShuffle) {
-                                          // AI Shuffle mode: Enable AI, disable normal, then play
                                           if (isNormalShuffleEnabled) {
                                             musicBloc.add(
                                               MusicEvent.toggleShuffle(
@@ -307,10 +386,6 @@ class _SongListScreenState extends State<SongListScreen> {
                                             ),
                                           );
                                         } else {
-                                          // Normal Shuffle mode: Enable normal, disable AI, then play
-                                           print(
-                                            '🔄 Normal Shuffle icon is visible: Ensure normal shuffle is enabled, AI is disabled BEFORE playing',
-                                          );
                                           if (isAiShuffleEnabled) {
                                             appSettingsBloc.add(
                                               AppSettingsEvent.updateAiShuffle(
@@ -358,9 +433,6 @@ class _SongListScreenState extends State<SongListScreen> {
                                               final bool isNormal = musicState
                                                   .myPlayerState
                                                   .isShuffle;
-
-                                              // Show AI shuffle icon if AI is enabled OR both are disabled (default to AI)
-                                              // Show normal shuffle icon only if normal is enabled (and AI is disabled)
                                               final bool showAiIcon =
                                                   isAi || (!isAi && !isNormal);
 
@@ -370,14 +442,12 @@ class _SongListScreenState extends State<SongListScreen> {
                                                   color: Colors.white,
                                                   size: 24.sp,
                                                 );
-                                              } else {
-                                                // Normal shuffle is enabled and AI is disabled
-                                                return Icon(
+                                              }
+                                              return Icon(
                                                   CupertinoIcons.shuffle,
                                                   color: Colors.white,
                                                   size: 24.sp,
                                                 );
-                                              }
                                             },
                                           );
                                         },
@@ -397,7 +467,6 @@ class _SongListScreenState extends State<SongListScreen> {
             ),
           );
         },
-      ),
     );
   }
 
@@ -475,109 +544,81 @@ class _SongListScreenState extends State<SongListScreen> {
 
     return CustomScrollView(
       controller: _scrollController,
+      physics: const BouncingScrollPhysics(
+        parent: AlwaysScrollableScrollPhysics(),
+      ),
+      cacheExtent: 400,
       slivers: [
-        // Search Bar
-        // AlbumArtistPlaylistHelper.buildSearchBar(
-        //   controller: _searchController,
-        //   hintText: 'Search songs, artists, or albums...',
-        //   context: context,
-        // ),
-
-        // Songs List - Optimized with better performance
         SliverPadding(
           padding: EdgeInsets.only(left: 16.w, right: 16.w, top: 0.h),
           sliver: SliverList(
             delegate: SliverChildBuilderDelegate(
               (context, index) {
                 final song = _filteredSongs[index];
-                return Padding(
-                  padding: EdgeInsets.only(bottom: 6.h),
-                  child: SongListItem(
-                    key: ValueKey(
-                      song.id,
-                    ), // Use song ID as key for better performance
-                    songTitle: song.title,
-                    artistName: song.artists.join(', '),
-                    albumName: song.albums.join(', '),
-                    duration: song.duration,
-                    albumArtPath: song.albumArt,
-                    songId: song.id,
-                    isImmediatelySelected:
-                        false, // CRITICAL: Don't use local state for selection
-                    onTap: () {
-                      HapticFeedback.lightImpact();
+                return RepaintBoundary(
+                  child: Padding(
+                    padding: EdgeInsets.only(bottom: 6.h),
+                    child: SongListItem(
+                      key: ValueKey(song.id),
+                      songTitle: song.title,
+                      artistName: song.artists.join(', '),
+                      albumName: song.albums.join(', '),
+                      duration: song.duration,
+                      albumArtPath: song.albumArt,
+                      songId: song.id,
+                      isImmediatelySelected: false,
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        _logger.i(
+                          'Play/Pause Song - ID: ${song.id}, Title: ${song.title}, Artist: ${song.artists.join(', ')}, Album: ${song.albums.join(', ')}',
+                        );
 
-                      // CRITICAL: Don't set local selection state here
-                      // Let the bloc state handle selection to prevent multiple songs being selected
-
-                      _logger.i(
-                        'Play/Pause Song - ID: ${song.id}, Title: ${song.title}, Artist: ${song.artists.join(', ')}, Album: ${song.albums.join(', ')}',
-                      );
-
-                      // Toggle play/pause for the current song
-                      context.read<MusicBloc>().add(
-                        MusicEvent.playOrPauseSong(
-                          songId: song.id,
-                          currentPlayList: _filteredSongs
-                              .map((song) => song.id)
-                              .toList(),
-                        ),
-                      );
-                    },
-                    onOpenMusicPlayer: () {
-                      _logger.i(
-                        'Open Music Player - ID: ${song.id}, Title: ${song.title}',
-                      );
-
-                      // CRITICAL: Don't set local selection state here
-                      // Let the bloc state handle selection to prevent multiple songs being selected
-
-                      _logger.d(
-                        "🎵 Tapping song: ${song.title} | Current: ${musicState.myPlayerState.currentSongId}",
-                      );
-
-                      // Always use playOrPauseSong - it handles all cases internally
-                      // Pass allSongs to maintain proper order in currentPlayList
-                      context.read<MusicBloc>().add(
-                        MusicEvent.playOrPauseSong(
-                          songId: song.id,
-                          currentPlayList: _filteredSongs
-                              .map((song) => song.id)
-                              .toList(),
-                          playlistSource:
-                              PlaylistSource.allSongs(), // Indicate this is from all songs screen
-                        ),
-                      );
-
-                      // Navigate to music player screen
-                      context.navigateToPlaySong('');
-                    },
-                    onMenuAction:
-                        (action, songId, songTitle, artistName, albumName) {
-                          _handleMenuAction(
-                            action,
-                            songId,
-                            songTitle,
-                            artistName,
-                            albumName,
-                          );
-                        },
+                        // Toggle play/pause for the current song
+                        context.read<MusicBloc>().add(
+                          MusicEvent.playOrPauseSong(
+                            songId: song.id,
+                            currentPlayList: _filteredSongs
+                                .map((song) => song.id)
+                                .toList(),
+                          ),
+                        );
+                      },
+                      onOpenMusicPlayer: () {
+                        _logger.i(
+                          'Open Music Player - ID: ${song.id}, Title: ${song.title}',
+                        );
+                        context.read<MusicBloc>().add(
+                          MusicEvent.playOrPauseSong(
+                            songId: song.id,
+                            currentPlayList: _filteredSongs
+                                .map((song) => song.id)
+                                .toList(),
+                            playlistSource: PlaylistSource.allSongs(),
+                          ),
+                        );
+                        context.navigateToPlaySong('');
+                      },
+                      onMenuAction:
+                          (action, songId, songTitle, artistName, albumName) {
+                            _handleMenuAction(
+                              action,
+                              songId,
+                              songTitle,
+                              artistName,
+                              albumName,
+                            );
+                          },
+                    ),
                   ),
                 );
               },
               childCount: _filteredSongs.length,
-              // Performance optimizations
-              addAutomaticKeepAlives:
-                  false, // Don't keep items alive when scrolled away
-              addRepaintBoundaries:
-                  true, // Add repaint boundaries for better performance
-              addSemanticIndexes:
-                  false, // Disable semantic indexes for better performance
+              addAutomaticKeepAlives: false,
+              addRepaintBoundaries: true,
+              addSemanticIndexes: false,
             ),
           ),
         ),
-
-        // Bottom padding for navigation
         SliverToBoxAdapter(child: SizedBox(height: 100.h)),
       ],
     );

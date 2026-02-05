@@ -8,13 +8,13 @@ import 'package:rhythmflow/core/constants/app_constants.dart';
 import 'package:rhythmflow/utils/models/my_playlist/my_playlist_model.dart';
 import 'package:music_feature_analyzer/music_feature_analyzer.dart';
 import '../../../utils/models/song/song_model.dart';
-import '../../../utils/models/song_features/song_features.dart';
 import '../../../utils/models/album/album_model.dart';
 import '../../../utils/models/artist/artist_model.dart';
 import '../../../utils/models/my_player_state_model.dart';
 import '../../../utils/models/playlist_source/playlist_source_model.dart';
 import '../../../utils/logger/logger.dart';
 import '../../../utils/services/fetch_songs.dart';
+import '../../../utils/services/music_metadata_service.dart';
 import '../../../utils/services/music_service.dart';
 import '../../../utils/services/audio_service.dart';
 import '../../../utils/services/remote_control_service.dart';
@@ -61,7 +61,11 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
   // Counter to prevent infinite loops with invalid songs
   int _invalidSongAttempts = 0;
   static const int maxInvalidSongAttempts = 3;
-  
+
+  /// Count of in-flight Next/Previous actions. When > 0: ignore completion,
+  /// ignore onSongChanged queue, and ignore "invalid song" from interrupted loads.
+  int _programmaticChangeCount = 0;
+
   // Track previous AI shuffle state to detect when it's enabled
   bool _previousAiShuffleState = false;
 
@@ -122,27 +126,33 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           _appSettingsBloc.add(
             AppSettingsEvent.updateAiShuffle(isEnabled: false),
           );
-          add(MusicEvent.toggleShuffle(
-            isShuffle: true,
-            currentPlayList: currentPlayList,
-            isAutoStart: false,
-          ));
+          add(
+            MusicEvent.toggleShuffle(
+              isShuffle: true,
+              currentPlayList: currentPlayList,
+              isAutoStart: false,
+            ),
+          );
         } else if (isShuffleActive) {
           // Normal → None: disable regular shuffle
-          add(MusicEvent.toggleShuffle(
-            isShuffle: false,
-            currentPlayList: currentPlayList,
-          ));
+          add(
+            MusicEvent.toggleShuffle(
+              isShuffle: false,
+              currentPlayList: currentPlayList,
+            ),
+          );
         } else {
           // None → AI: enable AI and trigger AI shuffle
           _appSettingsBloc.add(
             AppSettingsEvent.updateAiShuffle(isEnabled: true),
           );
           if (currentSongId != null) {
-            add(MusicEvent.aiShuffle(
-              currentSongId: currentSongId,
-              currentPlayList: currentPlayList,
-            ));
+            add(
+              MusicEvent.aiShuffle(
+                currentSongId: currentSongId,
+                currentPlayList: currentPlayList,
+              ),
+            );
           }
         }
       },
@@ -180,7 +190,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
       appSettingsBloc: _appSettingsBloc,
       audioService: _audioService,
     );
-    
+
     // Sync initial shuffle/repeat state to notification when bloc is created
     // This ensures notification shows correct icons on first song play
     _audioService.updateShuffleRepeatState(
@@ -194,14 +204,13 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     _previousAiShuffleState = _appSettingsBloc.state.isAiShuffleEnabled;
     _appSettingsBloc.stream.listen((appSettingsState) {
       final isAiShuffleNowEnabled = appSettingsState.isAiShuffleEnabled;
-      
+
       // When AI shuffle is enabled, disable regular shuffle
       if (isAiShuffleNowEnabled && state.myPlayerState.isShuffle) {
         _logger.i('🤖 AI Shuffle enabled - disabling regular shuffle');
-        add(const MusicEvent.toggleShuffle(
-          isShuffle: false,
-          currentPlayList: [],
-        ));
+        add(
+          const MusicEvent.toggleShuffle(isShuffle: false, currentPlayList: []),
+        );
         // Update notification to show AI shuffle
         _audioService.updateShuffleRepeatState(
           isShuffle: false,
@@ -209,30 +218,28 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         );
       } else if (!isAiShuffleNowEnabled) {
         // When AI shuffle is disabled, clear AI shuffle state in notification
-        _audioService.updateShuffleRepeatState(
-          isAiShuffle: false,
-        );
+        _audioService.updateShuffleRepeatState(isAiShuffle: false);
       }
-      
+
       // Check and trigger music features analysis when AI shuffle is enabled
       // Only check if AI shuffle was just enabled (not if it was already enabled)
       if (isAiShuffleNowEnabled && !_previousAiShuffleState) {
         _logger.i('🤖 AI Shuffle enabled - checking music features analysis');
         _checkAndTriggerFeatureAnalysis();
       }
-      
+
       // Update previous state for next comparison
       _previousAiShuffleState = isAiShuffleNowEnabled;
     });
 
-    // Check if AI shuffle is already enabled on startup and verify features
-    if (_appSettingsBloc.state.isAiShuffleEnabled) {
-      _logger.i('🤖 AI Shuffle already enabled on startup - checking music features analysis');
-      // Use a small delay to ensure state is fully initialized
-      Future.delayed(const Duration(milliseconds: 500), () {
-        _checkAndTriggerFeatureAnalysis();
-      });
-    }
+    // On every app launch: check in background if all songs have AI features extracted;
+    // if not, automatically trigger comprehensive feature extraction for pending songs.
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      _logger.i(
+        '🔬 App launch - checking for pending comprehensive feature extraction',
+      );
+      _checkAndTriggerFeatureAnalysis();
+    });
 
     // Initialize app lifecycle handler
     AppLifecycleHandler.initialize(
@@ -270,7 +277,8 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         }
       }
 
-      if (playerState.processingState == ProcessingState.completed) {
+      if (playerState.processingState == ProcessingState.completed &&
+          _programmaticChangeCount == 0) {
         _handleSongCompletion();
       }
     });
@@ -331,6 +339,9 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           'isPlaying': state.myPlayerState.isPlaying,
           'lastPosition': state.myPlayerState.lastPosition?.inMilliseconds,
         },
+        'comprehensiveFeatureExtractionFailureCount': state
+            .comprehensiveFeatureExtractionFailureCount
+            .map((k, v) => MapEntry(k, v)),
       };
     } catch (_) {
       return null; // skip persisting on serialization errors
@@ -359,7 +370,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
       );
 
       final mp = (json['myPlayerState'] as Map<String, dynamic>? ?? {});
-      final myPlayerState = MyPlayerStateModel(
+      var myPlayerState = MyPlayerStateModel(
         playlistId: mp['playlistId'] as String?,
         currentPlayList: List<String>.from(mp['currentPlayList'] ?? const []),
         currentSongId: mp['currentSongId'] as String?,
@@ -367,12 +378,33 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         completedSongs: List<String>.from(mp['completedSongs'] ?? const []),
         repeatModeIndex: (mp['repeatModeIndex'] as int?) ?? 0,
         filterKeyword: '',
-        isShuffle: (mp['isShuffle'] as bool?) ?? false,
+        isShuffle: (mp['isShuffle'] as bool?) ?? true,
         isPlaying: false,
         lastPosition: mp['lastPosition'] != null
             ? Duration(milliseconds: mp['lastPosition'] as int)
             : null,
       );
+      // Restore: if we have a current song but queue was empty, repopulate queue
+      if (myPlayerState.currentSongId != null &&
+          myPlayerState.currentPlayList.isEmpty) {
+        myPlayerState = myPlayerState.copyWith(
+          currentPlayList: [myPlayerState.currentSongId!],
+        );
+      }
+
+      final failureCountRaw =
+          json['comprehensiveFeatureExtractionFailureCount'];
+      final Map<String, int> comprehensiveFeatureExtractionFailureCount;
+      if (failureCountRaw is Map) {
+        comprehensiveFeatureExtractionFailureCount = failureCountRaw.map(
+          (k, v) => MapEntry(
+            k.toString(),
+            (v is int) ? v : (v is num ? v.toInt() : 0),
+          ),
+        );
+      } else {
+        comprehensiveFeatureExtractionFailureCount = const <String, int>{};
+      }
 
       return MusicState(
         myPlayerState: myPlayerState,
@@ -392,6 +424,8 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         isError: false,
         isComprehensiveFeaturesExtractingLoading: false,
         isComprehensiveFeaturesExtractingError: false,
+        comprehensiveFeatureExtractionFailureCount:
+            comprehensiveFeatureExtractionFailureCount,
       );
     } catch (e) {
       _logger.e('Failed to restore state from storage: $e');
@@ -488,6 +522,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           state.allSongs,
           supportedFormats: _appSettingsBloc.state.supportedAudioFormats,
           whitelistedFolders: _appSettingsBloc.state.whiteListFolder,
+          blockedFolders: _appSettingsBloc.state.blockedFolderList,
         );
 
         final newSongs = fetchResult['newSongs'] as List<Song>;
@@ -568,6 +603,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         await FetchSongsService.fetchAllSongsProgressive(
           supportedFormats: _appSettingsBloc.state.supportedAudioFormats,
           whitelistedFolders: _appSettingsBloc.state.whiteListFolder,
+          blockedFolders: _appSettingsBloc.state.blockedFolderList,
           onProgress: (newSongs, isComplete, totalFound) {
             _logger.d(
               '📀 Progress update: ${newSongs.length} new songs, total: $totalFound, complete: $isComplete',
@@ -679,12 +715,13 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
       _logger.i('✅ Metadata update completed');
 
-      // Trigger comprehensive features extraction after both albums and artists are complete
+      // After metadata (albums/artists) is complete, automatically run comprehensive
+      // feature extraction in background for pending songs (e.g. after song upload / initial scan).
       if (includeAlbums && includeArtists) {
         _logger.i(
-          '🎵 Metadata complete - Triggering comprehensive features extraction',
+          '🎵 Metadata complete - Triggering comprehensive features extraction (pending songs only)',
         );
-        add(const MusicEvent.extractComprehensiveFeatures());
+        add(const MusicEvent.extractComprehensiveFeatures(isForce: false));
       }
     } catch (e) {
       _logger.e('❌ Error in metadata update: $e');
@@ -1018,29 +1055,28 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         }
 
         // Create new myPlayerState with appropriate playlist
-        final newPlayerState = MyPlayerStateModel(
-          playlistId: playlistId,
-          currentPlayList: getSongIds(playlistSongs),
-          currentSongId: event.songId,
-          previousSongId: null,
-          completedSongs: [],
-          repeatModeIndex: state.myPlayerState.repeatModeIndex,
-          isShuffle: state.myPlayerState.isShuffle,
-        ).reorderToStartWith(event.songId!).copyWith(
-          isPlaying: true,
-          lastPosition: null, // Clear position for new song
-        );  
+        final newPlayerState =
+            MyPlayerStateModel(
+                  playlistId: playlistId,
+                  currentPlayList: getSongIds(playlistSongs),
+                  currentSongId: event.songId,
+                  previousSongId: null,
+                  completedSongs: [],
+                  repeatModeIndex: state.myPlayerState.repeatModeIndex,
+                  isShuffle: state.myPlayerState.isShuffle,
+                )
+                .reorderToStartWith(event.songId!)
+                .copyWith(
+                  isPlaying: true,
+                  lastPosition: null, // Clear position for new song
+                );
 
         _logger.i(
           '🔄 Reordered playlist: ${getSongIds(playlistSongs)} → ${newPlayerState.currentPlayList}',
         );
 
         // Update state immediately - clear last position for new song
-        emit(
-          state.copyWith(
-            myPlayerState: newPlayerState,
-          ),
-        );
+        emit(state.copyWith(myPlayerState: newPlayerState));
 
         // Reset invalid song attempts counter when starting new song
         _invalidSongAttempts = 0;
@@ -1053,23 +1089,22 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           repeatModeIndex: newPlayerState.repeatModeIndex,
         );
 
-        // Play the song with the complete allSongs list to maintain order
-        // Play the song from beginning
-        _audioService.playSong(
-          song,
-          playlistId: playlistId,
-          playlistSource: source,
-        );
-        
-        _showNotificationForCurrentSong();
+        _programmaticChangeCount++;
+        try {
+          await _audioService.playSong(
+            song,
+            playlistId: playlistId,
+            playlistSource: source,
+          );
+        } finally {
+          _programmaticChangeCount--;
+        }
 
-        // Start sleep timer when song starts playing
+        _showNotificationForCurrentSong();
         SyncAppSettingsHelper.startSleepTimer(
           appSettingsBloc: _appSettingsBloc,
           musicBloc: this,
         );
-
-        // Trigger AI Shuffle for new song (only when starting to play)
         _triggerAiShuffleIfEnabled(
           songId: event.songId!,
           playlistSource: event.playlistSource,
@@ -1151,18 +1186,21 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         }
 
         // Create new myPlayerState with appropriate playlist and reorder to start with tapped song
-        final newPlayerState = MyPlayerStateModel(
-          playlistId: playlistId,
-          currentPlayList: getSongIds(playlistSongs),
-          currentSongId: event.songId,
-          previousSongId: state.myPlayerState.currentSongId,
-          completedSongs: [],
-          repeatModeIndex: state.myPlayerState.repeatModeIndex,
-          isShuffle: state.myPlayerState.isShuffle,
-        ).reorderToStartWith(event.songId!).copyWith(
-          isPlaying: true,
-          lastPosition: null, // Clear position for new song
-        );
+        final newPlayerState =
+            MyPlayerStateModel(
+                  playlistId: playlistId,
+                  currentPlayList: getSongIds(playlistSongs),
+                  currentSongId: event.songId,
+                  previousSongId: state.myPlayerState.currentSongId,
+                  completedSongs: [],
+                  repeatModeIndex: state.myPlayerState.repeatModeIndex,
+                  isShuffle: state.myPlayerState.isShuffle,
+                )
+                .reorderToStartWith(event.songId!)
+                .copyWith(
+                  isPlaying: true,
+                  lastPosition: null, // Clear position for new song
+                );
 
         _logger.i(
           '🔄 Reordered playlist: ${getSongIds(playlistSongs)} → ${newPlayerState.currentPlayList}',
@@ -1174,31 +1212,28 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         // Reset invalid song attempts counter when starting new song
         _invalidSongAttempts = 0;
 
-        // Sync shuffle/repeat state to notification BEFORE playing
-        // This ensures notification shows correct icons from the start
         _audioService.updateShuffleRepeatState(
           isShuffle: newPlayerState.isShuffle,
           isAiShuffle: _appSettingsBloc.state.isAiShuffleEnabled,
           repeatModeIndex: newPlayerState.repeatModeIndex,
         );
 
-        // Play the song with the complete allSongs list to maintain order
-        // Play the song from beginning
-        _audioService.playSong(
-          song,
-          playlistId: playlistId,
-          playlistSource: source,
-        );
-        
-        _showNotificationForCurrentSong();
+        _programmaticChangeCount++;
+        try {
+          await _audioService.playSong(
+            song,
+            playlistId: playlistId,
+            playlistSource: source,
+          );
+        } finally {
+          _programmaticChangeCount--;
+        }
 
-        // Start sleep timer when playing different song
+        _showNotificationForCurrentSong();
         SyncAppSettingsHelper.startSleepTimer(
           appSettingsBloc: _appSettingsBloc,
           musicBloc: this,
         );
-
-        // Trigger AI Shuffle for new song (only when starting to play)
         _triggerAiShuffleIfEnabled(
           songId: event.songId!,
           playlistSource: event.playlistSource,
@@ -1252,25 +1287,28 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
             repeatModeIndex: updatedQueue.repeatModeIndex,
           );
 
-          // Play the song
-          await _audioService.playSong(
-            nextSong,
-            playlistId: state.myPlayerState.playlistId,
-            playlistSource: _getPlaylistSourceFromId(
-              state.myPlayerState.playlistId,
-            ),
-          );
+          _programmaticChangeCount++;
+          try {
+            await _audioService.playSong(
+              nextSong,
+              playlistId: state.myPlayerState.playlistId,
+              playlistSource: _getPlaylistSourceFromId(
+                state.myPlayerState.playlistId,
+              ),
+            );
+          } finally {
+            _programmaticChangeCount--;
+          }
 
-          // Update notification
           _updateNotificationForCurrentSong();
-
-          // Start sleep timer when playing next song
           SyncAppSettingsHelper.startSleepTimer(
             appSettingsBloc: _appSettingsBloc,
             musicBloc: this,
           );
         } else {
-          _logger.w('⚠️ Next button: No next song available (playlist has only one song or is empty)');
+          _logger.w(
+            '⚠️ Next button: No next song available (playlist has only one song or is empty)',
+          );
         }
       } else {
         _logger.w('⚠️ No songs in queue');
@@ -1320,19 +1358,20 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
             repeatModeIndex: updatedQueue.repeatModeIndex,
           );
 
-          // Play the song
-          await _audioService.playSong(
-            previousSong,
-            playlistId: state.myPlayerState.playlistId,
-            playlistSource: _getPlaylistSourceFromId(
-              state.myPlayerState.playlistId,
-            ),
-          );
+          _programmaticChangeCount++;
+          try {
+            await _audioService.playSong(
+              previousSong,
+              playlistId: state.myPlayerState.playlistId,
+              playlistSource: _getPlaylistSourceFromId(
+                state.myPlayerState.playlistId,
+              ),
+            );
+          } finally {
+            _programmaticChangeCount--;
+          }
 
-          // Update notification
           _updateNotificationForCurrentSong();
-
-          // Start sleep timer when playing previous song
           SyncAppSettingsHelper.startSleepTimer(
             appSettingsBloc: _appSettingsBloc,
             musicBloc: this,
@@ -1345,7 +1384,6 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           '🔄 No completed songs to go back to - seeking current song to beginning',
         );
 
-        // Seek current song to beginning (0.0) and continue playing
         await _audioService.seekTo(Duration.zero);
 
         // Ensure the song is playing
@@ -1419,11 +1457,11 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     // Check AI shuffle state and implement mutual exclusivity
     final appSettings = _appSettingsBloc.state;
     if (event.isShuffle && appSettings.isAiShuffleEnabled) {
-      _logger.i('🤖 AI Shuffle is enabled - disabling AI Shuffle to enable regular shuffle');
-      // Disable AI shuffle when enabling regular shuffle
-      _appSettingsBloc.add(
-        AppSettingsEvent.updateAiShuffle(isEnabled: false),
+      _logger.i(
+        '🤖 AI Shuffle is enabled - disabling AI Shuffle to enable regular shuffle',
       );
+      // Disable AI shuffle when enabling regular shuffle
+      _appSettingsBloc.add(AppSettingsEvent.updateAiShuffle(isEnabled: false));
     }
 
     // Shuffle setting is handled by MusicBloc state management
@@ -1899,7 +1937,8 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           newState: state.copyWith(
             myPlayerState: state.myPlayerState.copyWith(
               currentSongId: newSong.id,
-              previousSongId: state.myPlayerState.currentSongId, // Update previousSongId
+              previousSongId:
+                  state.myPlayerState.currentSongId, // Update previousSongId
               currentPlayList: state.myPlayerState.currentPlayList,
               isPlaying: true,
             ),
@@ -1922,18 +1961,18 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     String? playlistId,
     PlaylistSource? playlistSource,
   ) {
+    if (_programmaticChangeCount > 0) {
+      return;
+    }
+
     _invalidSongAttempts++;
 
     _logger.w(
       '🚫 Invalid song detected: "${invalidSong.title}" - attempt $_invalidSongAttempts/$maxInvalidSongAttempts',
     );
 
-    // Clear any pending song changes to prevent conflicts
     _clearPendingSongChanges();
-
     _refreshLibraryToRemoveInvalidSongs();
-
-    // Try to play next song
     _tryPlayNextSong();
   }
 
@@ -2212,7 +2251,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           final nextSong = state.allSongs.firstWhere(
             (s) => s.id == updatedQueue.currentSongId,
           );
-          
+
           // Sync shuffle/repeat state to notification BEFORE playing
           // This ensures notification shows correct icons from the start
           _audioService.updateShuffleRepeatState(
@@ -2220,7 +2259,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
             isAiShuffle: _appSettingsBloc.state.isAiShuffleEnabled,
             repeatModeIndex: updatedQueue.repeatModeIndex,
           );
-          
+
           await _audioService.playSong(
             nextSong,
             playlistId: state.myPlayerState.playlistId,
@@ -2228,7 +2267,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
               state.myPlayerState.playlistId,
             ),
           );
-          
+
           _updateNotificationForCurrentSong();
         } else {
           // No next song - just move current to completed
@@ -2790,23 +2829,32 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
       // Note: Can't check processing state across isolates with WorkManager
 
-      // Determine which songs to process
+      // Determine which songs to process (exclude songs that failed >= 2 times)
+      const int maxFailureCountBeforeExclude = 2;
+      final failureCount = state.comprehensiveFeatureExtractionFailureCount;
+
       List<Song> targetSongs;
       if (event.isForce == true) {
-        // Force re-extraction for all songs
+        // Force re-extraction for all songs (ignore failure count)
         targetSongs = List<Song>.from(state.allSongs);
         _logger.i(
           '🔁 Force re-extraction enabled — processing all ${targetSongs.length} songs.',
         );
       } else {
-        // Extract only for songs missing features
+        // Extract only for songs missing features and not excluded (failure count < 2)
         targetSongs = state.allSongs.where((song) {
-          return song.features == null;
+          if (song.features != null) return false;
+          final count = failureCount[song.id] ?? 0;
+          if (count >= maxFailureCountBeforeExclude) {
+            _logger.d('⏭️ Skipping song (failed $count times): ${song.title}');
+            return false;
+          }
+          return true;
         }).toList();
 
         if (targetSongs.isEmpty) {
           _logger.i(
-            '✅ All songs already have features extracted. Nothing to process.',
+            '✅ All songs already have features or excluded after failures. Nothing to process.',
           );
           emit(
             state.copyWith(
@@ -2818,9 +2866,12 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         }
 
         _logger.i(
-          '🎵 Extracting features for ${targetSongs.length} pending songs...',
+          '🎵 Extracting features for ${targetSongs.length} pending songs (excluded ${failureCount.values.where((c) => c >= maxFailureCountBeforeExclude).length} with >= $maxFailureCountBeforeExclude failures)...',
         );
       }
+
+      final targetSongIds = targetSongs.map((s) => s.id).toSet();
+      final successIdsInRun = <String>{};
 
       // Set loading state
       emit(
@@ -2830,61 +2881,83 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         ),
       );
 
+      await Future.delayed(const Duration(milliseconds: 50));
+
       // Convert songs to file paths for analysis
       final filePaths = targetSongs.map((song) => song.path).toList();
+      // Pass durations to avoid per-file metadata reads on main isolate (keeps UI responsive)
+      final durationMsByPath = {
+        for (final song in targetSongs) song.path: song.duration.inMilliseconds,
+      };
 
       try {
         _logger.i('🎵 Starting Music Feature Analyzer batch processing...');
-        
+
         // Analyze songs using package with background processing (same as original)
         await MusicFeatureAnalyzer.extractFeaturesInBackground(
           filePaths,
+          durationMsByPath: durationMsByPath,
           onProgress: (current, total) {
             _logger.d(
               '📊 Feature extraction progress: $current/$total songs processed',
             );
             // Emit progress update to UI
-            emit(state.copyWith(
-              isComprehensiveFeaturesExtractingLoading: true,
-              isComprehensiveFeaturesExtractingError: false,
-            ));
+            emit(
+              state.copyWith(
+                isComprehensiveFeaturesExtractingLoading: true,
+                isComprehensiveFeaturesExtractingError: false,
+              ),
+            );
           },
           onSongUpdated: (filePath, features) {
             _logger.d('🔄 Updated song: ${filePath.split('/').last}');
             if (features != null) {
-              // Package now returns ExtractedSongFeatures, not SongFeatures
-              _logger.d('🔍 Features: ${features.estimatedGenre} | ${features.tempoBpm} BPM');
-              
-              // Find and update the specific song in the current state
+              _logger.d(
+                '🔍 Features: ${features.estimatedGenre} | ${features.tempoBpm} BPM',
+              );
+              try {
+                final songForPath = state.allSongs.firstWhere(
+                  (s) => s.path == filePath,
+                );
+                successIdsInRun.add(songForPath.id);
+              } catch (_) {}
+              final projectFeatures =
+                  MusicMetadataService.extractedToSongFeatures(features);
+              if (projectFeatures == null) return;
               final updatedSongs = state.allSongs.map((song) {
                 if (song.path == filePath) {
-                  final projectFeatures = _convertPackageFeaturesToProjectFeatures(features);
                   return song.copyWith(features: projectFeatures);
                 }
                 return song;
               }).toList();
-              
+
               // Emit updated state with the new song features
-              emit(state.copyWith(
-                allSongs: updatedSongs,
-                isComprehensiveFeaturesExtractingLoading: true,
-                isComprehensiveFeaturesExtractingError: false,
-              ));
+              emit(
+                state.copyWith(
+                  allSongs: updatedSongs,
+                  isComprehensiveFeaturesExtractingLoading: true,
+                  isComprehensiveFeaturesExtractingError: false,
+                ),
+              );
             }
           },
           onCompleted: () {
+            _recordExtractionFailures(targetSongIds, successIdsInRun, emit);
             _logger.i('✅ Background feature extraction completed');
           },
           onError: (error) {
             _logger.e('❌ Background feature extraction error: $error');
+            _recordExtractionFailures(targetSongIds, successIdsInRun, emit);
           },
         );
 
         // Final state update - mark extraction as complete
-        emit(state.copyWith(
-          isComprehensiveFeaturesExtractingLoading: false,
-          isComprehensiveFeaturesExtractingError: false,
-        ));
+        emit(
+          state.copyWith(
+            isComprehensiveFeaturesExtractingLoading: false,
+            isComprehensiveFeaturesExtractingError: false,
+          ),
+        );
 
         _logger.i('✅ Music Feature Analyzer completed successfully');
       } catch (e) {
@@ -2908,40 +2981,68 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     }
   }
 
+  /// Record extraction failures for songs that were in this run but never got a successful update.
+  /// Increments failure count in state; when count >= 2 the song is excluded from future pending lists.
+  void _recordExtractionFailures(
+    Set<String> targetSongIds,
+    Set<String> successIdsInRun,
+    Emitter<MusicState> emit,
+  ) {
+    final failedIds = targetSongIds.difference(successIdsInRun);
+    if (failedIds.isEmpty) return;
+
+    final current = state.comprehensiveFeatureExtractionFailureCount;
+    final updated = Map<String, int>.from(current);
+    for (final id in failedIds) {
+      updated[id] = (updated[id] ?? 0) + 1;
+    }
+
+    _logger.w(
+      '⚠️ Recording extraction failure for ${failedIds.length} song(s); '
+      'excluded when count >= 2',
+    );
+    emit(state.copyWith(comprehensiveFeatureExtractionFailureCount: updated));
+  }
+
   /// Check if music features are analyzed and trigger background analysis if needed
   void _checkAndTriggerFeatureAnalysis() {
     try {
       final currentState = state;
       final allSongs = currentState.allSongs;
-      
+
       // Skip if no songs available
       if (allSongs.isEmpty) {
         _logger.d('📊 No songs available for feature analysis check');
         return;
       }
-      
+
       // Skip if already analyzing
       if (currentState.isComprehensiveFeaturesExtractingLoading) {
         _logger.d('📊 Feature analysis already in progress, skipping');
         return;
       }
-      
+
       // Check if there are songs without features
-      final songsWithoutFeatures = allSongs.where((song) => song.features == null).toList();
-      
+      final songsWithoutFeatures = allSongs
+          .where((song) => song.features == null)
+          .toList();
+
       if (songsWithoutFeatures.isEmpty) {
         _logger.i('✅ All songs already have features analyzed');
         return;
       }
-      
+
       // Get progress to check completion percentage
-      final progress = MusicFeatureAnalyzer.getExtractionProgressWithSongs(allSongs);
-      final completionPercentage = progress['completionPercentage'] as double? ?? 0.0;
-      
+      final progress = MusicFeatureAnalyzer.getExtractionProgressWithSongs(
+        allSongs,
+      );
+      final completionPercentage =
+          progress['completionPercentage'] as double? ?? 0.0;
+
       _logger.i(
         '📊 Feature analysis check: ${songsWithoutFeatures.length} songs need analysis (${completionPercentage.toStringAsFixed(1)}% complete)',
       );
-      
+
       // Trigger background analysis for songs without features
       _logger.i('🚀 Starting background feature analysis for AI shuffle...');
       add(const MusicEvent.extractComprehensiveFeatures(isForce: false));
@@ -2965,50 +3066,5 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     _playerStateSubscription?.cancel();
     _appSettingsSubscription?.cancel();
     return super.close();
-  }
-
-  /// Convert package ExtractedSongFeatures to project SongFeatures
-  SongFeatures _convertPackageFeaturesToProjectFeatures(dynamic packageFeatures) {
-    return SongFeatures(
-      // Basic categorical
-      tempo: packageFeatures.tempo,
-      beat: packageFeatures.beat,
-      energy: packageFeatures.energy,
-      instruments: packageFeatures.instruments,
-      vocals: packageFeatures.vocals,
-      mood: packageFeatures.mood,
-
-      // YAMNet results
-      yamnetInstruments: packageFeatures.yamnetInstruments,
-      hasVocals: packageFeatures.hasVocals,
-      estimatedGenre: packageFeatures.estimatedGenre,
-      yamnetEnergy: packageFeatures.yamnetEnergy,
-      moodTags: packageFeatures.moodTags,
-
-      // Signal processing
-      tempoBpm: packageFeatures.tempoBpm,
-      beatStrength: packageFeatures.beatStrength,
-      signalEnergy: packageFeatures.signalEnergy,
-      brightness: packageFeatures.brightness,
-      danceability: packageFeatures.danceability,
-
-      // Combined metrics
-      overallEnergy: packageFeatures.overallEnergy,
-      intensity: packageFeatures.intensity,
-      spectralCentroid: packageFeatures.spectralCentroid,
-      spectralRolloff: packageFeatures.spectralRolloff,
-      zeroCrossingRate: packageFeatures.zeroCrossingRate,
-
-      // Additional features from package
-      spectralFlux: packageFeatures.spectralFlux,
-      complexity: packageFeatures.complexity,
-      valence: packageFeatures.valence,
-      arousal: packageFeatures.arousal,
-      confidence: packageFeatures.confidence,
-
-      // Metadata
-      analyzedAt: packageFeatures.analyzedAt,
-      modelVersion: packageFeatures.analyzerVersion,
-    );
   }
 }

@@ -2,7 +2,7 @@ name: rhythmflow
 description: "A modern Flutter music player application with local storage support."
 publish_to: "none"
 
-version: 1.0.0-beta.1+3
+version: 1.0.0-beta.4+9
 
 environment:
   sdk: ^3.8.1
@@ -34,7 +34,6 @@ dependencies:
   # Audio & Media - Enhanced for Music Player
   just_audio: ^0.10.4
   audio_service: ^0.18.18
-  audiotags: ^1.4.5
   rxdart: ^0.28.0
 
   # Network & HTTP
@@ -54,7 +53,7 @@ dependencies:
 
   # Serialization & JSON
   json_annotation: ^4.9.0
-  freezed_annotation: ^2.4.1
+  freezed_annotation: ^3.1.0
 
   # UI & Animation - Enhanced for Music Player
   animated_bottom_navigation_bar: ^1.4.0
@@ -78,12 +77,10 @@ dependencies:
   equatable: ^2.0.7
   intl: ^0.20.2
   uuid: ^4.5.1
-  crypto: ^3.0.3
   package_info_plus: ^8.0.2
 
   # Performance & Optimization
   flutter_cache_manager: ^3.3.1
-  image: ^3.3.0
 
   # Testing (in main dependencies)
   liquid_glass_renderer: ^0.1.1-dev.10
@@ -91,8 +88,13 @@ dependencies:
   # Icons
   font_awesome_flutter: ^10.11.0
 
-  # Music Feature Analysis
-  music_feature_analyzer: ^1.0.0
+  # Music Feature Analysis (metadata + optional AI features)
+  # music_feature_analyzer: ^1.0.2
+
+  music_feature_analyzer:
+    git:
+      url: https://github.com/jezeel/music_feature_analyzer.git
+      ref: 1.0.3
 
   # In App Updates
   in_app_update: ^4.2.5
@@ -111,7 +113,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
 
   # Code Generation
-  freezed: ^2.5.7
+  freezed: ^3.0.0
   json_serializable: ^6.7.1
   injectable_generator: ^2.4.1
   go_router_builder: ^2.3.0

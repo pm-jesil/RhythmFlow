@@ -9,6 +9,7 @@ import '../../../utils/models/song/song_model.dart';
 import '../../../utils/models/playlist_source/playlist_source_model.dart';
 import '../bloc/music_bloc.dart';
 import '../widgets/album_artist_my_playlist_helper.dart';
+import '../../../screens/widgets/sorting_helper.dart';
 
 class ArtistsScreen extends StatefulWidget {
   const ArtistsScreen({super.key});
@@ -21,7 +22,6 @@ class _ArtistsScreenState extends State<ArtistsScreen> {
   final AppLogger _logger = AppLogger('ArtistsScreen');
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  List<Artist> _filteredArtists = [];
   bool _isLoadingMore = false;
   bool _hasTriggeredBackgroundLoad = false;
 
@@ -30,19 +30,15 @@ class _ArtistsScreenState extends State<ArtistsScreen> {
     super.initState();
     _logger.i('ArtistsScreen initialized');
     _searchController.addListener(_onSearchChanged);
-
-    // Reset loading states when screen initializes
     _isLoadingMore = false;
     _hasTriggeredBackgroundLoad = false;
   }
 
   void _loadMoreArtists() {
-    if (!_isLoadingMore && _filteredArtists.length > 15) {
+    if (!_isLoadingMore) {
       setState(() {
         _isLoadingMore = true;
       });
-
-      // Simulate background loading with proper error handling
       Future.delayed(const Duration(milliseconds: 800), () {
         if (mounted) {
           setState(() {
@@ -67,19 +63,18 @@ class _ArtistsScreenState extends State<ArtistsScreen> {
   }
 
   void _onSearchChanged() {
-    setState(() {
-      final query = _searchController.text.toLowerCase();
-      if (query.isEmpty) {
-        _filteredArtists = context.read<MusicBloc>().state.artistList;
-      } else {
-        _filteredArtists = context
-            .read<MusicBloc>()
-            .state
-            .artistList
-            .where((artist) => artist.name.toLowerCase().contains(query))
-            .toList();
-      }
-    });
+    setState(() {});
+  }
+
+  /// Base list: top artists by play count when coming from "Top Artists", else all.
+  List<Artist> _getDisplayBaseList(MusicState state) {
+    if (state.navigationFilterType == 'top_artists') {
+      final withPlays = state.artistList
+          .where((a) => (a.playCount ?? 0) > 0)
+          .toList();
+      return SortingHelper.sortArtistsByPlayCount(withPlays, ascending: false);
+    }
+    return state.artistList;
   }
 
   @override
@@ -96,16 +91,26 @@ class _ArtistsScreenState extends State<ArtistsScreen> {
             SizedBox(height: 10.h),
             Expanded(
               child: BlocBuilder<MusicBloc, MusicState>(
+                buildWhen: (previous, current) {
+                  return previous.artistList.length != current.artistList.length ||
+                      previous.isArtistListLoading != current.isArtistListLoading ||
+                      previous.isArtistListError != current.isArtistListError ||
+                      previous.navigationFilterType != current.navigationFilterType ||
+                      !identical(previous.artistList, current.artistList);
+                },
                 builder: (context, state) {
-                  // Update filtered artists when state changes
-                  if (_filteredArtists.isEmpty && state.artistList.isNotEmpty) {
-                    _filteredArtists = state.artistList;
-                  }
+                  final baseList = _getDisplayBaseList(state);
+                  final query = _searchController.text.toLowerCase();
+                  final displayList = query.isEmpty
+                      ? baseList
+                      : baseList
+                          .where((a) =>
+                              a.name.toLowerCase().contains(query))
+                          .toList();
 
-                  // Trigger background loading after initial display
-                  if (_filteredArtists.isNotEmpty &&
+                  if (displayList.isNotEmpty &&
                       !_hasTriggeredBackgroundLoad &&
-                      _filteredArtists.length > 15 &&
+                      displayList.length > 15 &&
                       !_isLoadingMore) {
                     _hasTriggeredBackgroundLoad = true;
                     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -120,8 +125,11 @@ class _ArtistsScreenState extends State<ArtistsScreen> {
 
                   return CustomScrollView(
                     controller: _scrollController,
+                    physics: const BouncingScrollPhysics(
+                      parent: AlwaysScrollableScrollPhysics(),
+                    ),
+                    cacheExtent: 400,
                     slivers: [
-                      // Artists List
                       if (state.isArtistListLoading)
                         AlbumArtistPlaylistHelper.buildLoadingState(context)
                       else if (state.isArtistListError)
@@ -138,24 +146,29 @@ class _ArtistsScreenState extends State<ArtistsScreen> {
                             );
                           },
                         )
-                      else if (_filteredArtists.isEmpty)
+                      else if (displayList.isEmpty)
                         AlbumArtistPlaylistHelper.buildEmptyState(
                           context: context,
                           icon: Icons.person_outline_rounded,
-                          message: 'No artists found',
+                          message:
+                              state.navigationFilterType == 'top_artists'
+                                  ? 'No artists with plays yet'
+                                  : 'No artists found',
                         )
                       else if (AlbumArtistPlaylistHelper.shouldUseLazyLoading(
-                        _filteredArtists,
+                        displayList,
                         15,
                       ))
                         AlbumArtistPlaylistHelper.buildLazyLoadingMasonryGrid<
                           Artist
                         >(
                           context: context,
-                          allItems: _filteredArtists,
+                          allItems: displayList,
                           itemBuilder: (context, index) {
-                            final artist = _filteredArtists[index];
-                            return _buildArtistCard(artist, state.allSongs);
+                            final artist = displayList[index];
+                            return RepaintBoundary(
+                              child: _buildArtistCard(artist, state.allSongs),
+                            );
                           },
                           onLoadMore: _loadMoreArtists,
                           isLoadingMore: _isLoadingMore,
@@ -163,14 +176,14 @@ class _ArtistsScreenState extends State<ArtistsScreen> {
                         )
                       else
                         AlbumArtistPlaylistHelper.buildMasonryGrid<Artist>(
-                          items: _filteredArtists,
+                          items: displayList,
                           itemBuilder: (context, index) {
-                            final artist = _filteredArtists[index];
-                            return _buildArtistCard(artist, state.allSongs);
+                            final artist = displayList[index];
+                            return RepaintBoundary(
+                              child: _buildArtistCard(artist, state.allSongs),
+                            );
                           },
                         ),
-
-                      // Bottom padding for navigation
                       AlbumArtistPlaylistHelper.buildBottomPadding(),
                     ],
                   );
@@ -199,7 +212,6 @@ class _ArtistsScreenState extends State<ArtistsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Artist Image Section
           AlbumArtistPlaylistHelper.buildCardImageSection(
             imageWidget: AlbumArtistPlaylistHelper.buildArtistImage(
               context: context,
@@ -209,8 +221,6 @@ class _ArtistsScreenState extends State<ArtistsScreen> {
           ),
 
           SizedBox(height: 8.h),
-
-          // Artist Info Section
           AlbumArtistPlaylistHelper.buildCardInfoSection(
             context: context,
             title: artist.name,

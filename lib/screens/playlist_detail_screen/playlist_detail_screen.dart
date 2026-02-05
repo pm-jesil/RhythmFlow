@@ -11,6 +11,7 @@ import '../../utils/models/song/song_model.dart';
 import '../bottom_tab/bloc/music_bloc.dart';
 import '../widgets/sorting_helper.dart';
 import '../widgets/custom_music_floating_button.dart';
+import '../widgets/album_art_widget.dart';
 import '../../core/widgets/app_custom.dart';
 
 enum PlaylistDetailType { album, artist, playlist }
@@ -605,29 +606,22 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                 padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                 child: Row(
                   children: [
-                    // Track Number or Album Art
-                    Container(
+                    // Album Art (default icon + gradient when no art; smooth transition to image)
+                    AlbumArtWidget(
+                      albumArt: song.albumArt,
                       width: 36.w,
                       height: 36.w,
-                      decoration: BoxDecoration(
-                        color: isSelectedSong
-                            ? context.primaryStart.withValues(alpha: 0.2)
-                            : context.onSurfaceVariantColor.withValues(
-                                alpha: 0.1,
+                      borderRadius: 8.r,
+                      boxShadow: isSelectedSong
+                          ? [
+                              BoxShadow(
+                                color: context.primaryStart.withValues(alpha: 0.2),
+                                blurRadius: 6.r,
+                                offset: Offset(0, 2.h),
                               ),
-                        borderRadius: BorderRadius.circular(8.r),
-                      ),
-                      child: song.albumArt != null
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(8.r),
-                              child: Image.file(
-                                File(song.albumArt!),
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    _buildTrackNumber(index),
-                              ),
-                            )
-                          : _buildTrackNumber(index),
+                            ]
+                          : null,
+                      defaultIconSize: 18.0,
                     ),
 
                     SizedBox(width: 10.w),
@@ -702,20 +696,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildTrackNumber(int index) {
-    return Center(
-      child: Text(
-        index.toString(),
-        style: TextStyle(
-          color: context.onSurfaceVariantColor,
-          fontSize: 14.sp,
-          fontWeight: FontWeight.w600,
-          fontFamily: 'Poppins',
-        ),
-      ),
     );
   }
 

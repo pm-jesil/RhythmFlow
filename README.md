@@ -67,8 +67,9 @@ RhythmFlow is a sophisticated music player built with Flutter that offers advanc
 ### Core Services
 - **AudioService**: Handles all audio playback functionality
 - **MusicService**: Manages music library and metadata
-- **MetadataExtractor**: Extracts metadata from audio files
-- **FeatureExtractionService**: AI-powered music analysis
+- **MusicFeatureAnalyzer** (music_feature_analyzer): Metadata extraction and optional AI features from audio files
+- **MusicMetadataService**: Maps package SongModel to app Song and ExtractedSongFeatures to SongFeatures
+- **FetchSongsService**: Fetches song paths and extracts metadata in batches via MusicFeatureAnalyzer
 - **AiShuffleService**: Intelligent playlist reordering
 - **PlayCountTrackingService**: Tracks listening statistics
 - **EnhancedNotificationService**: Rich media notifications

@@ -272,6 +272,7 @@ void main() {
           isArtistListError: false,
           isLoading: false,
           isError: false,
+          comprehensiveFeatureExtractionFailureCount: const <String, int>{},
         );
 
         // Serialize to JSON

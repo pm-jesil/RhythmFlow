@@ -34,7 +34,6 @@ void main() async {
     logger.e('❌ Error initializing dependencies: $e');
   }
 
-  // Initialize audio_service for background playback and notifications
   try {
     final audioHandler = RhythmFlowAudioHandler();
     await audio_service_pkg.AudioService.init(
@@ -43,13 +42,11 @@ void main() async {
       androidNotificationChannelId: 'com.technexa.rhythmflow.channel.audio',
       androidNotificationChannelName: 'RhythmFlow',
       androidNotificationOngoing: true,
-        androidStopForegroundOnPause: true, // Must be true when androidNotificationOngoing is true
+        androidStopForegroundOnPause: true,
         androidShowNotificationBadge: true,
         androidNotificationClickStartsActivity: true,
       ),
     );
-    
-    // Set the audio handler in AudioService after initialization
     try {
       final audioService = getIt<AudioService>();
       audioService.setAudioHandler(audioHandler);
@@ -63,7 +60,6 @@ void main() async {
     logger.e('❌ AudioService initialization failed: $e');
   }
 
-  // Initialize Music Feature Analyzer
   try {
     logger.i('🚀 Initializing Music Feature Analyzer...');
     final analyzerInitialized = await MusicFeatureAnalyzer.initialize();
@@ -76,7 +72,6 @@ void main() async {
     }
   } catch (e) {
     logger.e('❌ Music Feature Analyzer initialization error: $e');
-    // Continue anyway - will retry in bloc if needed
   }
 
   runApp(const MyApp());
@@ -122,7 +117,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    // Use centralized lifecycle handler for ALL lifecycle concerns
     AppLifecycleHandler.handleLifecycleChange(state);
   }
 
@@ -151,7 +145,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       child: BlocBuilder<AppSettingsBloc, AppSettingsState>(
         builder: (context, appSettingsState) {
           return ScreenUtilInit(
-            designSize: const Size(375, 812), // iPhone X design size
+            designSize: const Size(375, 812),
             minTextAdapt: true,
             splitScreenMode: true,
             builder: (context, child) {

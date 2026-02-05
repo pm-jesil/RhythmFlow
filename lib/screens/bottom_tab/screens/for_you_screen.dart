@@ -54,16 +54,10 @@ class _ForYouScreenState extends State<ForYouScreen> {
   void initState() {
     super.initState();
     _logger.i('ForYouScreen initialized');
-    
-    // Toggle horizontalScrollingWidgetHomeIndex value (0 to 1, 1 to 0) on each navigation to For You screen
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final musicBloc = context.read<MusicBloc>();
       final currentState = musicBloc.state;
       final newHorizontalIndex = currentState.horizondalScrollingWidgetHomeIndex == 0 ? 1 : 0;
-      
-      _logger.i('🔄 Toggling horizontalScrollingWidgetHomeIndex: ${currentState.horizondalScrollingWidgetHomeIndex} → $newHorizontalIndex');
-      
-      // Call updateMusicBlocState event to update the horizontalScrollingWidgetHomeIndex
       musicBloc.add(
         MusicEvent.updateMusicBlocState(
           newState: currentState.copyWith(
@@ -71,15 +65,11 @@ class _ForYouScreenState extends State<ForYouScreen> {
           ),
         ),
       );
-      
-      // Check and update daily quote if needed
       context.read<AppSettingsBloc>().add(
         const AppSettingsEvent.updateDailyQuote(),
       );
     });
   }
-
-  // Helper methods for data processing
 
   List<Artist> _getTopArtists(List<Artist> artists) {
     final artistsWithPlayCount = artists
@@ -100,8 +90,6 @@ class _ForYouScreenState extends State<ForYouScreen> {
       ascending: false,
     );
   }
-
-  // Helper methods for common UI components
 
   Widget _buildEmptyStateCard(
     String title,
@@ -241,37 +229,48 @@ class _ForYouScreenState extends State<ForYouScreen> {
           onSettingsPressed: () => context.navigateToSettings(),
         ),
         body: BlocBuilder<MusicBloc, MusicState>(
+          buildWhen: (previous, current) {
+            return previous.allSongs.length != current.allSongs.length ||
+                previous.artistList.length != current.artistList.length ||
+                previous.albumList.length != current.albumList.length ||
+                previous.horizondalScrollingWidgetHomeIndex !=
+                    current.horizondalScrollingWidgetHomeIndex ||
+                !identical(previous.allSongs, current.allSongs) ||
+                !identical(previous.artistList, current.artistList) ||
+                !identical(previous.albumList, current.albumList) ||
+                !identical(
+                  previous.myPlayerState.currentPlayList,
+                  current.myPlayerState.currentPlayList,
+                );
+          },
           builder: (context, musicState) {
             return BlocBuilder<AppSettingsBloc, AppSettingsState>(
+              buildWhen: (previous, current) {
+                return previous.nickName != current.nickName ||
+                    previous.currentQuoteIndex != current.currentQuoteIndex ||
+                    previous.isAiShuffleEnabled != current.isAiShuffleEnabled;
+              },
               builder: (context, appSettingsState) {
                 return CustomScrollView(
+                  physics: const BouncingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics(),
+                  ),
+                  cacheExtent: 400,
                   slivers: [
-                    // Content
                     SliverPadding(
                       padding: EdgeInsets.all(_sectionPadding.w),
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
-                          // Welcome Section
                           _buildAnimatedWelcomeSection(),
                           SizedBox(height: _largeSpacing.h),
-
-                          // Quick Stats
-                          _buildAnimatedQuickStats(musicState),
+                          _buildQuickStats(musicState),
                           SizedBox(height: _largeSpacing.h),
-
-                          // Quilted Grid Layout
                           _buildQuiltedGrid(musicState, appSettingsState),
                           SizedBox(height: _largeSpacing.h),
-
-                          // Horizondal Scrolling Widget
                           _buildHorizondalScrollingWidget(musicState),
                           SizedBox(height: _largeSpacing.h),
-
-                          // Top Albums (by play count)
                           _buildTopAlbumsByPlayCount(musicState),
                           SizedBox(height: _largeSpacing.h),
-
-                          // Top Artists (by play count)
                           _buildTopArtistsByPlayCount(musicState),
                           SizedBox(height: 150.h),
                         ]),
@@ -291,10 +290,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
     return BlocBuilder<AppSettingsBloc, AppSettingsState>(
       builder: (context, appSettingsState) {
         final nickName = appSettingsState.nickName ?? 'Music Lover';
-        
-        // Get quote from bloc state (updated daily)
         final quoteIndex = appSettingsState.currentQuoteIndex;
-        // Ensure quote index is within bounds
         final safeQuoteIndex = quoteIndex.clamp(0, AppConstants.musicQuotes.length - 1);
         final selectedQuote = AppConstants.musicQuotes[safeQuoteIndex];
 
@@ -347,11 +343,8 @@ class _ForYouScreenState extends State<ForYouScreen> {
                 ],
               ),
               SizedBox(height: 16.h),
-
-              // Music Quote Section
               GestureDetector(
                 onTap: () {
-                  // Force update quote on tap with smooth animation
                   HapticFeedback.lightImpact();
                   context.read<AppSettingsBloc>().add(
                     const AppSettingsEvent.updateDailyQuote(forceUpdate: true),
@@ -460,10 +453,6 @@ class _ForYouScreenState extends State<ForYouScreen> {
     );
   }
 
-  Widget _buildAnimatedQuickStats(MusicState state) {
-    return _buildQuickStats(state);
-  }
-
   Widget _buildQuiltedGrid(MusicState state, AppSettingsState appSettingsState) {
     final currentPlaylistIds = state.myPlayerState.currentPlayList;
     final currentPlaylistSongs = state.allSongs
@@ -485,60 +474,63 @@ class _ForYouScreenState extends State<ForYouScreen> {
         SizedBox(height: _itemSpacing.h),
         SizedBox(
           height: 280.h, // Fixed height for the quilted grid
-          child: GridView.custom(
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverQuiltedGridDelegate(
-              crossAxisCount: 4,
-              mainAxisSpacing: 4.w,
-              crossAxisSpacing: 4.w,
-              repeatPattern: QuiltedGridRepeatPattern.inverted,
-              pattern: [
-                QuiltedGridTile(
-                  2,
-                  2,
-                ), // Top-Left (Dark Blue-Green) - "My Suggestions"
-                QuiltedGridTile(1, 1), // Top-Middle (Orange)
-                QuiltedGridTile(1, 1), // Top-Right (Teal)
-                QuiltedGridTile(1, 2), // Middle-Right (Light Orange)
-                QuiltedGridTile(1, 2), // Middle-Left (Red-Orange)
-                QuiltedGridTile(1, 1), // Bottom-Right small 1
-                QuiltedGridTile(1, 1), // Bottom-Right small 2
-                QuiltedGridTile(1, 1), // Bottom-Right small 3
-                QuiltedGridTile(1, 1), // Bottom-Right small 4
-                QuiltedGridTile(1, 1), // Bottom-Left (Yellow)
-                QuiltedGridTile(1, 1), // Bottom-Middle (Dark Blue-Green)
-              ],
-            ),
-            childrenDelegate: SliverChildBuilderDelegate(
-              (context, index) {
-                if (index == 0) {
-                  // First card - "AI Suggestions" or "My Suggestions" text (large tile)
-                  return _buildMySuggestionsCard(appSettingsState);
-                } else if (index >= 1 && index <= 4) {
-                  // Top row small tiles and middle-right tile (indices 1-4)
-                  final songIndex = index - 1;
-                  if (songIndex < currentPlaylistSongs.length) {
-                    return _buildAlbumArtCard(currentPlaylistSongs[songIndex]);
-                  }
-                  return _buildEmptyAlbumCard();
-                } else if (index >= 5 && index <= 8) {
-                  // Bottom-right 4 small containers (indices 5-8)
-                  final songIndex = index - 1;
-                  if (songIndex < currentPlaylistSongs.length) {
-                    return _buildAlbumArtCard(currentPlaylistSongs[songIndex]);
-                  }
-                  return _buildEmptyAlbumCard();
-                } else {
-                  // Bottom-left and bottom-middle tiles (indices 9-10)
-                  final songIndex = index - 1;
-                  if (songIndex < currentPlaylistSongs.length) {
-                    return _buildAlbumArtCard(currentPlaylistSongs[songIndex]);
-                  }
-                  return _buildEmptyAlbumCard();
-                }
-              },
-              childCount: 7, // 1 for "My Suggestions" + 10 for album art tiles
-            ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              final height = constraints.maxHeight;
+              if (width <= 0 || height <= 0) {
+                return const SizedBox.shrink();
+              }
+              return GridView.custom(
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverQuiltedGridDelegate(
+                  crossAxisCount: 4,
+                  mainAxisSpacing: 4.w,
+                  crossAxisSpacing: 4.w,
+                  repeatPattern: QuiltedGridRepeatPattern.inverted,
+                  pattern: [
+                    QuiltedGridTile(2, 2),
+                    QuiltedGridTile(1, 1),
+                    QuiltedGridTile(1, 1),
+                    QuiltedGridTile(1, 2),
+                    QuiltedGridTile(1, 2),
+                    QuiltedGridTile(1, 1),
+                    QuiltedGridTile(1, 1),
+                    QuiltedGridTile(1, 1),
+                    QuiltedGridTile(1, 1),
+                    QuiltedGridTile(1, 1),
+                    QuiltedGridTile(1, 1),
+                  ],
+                ),
+                childrenDelegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    if (index == 0) {
+                      return _buildMySuggestionsCard(appSettingsState);
+                    }
+                    if (index >= 1 && index <= 4) {
+                      final songIndex = index - 1;
+                      if (songIndex < currentPlaylistSongs.length) {
+                        return _buildAlbumArtCard(currentPlaylistSongs[songIndex]);
+                      }
+                      return _buildEmptyAlbumCard();
+                    }
+                    if (index >= 5 && index <= 8) {
+                      final songIndex = index - 1;
+                      if (songIndex < currentPlaylistSongs.length) {
+                        return _buildAlbumArtCard(currentPlaylistSongs[songIndex]);
+                      }
+                      return _buildEmptyAlbumCard();
+                    }
+                    final songIndex = index - 1;
+                    if (songIndex < currentPlaylistSongs.length) {
+                      return _buildAlbumArtCard(currentPlaylistSongs[songIndex]);
+                    }
+                    return _buildEmptyAlbumCard();
+                  },
+                  childCount: 11,
+                ),
+              );
+            },
           ),
         ),
       ],
@@ -720,18 +712,23 @@ class _ForYouScreenState extends State<ForYouScreen> {
           () => _navigateToTopArtists(),
         ),
         SizedBox(height: _itemSpacing.h),
-        // Use horizontal scrollable row
         SizedBox(
-          height: 205.h, // Fixed height for the horizontal scroll
+          height: 205.h,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            cacheExtent: 200,
             itemCount: topArtists.take(6).length,
             itemBuilder: (context, index) {
               final artist = topArtists[index];
-              return _buildMediaCard(
-                mediaItem: artist,
-                allSongs: state.allSongs,
-                isAlbum: false,
+              return RepaintBoundary(
+                child: _buildMediaCard(
+                  mediaItem: artist,
+                  allSongs: state.allSongs,
+                  isAlbum: false,
+                ),
               );
             },
           ),
@@ -761,18 +758,23 @@ class _ForYouScreenState extends State<ForYouScreen> {
           () => _navigateToTopAlbums(),
         ),
         SizedBox(height: _itemSpacing.h),
-        // Use horizontal scrollable row
         SizedBox(
-          height: 205.h, // Fixed height for the horizontal scroll
+          height: 205.h,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            cacheExtent: 200,
             itemCount: topAlbums.take(6).length,
             itemBuilder: (context, index) {
               final album = topAlbums[index];
-              return _buildMediaCard(
-                mediaItem: album,
-                allSongs: state.allSongs,
-                isAlbum: true,
+              return RepaintBoundary(
+                child: _buildMediaCard(
+                  mediaItem: album,
+                  allSongs: state.allSongs,
+                  isAlbum: true,
+                ),
               );
             },
           ),
@@ -986,8 +988,8 @@ class _ForYouScreenState extends State<ForYouScreen> {
         playlistSource: PlaylistSource.allSongs(),
       ),
     );
-    // Navigate to songs tab
-    // _navigateToTab(1); // Songs tab is index 1
+    // Navigate to songs tab so user sees the sorted list
+    _navigateToTab(1); // Songs tab is index 1
   }
 
   void _navigateToTopArtists() {

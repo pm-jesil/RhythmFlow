@@ -43,6 +43,9 @@ abstract class MusicState with _$MusicState {
 
     // App settings fetch song flag
     @Default(false) bool appSettingsFetchSong,
+
+    // Comprehensive feature extraction: song id -> failure count. Exclude from pending when >= 2.
+    required Map<String, int> comprehensiveFeatureExtractionFailureCount,
   }) = _Initial;
 
   factory MusicState.initial() {
@@ -61,7 +64,7 @@ abstract class MusicState with _$MusicState {
         playlistId: null,
         previousSongId: null,
         isPlaying: false,
-        isShuffle: false,
+        isShuffle: true,
       ),
 
       // Core data
@@ -88,6 +91,8 @@ abstract class MusicState with _$MusicState {
     // General loading and error states (for backward compatibility)
     isLoading: false,
     isError: false,
+
+    comprehensiveFeatureExtractionFailureCount: const <String, int>{},
     );
   }
 }

@@ -101,7 +101,7 @@ class _HorizondalScrollingWidgetHomeState
             onPageChanged: (index) => _updateCurrentWidgetIndex(index),
             itemBuilder: (context, index) {
               if (index == 0) {
-                // Recently Added
+                // Recently Added - no play count on tiles
                 return _buildSongListSection(
                   context: context,
                   title: 'Recently Added',
@@ -109,6 +109,7 @@ class _HorizondalScrollingWidgetHomeState
                   onViewAllPressed: widget.onRecentlyAddedPressed,
                   emptyStateIcon: CupertinoIcons.star,
                   emptyStateMessage: 'No recently added songs found.',
+                  showPlayCount: false,
                 );
               } else {
                 // Most Played
@@ -120,6 +121,7 @@ class _HorizondalScrollingWidgetHomeState
                   emptyStateIcon: CupertinoIcons.chart_bar,
                   emptyStateMessage:
                       'Start playing songs to see your most played here!',
+                  showPlayCount: true,
                 );
               }
             },
@@ -138,6 +140,7 @@ class _HorizondalScrollingWidgetHomeState
     VoidCallback? onViewAllPressed,
     required IconData emptyStateIcon,
     required String emptyStateMessage,
+    bool showPlayCount = true,
   }) {
     if (songs.isEmpty) {
       return _buildEmptyStateCard(
@@ -164,7 +167,11 @@ class _HorizondalScrollingWidgetHomeState
           final song = entry.value;
           return Column(
             children: [
-              _buildSongItem(context: context, song: song),
+              _buildSongItem(
+                context: context,
+                song: song,
+                showPlayCount: showPlayCount,
+              ),
               if (index < widget.maxSongsPerSection - 1) SizedBox(height: 8.h),
             ],
           );
@@ -274,7 +281,11 @@ class _HorizondalScrollingWidgetHomeState
     );
   }
 
-  Widget _buildSongItem({required BuildContext context, required Song song}) {
+  Widget _buildSongItem({
+    required BuildContext context,
+    required Song song,
+    bool showPlayCount = true,
+  }) {
     return Container(
       padding: EdgeInsets.all(12.w),
       decoration: BoxDecoration(
@@ -330,22 +341,23 @@ class _HorizondalScrollingWidgetHomeState
               ],
             ),
           ),
-          // Play count or date info
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-            decoration: BoxDecoration(
-              color: context.primaryStart.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12.r),
-            ),
-            child: Text(
-              song.playCount != null ? '${song.playCount} plays' : 'New',
-              style: context.text.bodySmall?.copyWith(
-                color: context.primaryStart,
-                fontWeight: FontWeight.w500,
-                fontSize: 10.sp,
+          // Play count badge only for Most Played section
+          if (showPlayCount)
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+              decoration: BoxDecoration(
+                color: context.primaryStart.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12.r),
+              ),
+              child: Text(
+                song.playCount != null ? '${song.playCount} plays' : 'New',
+                style: context.text.bodySmall?.copyWith(
+                  color: context.primaryStart,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 10.sp,
+                ),
               ),
             ),
-          ),
         ],
       ),
     );

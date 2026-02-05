@@ -42,7 +42,9 @@ class AppInitializationService {
     }
   }
 
-  /// Request all required permissions
+  /// Request all required permissions (storage/audio) and, on Android 13+,
+  /// POST_NOTIFICATIONS so the now-playing notification works on status bar
+  /// and lock screen (required on Android 14/15/16).
   static Future<void> _requestPermissions() async {
     _logger.i('📋 Requesting permissions...');
     
@@ -50,10 +52,14 @@ class AppInitializationService {
       final hasPermissions = await PermissionService.hasAllRequiredPermissions();
       
       if (hasPermissions) {
-        _logger.i('✅ Permissions granted');
+        _logger.i('✅ Required permissions granted');
       } else {
         _logger.w('⚠️ Some permissions not granted, continuing anyway...');
       }
+
+      // On Android 13+, ensure we request notification permission so the
+      // media notification can show (even if storage/audio was already granted).
+      await PermissionService.requestNotificationPermissionForPlayback();
     } catch (e) {
       _logger.e('❌ Permission request failed', error: e);
       // Continue anyway to avoid blocking the UI
@@ -136,8 +142,6 @@ class AppInitializationService {
     }
   }
 
-
-
   /// Check if app is initialized
   static bool get isInitialized => _isInitialized;
   
@@ -185,5 +189,4 @@ class AppInitializationService {
       _logger.e('❌ Error restoring last played song', error: e);
     }
   }
-  
 }

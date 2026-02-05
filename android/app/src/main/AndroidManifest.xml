@@ -10,13 +10,17 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
 
-    <!-- Audio Permissions -->
+    <!-- Audio & media playback (required for notification bar / lock screen controls) -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- Android 14+: required when using foregroundServiceType="mediaPlayback" -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <!-- Media Permissions (Android 13+) -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+
+    <!-- Notification Permission (Android 13+) - for now playing in status bar & lock screen -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Vibration Permission (for haptic feedback) -->
     <uses-permission android:name="android.permission.VIBRATE" />
@@ -33,7 +37,9 @@
         android:preserveLegacyExternalStorage="true"
 >
 
-        <!-- Audio Service for background playback -->
+        <!-- Audio Service for background playback and now-playing notification.
+             Android 14+: foregroundServiceType and FOREGROUND_SERVICE_MEDIA_PLAYBACK are required.
+             Android 15+: do not start this service from BOOT_COMPLETED (we do not). -->
         <service
             android:name="com.ryanheise.audioservice.AudioService"
             android:foregroundServiceType="mediaPlayback"
@@ -56,7 +62,7 @@
 
         <!-- Main Activity - UPDATED android:name for AudioService compatibility -->
         <activity
-            android:name="com.ryanheise.audioservice.AudioServiceActivity"
+            android:name="com.technexa.rhythmflow.MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""

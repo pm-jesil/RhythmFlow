@@ -16,7 +16,7 @@ class ThemeEvent with _$ThemeEvent {
 
 // State
 @freezed
-class ThemeState with _$ThemeState {
+abstract class ThemeState with _$ThemeState {
   const factory ThemeState({
     required bool isDarkMode,
     required bool isFollowingSystem,

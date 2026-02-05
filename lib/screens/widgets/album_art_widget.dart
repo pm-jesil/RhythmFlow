@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -24,7 +25,7 @@ class AlbumArtWidget extends StatefulWidget {
     this.defaultIcon = Icons.music_note,
     this.isNetworkImage = false,
     double? defaultIconSize,
-  }) : defaultIconSize = defaultIconSize ?? 60.0;
+  }) : defaultIconSize = defaultIconSize ?? 32.0;
 
   @override
   State<AlbumArtWidget> createState() => _AlbumArtWidgetState();
@@ -33,6 +34,12 @@ class AlbumArtWidget extends StatefulWidget {
 class _AlbumArtWidgetState extends State<AlbumArtWidget> {
   bool _isLoading = true;
   bool _hasError = false;
+
+  /// True when we have a non-null, non-empty path to show (treat empty string as no art).
+  bool get _hasValidAlbumArt {
+    final path = widget.albumArt;
+    return path != null && path.trim().isNotEmpty;
+  }
 
   @override
   void initState() {
@@ -49,7 +56,7 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
   }
 
   Future<void> _checkImageExists() async {
-    if (widget.albumArt == null) {
+    if (!_hasValidAlbumArt) {
       setState(() {
         _isLoading = false;
         _hasError = false;
@@ -58,8 +65,6 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
     }
 
     if (widget.isNetworkImage) {
-      // For network images, we don't need to check existence
-      // The loading and error states will be handled by the Image.network widget
       setState(() {
         _isLoading = false;
         _hasError = false;
@@ -91,7 +96,78 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
     }
   }
 
-  Widget _buildDefaultAlbumArt() {
+  /// Icon size as ~50% of container so it scales with tile; capped for unbounded.
+  double _iconSize(double containerSize) {
+    final fromContainer = containerSize * 0.5;
+    final fromDefault = math.min(widget.defaultIconSize.sp, 48.sp).toDouble();
+    return containerSize.isFinite && containerSize > 0 ? fromContainer : fromDefault;
+  }
+
+  /// Classic padding ~12% of container for consistent spacing on all devices.
+  double _classicPadding(double containerSize) {
+    if (containerSize.isFinite && containerSize > 0) {
+      return containerSize * 0.12;
+    }
+    return 8.r.toDouble();
+  }
+
+  Widget _buildPlaceholderContent({
+    required double iconSize,
+    required double padding,
+    required Widget icon,
+  }) {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(padding),
+        child: icon,
+      ),
+    );
+  }
+
+  Widget _buildDefaultAlbumArt(
+    double iconSize,
+    double padding, {
+    double? effectiveWidth,
+    double? effectiveHeight,
+  }) {
+    final w = widget.width ?? effectiveWidth;
+    final h = widget.height ?? effectiveHeight;
+    return Container(
+      width: w,
+      height: h,
+      constraints: w != null && h != null && w > 0 && h > 0
+          ? BoxConstraints(minWidth: w, maxWidth: w, minHeight: h, maxHeight: h)
+          : null,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(widget.borderRadius),
+        gradient: context.primaryGradient,
+        boxShadow:
+            widget.boxShadow ??
+            [
+              BoxShadow(
+                color: context.isDark
+                    ? Colors.black.withValues(alpha: 0.5)
+                    : Colors.black.withValues(alpha: 0.2),
+                blurRadius: 8.r,
+                offset: Offset(0, 2.h),
+              ),
+            ],
+      ),
+      child: _buildPlaceholderContent(
+        iconSize: iconSize,
+        padding: padding,
+        icon: Icon(
+          widget.defaultIcon,
+          size: iconSize,
+          color: Colors.white.withValues(alpha: 0.9),
+        ),
+      ),
+    );
+  }
+
+  /// Default album art (icon + gradient) for use in loading/error or when no art.
+  /// Use this everywhere so the only placeholder is the default icon with gradient.
+  Widget _buildDefaultAlbumArtInline(double iconSize, double padding) {
     return Container(
       width: widget.width,
       height: widget.height,
@@ -118,107 +194,49 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
               ),
             ],
       ),
-      child: Center(
-        child: Icon(
+      child: _buildPlaceholderContent(
+        iconSize: iconSize,
+        padding: padding,
+        icon: Icon(
           widget.defaultIcon,
-          size: widget.defaultIconSize.sp,
+          size: iconSize,
           color: Colors.white.withValues(alpha: 0.9),
         ),
       ),
     );
   }
 
-  Widget _buildLoadingWidget() {
-    return Container(
-      width: widget.width,
-      height: widget.height,
-      constraints: widget.width != null && widget.height != null
-          ? BoxConstraints(
-              minWidth: widget.width!,
-              maxWidth: widget.width!,
-              minHeight: widget.height!,
-              maxHeight: widget.height!,
-            )
-          : null,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(widget.borderRadius),
-        color: context.isDark
-            ? context.cardColor.withValues(alpha: 0.5)
-            : context.cardColor.withValues(alpha: 0.3),
-        boxShadow:
-            widget.boxShadow ??
-            [
-              BoxShadow(
-                color: context.isDark
-                    ? Colors.black.withValues(alpha: 0.3)
-                    : Colors.black.withValues(alpha: 0.1),
-                blurRadius: 4.r,
-                offset: Offset(0, 1.h),
-              ),
-            ],
-      ),
-      child: Center(
-        child: SizedBox(
-          width: 24.w,
-          height: 24.h,
-          child: CircularProgressIndicator(
-            strokeWidth: 2.w,
-            valueColor: AlwaysStoppedAnimation<Color>(context.primaryStart),
-          ),
-        ),
-      ),
-    );
+  double _iconSizeForInline() {
+    if (widget.width != null && widget.height != null) {
+      return math.min(widget.width!, widget.height!) * 0.5;
+    }
+    return math.min(widget.defaultIconSize.sp, 48.sp).toDouble();
   }
 
-  Widget _buildErrorWidget() {
-    return Container(
-      width: widget.width,
-      height: widget.height,
-      constraints: widget.width != null && widget.height != null
-          ? BoxConstraints(
-              minWidth: widget.width!,
-              maxWidth: widget.width!,
-              minHeight: widget.height!,
-              maxHeight: widget.height!,
-            )
-          : null,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(widget.borderRadius),
-        color: context.isDark
-            ? context.error.withValues(alpha: 0.15)
-            : context.error.withValues(alpha: 0.1),
-        boxShadow:
-            widget.boxShadow ??
-            [
-              BoxShadow(
-                color: context.isDark
-                    ? Colors.black.withValues(alpha: 0.3)
-                    : Colors.black.withValues(alpha: 0.1),
-                blurRadius: 4.r,
-                offset: Offset(0, 1.h),
-              ),
-            ],
-      ),
-      child: Center(
-        child: Icon(
-          Icons.broken_image,
-          size: widget.defaultIconSize.sp,
-          color: context.error.withValues(alpha: 0.7),
-        ),
-      ),
-    );
+  double _paddingForInline() {
+    if (widget.width != null && widget.height != null) {
+      return math.min(widget.width!, widget.height!) * 0.12;
+    }
+    return 8.r.toDouble();
   }
 
-  Widget _buildImageWidget() {
+  Widget _buildImageWidget({double? effectiveWidth, double? effectiveHeight}) {
+    final inlineIconSize = _iconSizeForInline();
+    final inlinePadding = _paddingForInline();
+    final w = widget.width ?? effectiveWidth;
+    final h = widget.height ?? effectiveHeight;
+    final hasSize = w != null && h != null && w > 0 && h > 0;
+    final double? width = w;
+    final double? height = h;
     return Container(
-      width: widget.width,
-      height: widget.height,
-      constraints: widget.width != null && widget.height != null
+      width: w,
+      height: h,
+      constraints: hasSize && width != null && height != null
           ? BoxConstraints(
-              minWidth: widget.width!,
-              maxWidth: widget.width!,
-              minHeight: widget.height!,
-              maxHeight: widget.height!,
+              minWidth: width,
+              maxWidth: width,
+              minHeight: height,
+              maxHeight: height,
             )
           : null,
       decoration: BoxDecoration(
@@ -237,41 +255,95 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(widget.borderRadius),
-        child: widget.isNetworkImage
-            ? Image.network(
-                widget.albumArt!,
-                width: widget.width,
-                height: widget.height,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return _buildLoadingWidget();
-                },
-                errorBuilder: (context, error, stackTrace) {
-                  return _buildErrorWidget();
-                },
-              )
-            : Image.file(
-                File(widget.albumArt!),
-                width: widget.width,
-                height: widget.height,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return _buildErrorWidget();
-                },
-              ),
+        child: SizedBox(
+          width: w,
+          height: h,
+          child: widget.isNetworkImage
+              ? Image.network(
+                  widget.albumArt!,
+                  width: w,
+                  height: h,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return _buildDefaultAlbumArtInline(inlineIconSize, inlinePadding);
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return _buildDefaultAlbumArtInline(inlineIconSize, inlinePadding);
+                  },
+                )
+              : Image.file(
+                  File(widget.albumArt!),
+                  width: w,
+                  height: h,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return _buildDefaultAlbumArtInline(inlineIconSize, inlinePadding);
+                  },
+                ),
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.albumArt == null || _hasError) {
-      return _buildDefaultAlbumArt();
-    } else if (_isLoading) {
-      return _buildLoadingWidget();
-    } else {
-      return _buildImageWidget();
-    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final fromConstraints = math.min(
+          constraints.maxWidth.isFinite ? constraints.maxWidth : 0.0,
+          constraints.maxHeight.isFinite ? constraints.maxHeight : 0.0,
+        ).toDouble();
+        final fromWidget = (widget.width != null &&
+                widget.height != null &&
+                widget.width!.isFinite &&
+                widget.height!.isFinite)
+            ? math.min(widget.width!, widget.height!).toDouble()
+            : 0.0;
+        final containerSize = fromWidget > 0 ? fromWidget : (fromConstraints > 0 ? fromConstraints : 0.0);
+        final iconSize = _iconSize(containerSize);
+        final padding = _classicPadding(containerSize);
+        final effectiveWidth = constraints.maxWidth.isFinite && constraints.maxWidth > 0
+            ? constraints.maxWidth
+            : null;
+        final effectiveHeight = constraints.maxHeight.isFinite && constraints.maxHeight > 0
+            ? constraints.maxHeight
+            : null;
+
+        Widget content;
+        Object switchKey;
+        if (!_hasValidAlbumArt || _hasError || _isLoading) {
+          content = _buildDefaultAlbumArt(
+            iconSize,
+            padding,
+            effectiveWidth: effectiveWidth,
+            effectiveHeight: effectiveHeight,
+          );
+          switchKey = 'default';
+        } else {
+          content = _buildImageWidget(
+            effectiveWidth: effectiveWidth,
+            effectiveHeight: effectiveHeight,
+          );
+          switchKey = widget.albumArt!;
+        }
+
+        return AnimatedSwitcher(
+          duration: _transitionDuration,
+          switchInCurve: _transitionCurve,
+          switchOutCurve: _transitionCurve,
+          transitionBuilder: (Widget child, Animation<double> animation) {
+            return FadeTransition(
+              opacity: animation,
+              child: RepaintBoundary(child: child),
+            );
+          },
+          child: KeyedSubtree(key: ValueKey(switchKey), child: content),
+        );
+      },
+    );
   }
+
+  static const Duration _transitionDuration = Duration(milliseconds: 300);
+  static const Curve _transitionCurve = Curves.easeOut;
 }

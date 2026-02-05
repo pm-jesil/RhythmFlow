@@ -263,6 +263,7 @@ void main() {
           isError: false,
           isComprehensiveFeaturesExtractingLoading: false,
           isComprehensiveFeaturesExtractingError: false,
+          comprehensiveFeatureExtractionFailureCount: const <String, int>{},
         );
 
         final json = musicBloc.toJson(testState);
