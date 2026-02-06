@@ -166,17 +166,36 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
   }
 
   /// Default album art (icon + gradient) for use in loading/error or when no art.
-  /// Use this everywhere so the only placeholder is the default icon with gradient.
-  Widget _buildDefaultAlbumArtInline(double iconSize, double padding) {
+  /// [overrideWidth]/[overrideHeight] are used when placeholder is shown inside
+  /// the image builder so it gets the same size as the image and avoids 0/infinite constraints.
+  Widget _buildDefaultAlbumArtInline(
+    double iconSize,
+    double padding, {
+    double? overrideWidth,
+    double? overrideHeight,
+  }) {
+    final w = overrideWidth ?? widget.width;
+    final h = overrideHeight ?? widget.height;
+    final hasValidSize = w != null &&
+        h != null &&
+        w.isFinite &&
+        h.isFinite &&
+        w > 0 &&
+        h > 0;
+    final safeIconSize = (iconSize.isFinite && iconSize > 0)
+        ? iconSize
+        : math.min(widget.defaultIconSize.sp, 48.sp).toDouble();
+    final safePadding = (padding.isFinite && padding >= 0) ? padding : 8.r.toDouble();
+
     return Container(
-      width: widget.width,
-      height: widget.height,
-      constraints: widget.width != null && widget.height != null
+      width: w,
+      height: h,
+      constraints: hasValidSize
           ? BoxConstraints(
-              minWidth: widget.width!,
-              maxWidth: widget.width!,
-              minHeight: widget.height!,
-              maxHeight: widget.height!,
+              minWidth: w,
+              maxWidth: w,
+              minHeight: h,
+              maxHeight: h,
             )
           : null,
       decoration: BoxDecoration(
@@ -194,40 +213,37 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
               ),
             ],
       ),
-      child: _buildPlaceholderContent(
-        iconSize: iconSize,
-        padding: padding,
-        icon: Icon(
-          widget.defaultIcon,
-          size: iconSize,
-          color: Colors.white.withValues(alpha: 0.9),
-        ),
-      ),
+      child: hasValidSize
+          ? _buildPlaceholderContent(
+              iconSize: safeIconSize,
+              padding: safePadding,
+              icon: Icon(
+                widget.defaultIcon,
+                size: safeIconSize,
+                color: Colors.white.withValues(alpha: 0.9),
+              ),
+            )
+          : null,
     );
   }
 
-  double _iconSizeForInline() {
-    if (widget.width != null && widget.height != null) {
-      return math.min(widget.width!, widget.height!) * 0.5;
-    }
-    return math.min(widget.defaultIconSize.sp, 48.sp).toDouble();
-  }
-
-  double _paddingForInline() {
-    if (widget.width != null && widget.height != null) {
-      return math.min(widget.width!, widget.height!) * 0.12;
-    }
-    return 8.r.toDouble();
-  }
-
   Widget _buildImageWidget({double? effectiveWidth, double? effectiveHeight}) {
-    final inlineIconSize = _iconSizeForInline();
-    final inlinePadding = _paddingForInline();
     final w = widget.width ?? effectiveWidth;
     final h = widget.height ?? effectiveHeight;
     final hasSize = w != null && h != null && w > 0 && h > 0;
+    final minSide = hasSize ? math.min(w, h) : 0.0;
+    final inlineIconSize = hasSize
+        ? minSide * 0.5
+        : math.min(widget.defaultIconSize.sp, 48.sp).toDouble();
+    final inlinePadding = hasSize ? minSide * 0.12 : 8.r.toDouble();
     final double? width = w;
     final double? height = h;
+    Widget placeholder() => _buildDefaultAlbumArtInline(
+          inlineIconSize,
+          inlinePadding,
+          overrideWidth: w,
+          overrideHeight: h,
+        );
     return Container(
       width: w,
       height: h,
@@ -266,10 +282,10 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
                   fit: BoxFit.cover,
                   loadingBuilder: (context, child, loadingProgress) {
                     if (loadingProgress == null) return child;
-                    return _buildDefaultAlbumArtInline(inlineIconSize, inlinePadding);
+                    return placeholder();
                   },
                   errorBuilder: (context, error, stackTrace) {
-                    return _buildDefaultAlbumArtInline(inlineIconSize, inlinePadding);
+                    return placeholder();
                   },
                 )
               : Image.file(
@@ -277,8 +293,12 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
                   width: w,
                   height: h,
                   fit: BoxFit.cover,
+                  frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                    if (frame == null) return placeholder();
+                    return child;
+                  },
                   errorBuilder: (context, error, stackTrace) {
-                    return _buildDefaultAlbumArtInline(inlineIconSize, inlinePadding);
+                    return placeholder();
                   },
                 ),
         ),

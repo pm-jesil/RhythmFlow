@@ -449,14 +449,14 @@ class _PopUpMusicPlayerWidgetState extends State<PopUpMusicPlayerWidget>
                                             child: AnimatedSwitcher(
                                               duration: const Duration(
                                                 milliseconds: 120,
-                                              ), // Fast icon transition
+                                              ),
                                               child: Icon(
                                                 state.myPlayerState.isPlaying
                                                     ? Icons.pause
                                                     : Icons.play_arrow,
                                                 key: ValueKey(
-                                                  'popup_player_${state.myPlayerState.isPlaying}',
-                                                ), // Unique key for popup player
+                                                  'popup_player_${state.myPlayerState.currentSongId ?? 'none'}_${state.myPlayerState.isPlaying}',
+                                                ),
                                                 color: Colors.white,
                                                 size: 20.sp,
                                               ),

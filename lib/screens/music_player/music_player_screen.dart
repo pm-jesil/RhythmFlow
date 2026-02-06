@@ -107,6 +107,14 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
       }
     });
 
+    // Sync position/duration from audio service immediately so first frame shows correct values (avoids mismatch on open)
+    final initialPosition = audioService.position;
+    final initialDuration = audioService.duration;
+    if (initialDuration.inMilliseconds > 0) {
+      _currentPosition = initialPosition;
+      _totalDuration = initialDuration;
+    }
+
     // Log initial state
     _logProgressState('Init');
     _logRealTimeAudioState('Init');
@@ -337,21 +345,25 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                               ),
                             ),
 
-                            // Content
+                            // Content - use LayoutBuilder so album art height fits exactly (fixes 3.8px overflow)
                             Expanded(
-                              child: Column(
-                                children: [
-                                  SizedBox(height: 75.h),
-                                  // Album Art Section - Enhanced with Swipe Animation
-                                  AlbumArtWidgetOnMusicPlayerScreen(
-                                    currentSong: currentSong,
-                                    playlist: context
-                                        .read<MusicBloc>()
-                                        .currentPlayListSongs,
-                                  ),
-
-                                  // Song Info Section - Optimized Height
-                                  songInfoWidget(currentSong, context),
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  const double overflowSafety = 8;
+                                  final maxH = constraints.maxHeight - overflowSafety;
+                                  final fixed = 75.h + 110.h + 60.h + 80.h + 15.h + 50.h;
+                                  final albumArtH = (maxH - fixed).clamp(140.0, 280.h).toDouble();
+                                  return Column(
+                                    children: [
+                                      SizedBox(height: 75.h),
+                                      AlbumArtWidgetOnMusicPlayerScreen(
+                                        currentSong: currentSong,
+                                        playlist: context
+                                            .read<MusicBloc>()
+                                            .currentPlayListSongs,
+                                        height: albumArtH,
+                                      ),
+                                      songInfoWidget(currentSong, context),
 
                                   // Progress Bar Section - Optimized Height
                                   Container(
@@ -588,7 +600,7 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                                   child: AnimatedSwitcher(
                                                     duration: const Duration(
                                                       milliseconds: 150,
-                                                    ), // Fast icon transition
+                                                    ),
                                                     child: Icon(
                                                       state
                                                               .myPlayerState
@@ -598,8 +610,8 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                                           : CupertinoIcons
                                                                 .play_fill,
                                                       key: ValueKey(
-                                                        'main_player_${state.myPlayerState.isPlaying}',
-                                                      ), // Unique key for main player
+                                                        'main_player_modal_${state.myPlayerState.currentSongId}_${state.myPlayerState.isPlaying}',
+                                                      ),
                                                       color: Colors.white,
                                                       size: 32.sp,
                                                     ),
@@ -973,6 +985,8 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                     ),
                                   ),
                                 ],
+                                  );
+                                },
                               ),
                             ),
                           ],
@@ -1531,13 +1545,13 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
 
     // Removed verbose real-time audio state logging - only log when there are issues
 
-    // Check for state mismatch
-    if (actualPosition.inSeconds != _currentPosition.inSeconds) {
+    // Log only significant mismatches (e.g. > 1s) to avoid noise on init or minor drift
+    if ((actualPosition.inSeconds - _currentPosition.inSeconds).abs() > 1) {
       _logger.w(
         '⚠️ Position mismatch! Audio: ${actualPosition.inSeconds}s | UI: ${_currentPosition.inSeconds}s',
       );
     }
-    if (actualDuration.inSeconds != _totalDuration.inSeconds) {
+    if ((actualDuration.inSeconds - _totalDuration.inSeconds).abs() > 1) {
       _logger.w(
         '⚠️ Duration mismatch! Audio: ${actualDuration.inSeconds}s | UI: ${_totalDuration.inSeconds}s',
       );
@@ -1583,27 +1597,15 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
   double _calculateSliderValue() {
     // Handle edge cases when duration is 0 or invalid
     if (_totalDuration.inMilliseconds <= 0) {
-      _logger.d('📊 Slider: Duration is 0 or invalid, returning 0.0');
       return 0.0;
     }
 
-    // Calculate progress percentage
+    // Calculate progress (floating point can slightly exceed 1.0 near end of track)
     final progress =
         _currentPosition.inMilliseconds / _totalDuration.inMilliseconds;
 
-    // Ensure value is within valid range [0.0, 1.0]
-    final clampedValue = progress.clamp(0.0, 1.0);
-
-    // Log if value was clamped
-    if (progress != clampedValue) {
-      _logger.w(
-        '⚠️ Slider: Progress value clamped from $progress to $clampedValue',
-      );
-    }
-
-    // Removed verbose slider logging - only log when there are issues
-
-    return clampedValue;
+    // Clamp to [0.0, 1.0] - no log spam; slight overshoot is normal
+    return progress.clamp(0.0, 1.0);
   }
 
   /// Build dynamic left button that changes appearance based on expanded state
@@ -1658,7 +1660,7 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
               isExpanded
                   ? CupertinoIcons.chevron_right
                   : CupertinoIcons.chevron_left,
-              key: ValueKey(isExpanded ? 'forward' : 'back'),
+              key: ValueKey('options_chevron_${isExpanded ? 'forward' : 'back'}'),
               color: context.isDark
                   ? context.onSurfaceColor.withValues(alpha: 0.8)
                   : Colors.white,

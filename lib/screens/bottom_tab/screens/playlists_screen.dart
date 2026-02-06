@@ -83,8 +83,21 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                       previous.allSongs.length != current.allSongs.length;
                 },
                 builder: (context, state) {
-                  _filteredPlaylists = state.myPlaylist;
+                  // Update filtered playlists when state changes
+                  if (_filteredPlaylists.isEmpty &&
+                      state.myPlaylist.isNotEmpty) {
+                    _filteredPlaylists = state.myPlaylist;
+                  } else if (state.myPlaylist.length !=
+                      _filteredPlaylists.length) {
+                    // Update when playlist count changes (new playlist added/deleted)
+                    _filteredPlaylists = state.myPlaylist;
+                  } else {
+                    // Always update filtered playlists to reflect any changes in playlist data
+                    // (e.g., when songs are added/removed from playlists)
+                    _filteredPlaylists = state.myPlaylist;
+                  }
 
+                  // Trigger background loading after initial display
                   if (_filteredPlaylists.isNotEmpty &&
                       !_hasTriggeredBackgroundLoad &&
                       _filteredPlaylists.length > 15 &&

@@ -13,11 +13,14 @@ import '../../../utils/models/song/song_model.dart';
 class AlbumArtWidgetOnMusicPlayerScreen extends StatefulWidget {
   final Song currentSong;
   final List<Song> playlist;
+  /// When set, uses this height so the player layout fits on small screens. Otherwise 280.h.
+  final double? height;
 
   const AlbumArtWidgetOnMusicPlayerScreen({
     super.key,
     required this.currentSong,
     required this.playlist,
+    this.height,
   });
 
   @override
@@ -256,8 +259,19 @@ class _AlbumArtWidgetOnMusicPlayerScreenState extends State<AlbumArtWidgetOnMusi
 
   @override
   Widget build(BuildContext context) {
+    // Responsive height: on small screens
+    final double height;
+    if (widget.height != null) {
+      height = widget.height!;
+    } else {
+      final screenHeight = MediaQuery.sizeOf(context).height;
+      final fixedHeights = 75.h + 110.h + 60.h + 80.h + 15.h + 50.h;
+      const double safetyMargin = 16; // avoid RenderFlex overflow (rounding + .h vs actual layout)
+      final available = screenHeight - 120 - safetyMargin; // top bar + safe area + margin
+      height = (available - fixedHeights).clamp(140.0, 280.h).toDouble();
+    }
     return Container(
-      height: 280.h,
+      height: height,
       width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(0.r),
@@ -366,6 +380,10 @@ class _AlbumArtWidgetOnMusicPlayerScreenState extends State<AlbumArtWidgetOnMusi
               width: 180.r,
               height: 180.r,
               fit: BoxFit.cover,
+              frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                if (frame == null) return _buildDefaultAlbumArt(context);
+                return child;
+              },
               errorBuilder: (context, error, stackTrace) {
                 return _buildDefaultAlbumArt(context);
               },

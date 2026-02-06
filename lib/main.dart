@@ -41,11 +41,14 @@ void main() async {
       config: audio_service_pkg.AudioServiceConfig(
       androidNotificationChannelId: 'com.technexa.rhythmflow.channel.audio',
       androidNotificationChannelName: 'RhythmFlow',
+      androidNotificationChannelDescription:
+          'Shows currently playing music in the notification bar and on the lock screen.',
       androidNotificationOngoing: true,
-        androidStopForegroundOnPause: true,
-        androidShowNotificationBadge: true,
-        androidNotificationClickStartsActivity: true,
-      ),
+      androidStopForegroundOnPause: true,
+      androidShowNotificationBadge: true,
+      androidNotificationClickStartsActivity: true,
+      notificationColor: Colors.deepPurple,
+    ),
     );
     try {
       final audioService = getIt<AudioService>();

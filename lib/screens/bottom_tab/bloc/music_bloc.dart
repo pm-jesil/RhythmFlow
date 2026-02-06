@@ -1090,15 +1090,13 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         );
 
         _programmaticChangeCount++;
-        try {
-          await _audioService.playSong(
-            song,
-            playlistId: playlistId,
-            playlistSource: source,
-          );
-        } finally {
-          _programmaticChangeCount--;
-        }
+        _audioService
+            .playSong(
+              song,
+              playlistId: playlistId,
+              playlistSource: source,
+            )
+            .whenComplete(() => _programmaticChangeCount--);
 
         _showNotificationForCurrentSong();
         SyncAppSettingsHelper.startSleepTimer(
@@ -1219,15 +1217,13 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         );
 
         _programmaticChangeCount++;
-        try {
-          await _audioService.playSong(
-            song,
-            playlistId: playlistId,
-            playlistSource: source,
-          );
-        } finally {
-          _programmaticChangeCount--;
-        }
+        _audioService
+            .playSong(
+              song,
+              playlistId: playlistId,
+              playlistSource: source,
+            )
+            .whenComplete(() => _programmaticChangeCount--);
 
         _showNotificationForCurrentSong();
         SyncAppSettingsHelper.startSleepTimer(

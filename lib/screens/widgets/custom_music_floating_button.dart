@@ -164,7 +164,7 @@ class _CustomMusicFloatingButtonState extends State<CustomMusicFloatingButton>
     required List<String> currentPlayList,
   }) {
     return SizedBox.expand(
-      key: ValueKey('floating_button_$isPlaying'),
+      key: ValueKey('floating_button_${currentSongId}_$isPlaying'),
       child: IconButton(
         icon: Icon(
           isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
@@ -287,6 +287,10 @@ class _CustomMusicFloatingButtonState extends State<CustomMusicFloatingButton>
                                       width: 60.w,
                                       height: 60.h,
                                       fit: BoxFit.cover,
+                                      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                                        if (frame == null) return _buildDefaultBackground(context);
+                                        return child;
+                                      },
                                       errorBuilder: (context, error, stackTrace) =>
                                           _buildDefaultBackground(context),
                                     ),

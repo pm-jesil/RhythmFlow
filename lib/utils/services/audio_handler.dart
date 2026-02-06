@@ -241,16 +241,16 @@ class RhythmFlowAudioHandler extends BaseAudioHandler
   @override
   Future<void> play() async {
     _logger.i('▶️ Play requested from notification');
-    await _player.play();
-    // Trigger callback to sync with MusicBloc
+    // Callback-only: MusicBloc drives the player via AudioService.resume() so UI
+    // and notification stay in sync. No _player.play() here — avoids double-calls
+    // and supports fast/repeated taps (bloc guards and processes events in order).
     onPlay?.call();
   }
 
   @override
   Future<void> pause() async {
     _logger.i('⏸️ Pause requested from notification');
-    await _player.pause();
-    // Trigger callback to sync with MusicBloc
+    // Callback-only: bloc calls AudioService.pause(). Same rationale as play().
     onPause?.call();
   }
 
