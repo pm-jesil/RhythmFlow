@@ -1,9 +1,12 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../core/theme/theme_extension.dart';
+import '../../../core/router/app_router.dart';
 import '../../../utils/logger/logger.dart';
 import '../../../utils/models/song/song_model.dart';
+import '../app_settings/bloc/app_settings_bloc.dart';
 import '../bottom_tab/bloc/music_bloc.dart';
 import '../widgets/album_art_widget.dart';
 import '../widgets/playlist_source_helper.dart';
@@ -18,22 +21,51 @@ class PlayingQueueScreen extends StatefulWidget {
 
 class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
   static final AppLogger _logger = AppLogger('PlayingQueueScreen');
+  bool _didSyncEmptyQueue = false;
 
-  void _shuffleQueue(BuildContext context) {
-    final state = context.read<MusicBloc>().state;
-    final currentPlayList = List<String>.from(state.myPlayerState.currentPlayList);
-    if (currentPlayList.isEmpty) return;
-    currentPlayList.shuffle();
-    context.read<MusicBloc>().add(
-      MusicEvent.updateMusicBlocState(
-        newState: state.copyWith(
-          myPlayerState: state.myPlayerState.copyWith(
-            currentPlayList: currentPlayList,
-            isShuffle: true,
-          ),
+  /// Same 3-state cycle as music player screen: None → AI → Normal → None.
+  void _onShuffleButtonTap(BuildContext context) {
+    final musicBloc = context.read<MusicBloc>();
+    final appSettingsBloc = context.read<AppSettingsBloc>();
+    final state = musicBloc.state;
+    final currentPlayList = state.myPlayerState.currentPlayList;
+    final currentSongId = state.myPlayerState.currentSongId;
+    final isAiShuffleEnabled = appSettingsBloc.state.isAiShuffleEnabled;
+    final isShuffleActive = state.myPlayerState.isShuffle;
+
+    if (isAiShuffleEnabled) {
+      // AI → Normal: disable AI, then enable regular shuffle (same as music player)
+      appSettingsBloc.add(
+        AppSettingsEvent.updateAiShuffle(isEnabled: false),
+      );
+      musicBloc.add(
+        MusicEvent.toggleShuffle(
+          isShuffle: true,
+          currentPlayList: currentPlayList,
         ),
-      ),
-    );
+      );
+    } else if (isShuffleActive) {
+      // Normal → None: disable regular shuffle
+      musicBloc.add(
+        MusicEvent.toggleShuffle(
+          isShuffle: false,
+          currentPlayList: currentPlayList,
+        ),
+      );
+    } else {
+      // None → AI: enable AI and trigger AI shuffle (queue reorders, song can change feel)
+      appSettingsBloc.add(
+        AppSettingsEvent.updateAiShuffle(isEnabled: true),
+      );
+      if (currentSongId != null) {
+        musicBloc.add(
+          MusicEvent.aiShuffle(
+            currentSongId: currentSongId,
+            currentPlayList: currentPlayList,
+          ),
+        );
+      }
+    }
   }
 
   void _showAddToQueuePopup(BuildContext context) {
@@ -108,7 +140,31 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
           builder: (context, state) {
             final currentPlayList = state.myPlayerState.currentPlayList;
             final currentSongId = state.myPlayerState.currentSongId;
-            // Show empty only when there is no queue AND no song playing (e.g. after clear or fresh app)
+            if (currentPlayList.isNotEmpty) {
+              _didSyncEmptyQueue = false;
+            }
+            // Fix state when we have current song but queue was empty (so Next works)
+            if (currentPlayList.isEmpty && currentSongId != null && !_didSyncEmptyQueue) {
+              _didSyncEmptyQueue = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!context.mounted) return;
+                final currentState = context.read<MusicBloc>().state;
+                if (currentState.myPlayerState.currentPlayList.isEmpty &&
+                    currentState.myPlayerState.currentSongId != null) {
+                  context.read<MusicBloc>().add(
+                    MusicEvent.updateMusicBlocState(
+                      newState: currentState.copyWith(
+                        myPlayerState: currentState.myPlayerState.copyWith(
+                          currentPlayList: [
+                            currentState.myPlayerState.currentSongId!,
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }
+              });
+            }
             if (currentPlayList.isEmpty && currentSongId == null) {
               return _buildEmptyQueue();
             }
@@ -163,25 +219,29 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
       currentPlayList = [currentSongId];
     }
 
-    // Get songs from current playlist in the same order (excluding completed songs)
+    // Active song IDs in playlist order (excluding completed)
+    final activeSongIds = currentPlayList
+        .where((id) => !completedSongs.contains(id))
+        .toList();
+
+    // Build display order: current song always first, then rest (so "up next" list never duplicates current)
+    final orderedIds = currentSongId != null && activeSongIds.contains(currentSongId)
+        ? [currentSongId, ...activeSongIds.where((id) => id != currentSongId)]
+        : activeSongIds;
+
     final queueSongs = <Song>[];
     Song? currentSong;
-
-    for (final songId in currentPlayList) {
-      // Skip completed songs - they won't be shown in the queue
-      if (!completedSongs.contains(songId)) {
-        try {
-          final song = state.allSongs.firstWhere((s) => s.id == songId);
-          if (songId == currentSongId) {
-            currentSong = song;
-          }
-          queueSongs.add(
-            song,
-          ); // Add all songs (including current) to maintain order
-        } catch (e) {
-          _logger.w('Song not found in allSongs: $songId');
-        }
+    for (final songId in orderedIds) {
+      try {
+        final song = state.allSongs.firstWhere((s) => s.id == songId);
+        queueSongs.add(song);
+        if (songId == currentSongId) currentSong = song;
+      } catch (e) {
+        _logger.w('Song not found in allSongs: $songId');
       }
+    }
+    if (currentSong == null && currentSongId != null && queueSongs.isNotEmpty) {
+      currentSong = queueSongs.first;
     }
 
     return Stack(
@@ -272,7 +332,19 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
                     right: 16.w,
                     bottom: 56.h + MediaQuery.of(context).padding.bottom,
                   ),
-                  itemCount: queueSongs.length - 1, // Exclude current song
+                  physics: const BouncingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics(),
+                  ),
+                  buildDefaultDragHandles: false,
+                  proxyDecorator: (child, index, animation) {
+                    return Material(
+                      elevation: 4,
+                      borderRadius: BorderRadius.circular(10.r),
+                      color: Colors.transparent,
+                      child: child,
+                    );
+                  },
+                  itemCount: queueSongs.length - 1, // Exclude current song (at index 0)
                   onReorder: (oldIndex, newIndex) {
                     _reorderQueueSongs(
                       state,
@@ -290,6 +362,7 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
                       index: index + 1, // +1 because current song is at index 0
                       isCurrentSong: false,
                       state: state,
+                      reorderableIndex: index,
                     );
                   },
                 ),
@@ -297,45 +370,84 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
       ],
     ),
 
-        // Shuffle floating button - bottom right, gradient, white text, icon on right
+        // Shuffle floating button - 3-state cycle (None → AI → Normal → None), same as music player
         Positioned(
           right: 16.w,
           bottom: 16.h + MediaQuery.of(context).padding.bottom,
-          child: Material(
-            borderRadius: BorderRadius.circular(28.r),
-            elevation: 4,
-            shadowColor: Colors.black.withValues(alpha: 0.25),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(28.r),
-              onTap: () => _shuffleQueue(context),
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-                decoration: BoxDecoration(
-                  gradient: context.primaryGradient,
-                  borderRadius: BorderRadius.circular(28.r),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Shuffle',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16.sp,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'Poppins',
+          child: BlocBuilder<AppSettingsBloc, AppSettingsState>(
+            buildWhen: (p, c) => p.isAiShuffleEnabled != c.isAiShuffleEnabled,
+            builder: (context, appSettingsState) {
+              return BlocBuilder<MusicBloc, MusicState>(
+                buildWhen: (p, c) =>
+                    p.myPlayerState.isShuffle != c.myPlayerState.isShuffle,
+                builder: (context, musicState) {
+                  final isAi = appSettingsState.isAiShuffleEnabled;
+                  final isNormal = musicState.myPlayerState.isShuffle;
+                  final noShuffle = !isAi && !isNormal;
+                  final label = isAi
+                      ? 'AI Shuffle'
+                      : isNormal
+                          ? 'Shuffle On'
+                          : 'Shuffle';
+                  final icon = isAi
+                      ? CupertinoIcons.sparkles
+                      : isNormal
+                          ? CupertinoIcons.shuffle
+                          : CupertinoIcons.shuffle;
+                  final isActive = !noShuffle;
+                  return Material(
+                    borderRadius: BorderRadius.circular(28.r),
+                    elevation: 4,
+                    shadowColor: Colors.black.withValues(alpha: 0.25),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(28.r),
+                      onTap: () => _onShuffleButtonTap(context),
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 16.w, vertical: 12.h),
+                        decoration: BoxDecoration(
+                          gradient: isActive
+                              ? context.primaryGradient
+                              : LinearGradient(
+                                  colors: [
+                                    context.onSurfaceColor.withValues(alpha: 0.2),
+                                    context.onSurfaceColor.withValues(alpha: 0.15),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                          borderRadius: BorderRadius.circular(28.r),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              label,
+                              style: TextStyle(
+                                color: isActive
+                                    ? Colors.white
+                                    : context.onSurfaceVariantColor,
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.w600,
+                                fontFamily: 'Poppins',
+                              ),
+                            ),
+                            SizedBox(width: 8.w),
+                            Icon(
+                              icon,
+                              color: isActive
+                                  ? Colors.white
+                                  : context.onSurfaceVariantColor,
+                              size: 22.sp,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    SizedBox(width: 8.w),
-                    Icon(
-                      Icons.shuffle,
-                      color: Colors.white,
-                      size: 22.sp,
-                    ),
-                  ],
-                ),
-              ),
-            ),
+                  );
+                },
+              );
+            },
           ),
         ),
       ],
@@ -343,6 +455,7 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
   }
 
   Widget _buildCurrentPlayingTile(Song song, MusicState state) {
+    final isPlaying = state.myPlayerState.isPlaying;
     return Container(
       decoration: BoxDecoration(
         color: context.primaryStart.withValues(alpha: 0.12),
@@ -371,32 +484,40 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(12.r),
           onTap: () {
-            _logger.d("🎵 Tapping current playing song: ${song.title}");
-
-            // Play the selected song
-            context.read<MusicBloc>().add(
-              MusicEvent.playOrPauseSong(
-                songId: song.id,
-                currentPlayList: state.myPlayerState.currentPlayList,
-              ),
-            );
+            _logger.d("🎵 Current song card tapped - opening music player");
+            context.navigateToPlaySong('');
           },
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
             child: Row(
               children: [
-                // Now Playing Icon
-                Container(
-                  width: 24.w,
-                  height: 24.h,
-                  decoration: BoxDecoration(
-                    color: context.primaryStart,
-                    borderRadius: BorderRadius.circular(12.r),
-                  ),
-                  child: Icon(
-                    Icons.play_arrow,
-                    color: context.onSurfaceColor,
-                    size: 16.sp,
+                // Play / Pause button - reflects state and toggles on tap
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(24.r),
+                    onTap: () {
+                      context.read<MusicBloc>().add(
+                        MusicEvent.playOrPauseSong(
+                          songId: song.id,
+                          currentPlayList: state.myPlayerState.currentPlayList,
+                        ),
+                      );
+                    },
+                    child: Container(
+                      width: 44.w,
+                      height: 44.h,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: context.primaryStart,
+                        borderRadius: BorderRadius.circular(22.r),
+                      ),
+                      child: Icon(
+                        isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                        color: Colors.white,
+                        size: 26.sp,
+                      ),
+                    ),
                   ),
                 ),
 
@@ -487,7 +608,28 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
     required int index,
     required bool isCurrentSong,
     required MusicState state,
+    int? reorderableIndex,
   }) {
+    final dragHandle = Container(
+      width: 35.w,
+      height: 35.h,
+      margin: EdgeInsets.symmetric(horizontal: 10.w),
+      decoration: BoxDecoration(
+        color: context.primaryStart.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8.r),
+        border: Border.all(
+          color: context.primaryStart.withValues(alpha: 0.25),
+          width: 1.w,
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          Icons.drag_handle,
+          color: context.primaryStart,
+          size: 20.sp,
+        ),
+      ),
+    );
     return Container(
       key: key,
       margin: EdgeInsets.only(bottom: 6.h),
@@ -544,26 +686,12 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
               children: [
                 // Reorder Handle (only show if not current song and not first)
                 if (!isCurrentSong && index > 0)
-                  Container(
-                    width: 35.w,
-                    height: 35.h,
-                    margin: EdgeInsets.symmetric(horizontal: 10.w),
-                    decoration: BoxDecoration(
-                      color: context.primaryStart.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(8.r),
-                      border: Border.all(
-                        color: context.primaryStart.withValues(alpha: 0.25),
-                        width: 1.w,
-                      ),
-                    ),
-                    child: Center(
-                      child: Icon(
-                        Icons.drag_handle,
-                        color: context.primaryStart,
-                        size: 20.sp,
-                      ),
-                    ),
-                  )
+                  reorderableIndex != null
+                      ? ReorderableDragStartListener(
+                          index: reorderableIndex,
+                          child: dragHandle,
+                        )
+                      : dragHandle
                 else
                   SizedBox(width: 32.w),
 

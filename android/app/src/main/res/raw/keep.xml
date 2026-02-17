@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Prevents R8 from stripping custom notification icons during release build.
+     Required for audio_service lock screen / now-playing on Android 14+. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/*" />

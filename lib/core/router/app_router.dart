@@ -127,8 +127,8 @@ class AppRouter {
         path: '/about-us',
         builder: (context, state) {
           return const CustomWebView(
-            url: 'https://pm-jesil.web.app/',
-            title: 'Developer Profile',
+            url: 'https://tech-nexa-web.web.app/',
+            title: 'TechNexa',
           );
         },
       ),

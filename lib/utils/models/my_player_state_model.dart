@@ -55,8 +55,26 @@ class MyPlayerStateModel {
   // Helper methods
   bool get isEmpty => currentPlayList.isEmpty && currentSongId == null;
   bool get hasSongs => currentPlayList.isNotEmpty;
+  /// Total number of song IDs in the queue (unchanged as we advance).
+  int get totalQueueLength => currentPlayList.length;
+  /// Number of songs still to play (total queue minus completed). Use for "X songs in queue" UI.
+  int get songsRemainingToPlay {
+    if (currentPlayList.isEmpty) return 0;
+    final remaining = currentPlayList.length - completedSongs.length;
+    return remaining < 0 ? 0 : remaining;
+  }
+  @Deprecated('Use totalQueueLength or songsRemainingToPlay instead')
   int get remainingSongs => currentPlayList.length;
   int get completedCount => completedSongs.length;
+
+  /// True if there is a "next" to play (next in list, or repeat-one, or loop).
+  bool get hasNextInQueue {
+    if (currentPlayList.isEmpty || currentSongId == null) return false;
+    if (isRepeatOne) return true;
+    if (isLoop) return true;
+    final idx = currentPlayList.indexOf(currentSongId!);
+    return idx >= 0 && idx < currentPlayList.length - 1;
+  }
   
   // Repeat mode helpers
   bool get isRepeatOff => repeatModeIndex == 0;
@@ -77,15 +95,16 @@ class MyPlayerStateModel {
   // This is used ONLY when a song completes playing (respects repeat mode)
   MyPlayerStateModel nextSong() {
     if (currentPlayList.isEmpty || currentSongId == null) return this;
-    
+    final currentIndex = currentPlayList.indexOf(currentSongId!);
+    if (currentIndex < 0) return this; // current not in list - cannot advance
+
     // If repeat one mode, check previousSongId to determine behavior
     if (isRepeatOne) {
       // If previousSongId == currentSongId, it means we just repeated this song
       // Now we should play the next song and add current to completed
       if (previousSongId == currentSongId) {
         // Already repeated once - now play next song
-        final currentIndex = currentPlayList.indexOf(currentSongId!);
-        if (currentIndex >= 0 && currentIndex < currentPlayList.length - 1) {
+        if (currentIndex < currentPlayList.length - 1) {
           final nextSongId = currentPlayList[currentIndex + 1];
           return _addCurrentToCompletedAndSetNext(nextSongId);
         }
@@ -101,7 +120,6 @@ class MyPlayerStateModel {
     }
     
     // If loop mode (repeat all), loop back to first song if at end, otherwise play next
-    final currentIndex = currentPlayList.indexOf(currentSongId!);
     if (isLoop) {
       if (currentIndex >= 0 && currentIndex < currentPlayList.length - 1) {
         // Not at end - play next song
@@ -128,10 +146,11 @@ class MyPlayerStateModel {
   // If at end of playlist, loops back to first song (ignoring repeat mode)
   MyPlayerStateModel nextSongIgnoringRepeat() {
     if (currentPlayList.isEmpty || currentSongId == null) return this;
-    
-    // Always play next song and add current to completed (ignore repeat mode)
     final currentIndex = currentPlayList.indexOf(currentSongId!);
-    if (currentIndex >= 0 && currentIndex < currentPlayList.length - 1) {
+    if (currentIndex < 0) return this; // current not in list - cannot advance
+
+    // Always play next song and add current to completed (ignore repeat mode)
+    if (currentIndex < currentPlayList.length - 1) {
       // Not at end - play next song
       final nextSongId = currentPlayList[currentIndex + 1];
       return _addCurrentToCompletedAndSetNext(nextSongId);

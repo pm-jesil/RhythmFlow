@@ -28,8 +28,9 @@
 -keep class io.flutter.**  { *; }
 -keep class io.flutter.plugins.**  { *; }
 
-# Audio Service rules
+# Audio Service rules (required for notification/lock screen on Android 14+)
 -keep class com.ryanheise.audioservice.** { *; }
+-keep class androidx.media.** { *; }
 -keep class com.ryanheise.audioservice.AudioService { *; }
 -keep class com.ryanheise.audioservice.MediaButtonReceiver { *; }
 -keep class com.ryanheise.audioservice.MediaBrowserActivity { *; }

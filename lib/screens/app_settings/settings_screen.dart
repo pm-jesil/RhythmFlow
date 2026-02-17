@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../core/theme/theme_extension.dart';
 import '../../../core/theme/app_theme.dart';
@@ -430,11 +431,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             onTap: _showResetDialog,
           ),
           _buildDivider(),
-          _buildNativeInfoTile(
-            icon: CupertinoIcons.info,
-            title: 'App Version',
-            subtitle: '1.0.0',
-          ),
+          _buildAppVersionTile(),
         ],
       ),
     );
@@ -458,12 +455,28 @@ class _SettingsScreenState extends State<SettingsScreen>
         children: [
           _buildNativeActionTile(
             icon: CupertinoIcons.info_circle,
-            title: 'Developer Profile',
-            subtitle: 'View my portfolio and projects',
+            title: 'TechNexa',
+            subtitle: 'Company website - RhythmFlow is a showcase of our work',
             onTap: _openAboutUsWebsite,
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAppVersionTile() {
+    return FutureBuilder<PackageInfo>(
+      future: PackageInfo.fromPlatform(),
+      builder: (context, snapshot) {
+        final version = snapshot.hasData
+            ? '${snapshot.data!.version}+${snapshot.data!.buildNumber}'
+            : '—';
+        return _buildNativeInfoTile(
+          icon: CupertinoIcons.info,
+          title: 'App Version',
+          subtitle: version,
+        );
+      },
     );
   }
 

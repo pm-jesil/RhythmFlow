@@ -498,7 +498,7 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                             SizedBox(width: 15.w),
 
                                             // Previous Button
-                                            _buildEnhancedControlButton(
+                                            _buildPressablePrevNextButton(
                                               icon:
                                                   CupertinoIcons.backward_fill,
                                               onPressed: () {
@@ -507,6 +507,10 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                                 );
                                               },
                                               size: 45.w,
+                                              currentSongId:
+                                                  state.myPlayerState
+                                                      .currentSongId,
+                                              buttonType: 'prev',
                                             ),
 
                                             // Enhanced Play/Pause Button - Optimized for immediate response
@@ -621,7 +625,7 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                             ),
 
                                             // Next Button
-                                            _buildEnhancedControlButton(
+                                            _buildPressablePrevNextButton(
                                               icon: CupertinoIcons.forward_fill,
                                               onPressed: () {
                                                 context.read<MusicBloc>().add(
@@ -629,6 +633,10 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                                 );
                                               },
                                               size: 45.w,
+                                              currentSongId:
+                                                  state.myPlayerState
+                                                      .currentSongId,
+                                              buttonType: 'next',
                                             ),
 
                                             SizedBox(width: 15.w),
@@ -707,7 +715,7 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                     ), // Only left margin, no right margin
                                     child: Stack(
                                       children: [
-                                        // Playing Queue Button - Positioned on the left
+                                        // Playing Queue Button
                                         AnimatedPositioned(
                                           duration: const Duration(
                                             milliseconds: 300,
@@ -723,78 +731,24 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                             opacity: _showAllOptions
                                                 ? 0.0
                                                 : 1.0,
-                                            child: Container(
-                                              width: 40.r,
-                                              height: 40.r,
-                                              margin: EdgeInsets.only(
-                                                left: 10.w,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                gradient: LinearGradient(
-                                                  begin: Alignment.topLeft,
-                                                  end: Alignment.bottomRight,
-                                                  colors: [
-                                                    context.isDark
-                                                        ? context.primaryStart
-                                                              .withValues(
-                                                                alpha: 0.15,
-                                                              )
-                                                        : Colors.white
-                                                              .withValues(
-                                                                alpha: 0.15,
-                                                              ),
-                                                    context.isDark
-                                                        ? context.primaryStart
-                                                              .withValues(
-                                                                alpha: 0.08,
-                                                              )
-                                                        : Colors.white
-                                                              .withValues(
-                                                                alpha: 0.08,
-                                                              ),
-                                                  ],
+                                            child: GestureDetector(
+                                              onTap: () {
+                                                HapticFeedback.lightImpact();
+                                                context.navigateToPlayingQueue();
+                                              },
+                                              child: Container(
+                                                width: 40.r,
+                                                height: 40.r,
+                                                margin: EdgeInsets.only(
+                                                  left: 10.w,
                                                 ),
-                                                borderRadius:
-                                                    BorderRadius.circular(22.r),
-                                                border: Border.all(
-                                                  color: context.isDark
-                                                      ? context.primaryStart
-                                                            .withValues(
-                                                              alpha: 0.3,
-                                                            )
-                                                      : Colors.white.withValues(
-                                                          alpha: 0.3,
-                                                        ),
-                                                  width: 1.w,
-                                                ),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: context.isDark
-                                                        ? context.primaryStart
-                                                              .withValues(
-                                                                alpha: 0.2,
-                                                              )
-                                                        : Colors.white
-                                                              .withValues(
-                                                                alpha: 0.2,
-                                                              ),
-                                                    blurRadius: 8.r,
-                                                    offset: Offset(0, 2.h),
+                                                decoration: _controlButtonDecoration(40.r),
+                                                child: Center(
+                                                  child: Icon(
+                                                    CupertinoIcons.list_bullet,
+                                                    color: context.onSurfaceColor,
+                                                    size: 20.sp,
                                                   ),
-                                                ],
-                                              ),
-                                              child: IconButton(
-                                                onPressed: () {
-                                                  // Navigate to playing queue screen
-                                                  context
-                                                      .navigateToPlayingQueue();
-                                                },
-                                                icon: Icon(
-                                                  CupertinoIcons.list_bullet,
-                                                  color: context.isDark
-                                                      ? context.primaryStart
-                                                      : Colors.white,
-                                                  size: 20.sp,
                                                 ),
                                               ),
                                             ),
@@ -1026,7 +980,7 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
               text: currentSong.title,
               color: context.isDark ? context.onSurfaceColor : Colors.white,
               fontSize: 18.sp,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               cardWidth:
                   MediaQuery.of(context).size.width -
                   40.w, // Account for padding
@@ -1069,7 +1023,7 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                 style: TextStyle(
                   color: context.primaryStart,
                   fontSize: 11.sp,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   fontFamily: 'Poppins',
                 ),
                 textAlign: TextAlign.center,
@@ -1080,6 +1034,56 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
           ],
         ),
       ),
+    );
+  }
+
+  /// Prev/Next buttons with press feedback: shrink + icon color change, smooth return.
+  /// Key ensures fresh state when song changes (icon returns to white).
+  Widget _buildPressablePrevNextButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+    required double size,
+    required String? currentSongId,
+    required String buttonType,
+  }) {
+    return _PressablePrevNextButton(
+      key: ValueKey('${buttonType}_$currentSongId'),
+      icon: icon,
+      onPressed: onPressed,
+      size: size,
+      decoration: _controlButtonDecoration(size),
+      activeColor: context.primaryStart,
+      inactiveColor: context.isDark
+          ? context.onSurfaceColor.withValues(alpha: 0.9)
+          : Colors.white,
+    );
+  }
+
+  /// Light linear gradient for control buttons - background never changes on tap
+  BoxDecoration _controlButtonDecoration(double size) {
+    return BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          context.isDark
+              ? context.onSurfaceColor.withValues(alpha: 0.1)
+              : Colors.white.withValues(alpha: 0.15),
+          context.isDark
+              ? context.onSurfaceColor.withValues(alpha: 0.04)
+              : Colors.white.withValues(alpha: 0.06),
+        ],
+      ),
+      borderRadius: BorderRadius.circular((size / 2).r),
+      boxShadow: [
+        BoxShadow(
+          color: context.isDark
+              ? Colors.black.withValues(alpha: 0.2)
+              : Colors.black.withValues(alpha: 0.08),
+          blurRadius: 6.r,
+          offset: Offset(0, 1.h),
+        ),
+      ],
     );
   }
 
@@ -1115,65 +1119,18 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
       },
       child: Tooltip(
         message: tooltip,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
+        child: Container(
           width: 37.w,
           height: 37.w,
-          decoration: BoxDecoration(
-            gradient: isActive
-                ? LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      context.isDark
-                          ? context.primaryStart.withValues(alpha: 0.3)
-                          : Colors.white.withValues(alpha: 0.3),
-                      context.isDark
-                          ? context.primaryEnd.withValues(alpha: 0.2)
-                          : Colors.white.withValues(alpha: 0.2),
-                    ],
-                  )
-                : LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      context.isDark
-                          ? context.onSurfaceColor.withValues(alpha: 0.15)
-                          : Colors.white.withValues(alpha: 0.15),
-                      context.isDark
-                          ? context.onSurfaceColor.withValues(alpha: 0.05)
-                          : Colors.white.withValues(alpha: 0.05),
-                    ],
-                  ),
-            borderRadius: BorderRadius.circular((37.w / 2).r),
-            border: Border.all(
-              color: isActive
-                  ? context.isDark
-                        ? context.primaryStart.withValues(alpha: 0.6)
-                        : Colors.white.withValues(alpha: 0.6)
-                  : context.isDark
-                  ? context.onSurfaceColor.withValues(alpha: 0.3)
-                  : Colors.white.withValues(alpha: 0.3),
-              width: 1.5.w,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: isActive
-                    ? context.isDark
-                          ? context.primaryStart.withValues(alpha: 0.2)
-                          : Colors.white.withValues(alpha: 0.2)
-                    : context.isDark
-                    ? Colors.black.withValues(alpha: 0.2)
-                    : Colors.black.withValues(alpha: 0.08),
-                blurRadius: 6.r,
-                offset: Offset(0, 1.h),
-              ),
-            ],
-          ),
+          decoration: _controlButtonDecoration(37.w),
           child: Center(
             child: Icon(
               icon,
-              color: isActive ? context.primaryStart : Colors.white,
+              color: isActive
+                  ? context.primaryStart
+                  : (context.isDark
+                      ? context.onSurfaceColor.withValues(alpha: 0.9)
+                      : Colors.white),
               size: (37.w * 0.5).sp,
             ),
           ),
@@ -1194,56 +1151,10 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
         HapticFeedback.lightImpact();
         onPressed();
       },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150), // Faster animation
+      child: Container(
         width: size,
         height: size,
-        decoration: BoxDecoration(
-          gradient: isActive
-              ? LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    context.primaryStart.withValues(alpha: 0.3),
-                    context.primaryEnd.withValues(alpha: 0.2),
-                  ],
-                )
-              : LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    context.isDark
-                        ? context.onSurfaceColor.withValues(alpha: 0.15)
-                        : Colors.white.withValues(alpha: 0.15),
-                    context.isDark
-                        ? context.onSurfaceColor.withValues(alpha: 0.05)
-                        : Colors.white.withValues(alpha: 0.05),
-                  ],
-                ),
-          borderRadius: BorderRadius.circular((size / 2).r),
-          border: Border.all(
-            color: isActive
-                ? context.isDark
-                      ? context.primaryStart.withValues(alpha: 0.6)
-                      : Colors.white.withValues(alpha: 0.6)
-                : context.isDark
-                ? context.onSurfaceColor.withValues(alpha: 0.3)
-                : Colors.white.withValues(alpha: 0.3),
-            width: 1.5.w,
-          ),
-          // Simplified shadow for better performance
-          boxShadow: [
-            BoxShadow(
-              color: isActive
-                  ? context.primaryStart.withValues(alpha: 0.2)
-                  : context.isDark
-                  ? Colors.black.withValues(alpha: 0.2)
-                  : Colors.black.withValues(alpha: 0.08),
-              blurRadius: 6.r, // Reduced blur radius
-              offset: Offset(0, 1.h), // Reduced offset
-            ),
-          ],
-        ),
+        decoration: _controlButtonDecoration(size),
         child:
             child ??
             Center(
@@ -1251,9 +1162,9 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                 icon,
                 color: isActive
                     ? context.primaryStart
-                    : context.isDark
-                    ? context.onSurfaceColor.withValues(alpha: 0.9)
-                    : Colors.white,
+                    : (context.isDark
+                        ? context.onSurfaceColor.withValues(alpha: 0.9)
+                        : Colors.white),
                 size: (size * 0.5).sp,
               ),
             ),
@@ -2081,6 +1992,117 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// Prev/Next button with press feedback: slight shrink + icon color change,
+/// smooth return. Key (currentSongId) ensures fresh state when song changes.
+class _PressablePrevNextButton extends StatefulWidget {
+  final IconData icon;
+  final VoidCallback onPressed;
+  final double size;
+  final BoxDecoration decoration;
+  final Color activeColor;
+  final Color inactiveColor;
+
+  const _PressablePrevNextButton({
+    super.key,
+    required this.icon,
+    required this.onPressed,
+    required this.size,
+    required this.decoration,
+    required this.activeColor,
+    required this.inactiveColor,
+  });
+
+  @override
+  State<_PressablePrevNextButton> createState() =>
+      _PressablePrevNextButtonState();
+}
+
+class _PressablePrevNextButtonState extends State<_PressablePrevNextButton>
+    with SingleTickerProviderStateMixin {
+  bool _isPressed = false;
+  late AnimationController _scaleController;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _scaleController = AnimationController(
+      duration: const Duration(milliseconds: 120),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.9).animate(
+      CurvedAnimation(parent: _scaleController, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _scaleController.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails details) {
+    if (!_isPressed) {
+      setState(() => _isPressed = true);
+      _scaleController.forward();
+    }
+  }
+
+  void _onTapUp(TapUpDetails details) {
+    _scaleController.reverse();
+    setState(() => _isPressed = false);
+  }
+
+  void _onTapCancel() {
+    _scaleController.reverse();
+    setState(() => _isPressed = false);
+  }
+
+  void _onTap() {
+    HapticFeedback.lightImpact();
+    widget.onPressed();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: _onTapDown,
+      onTapUp: _onTapUp,
+      onTapCancel: _onTapCancel,
+      onTap: _onTap,
+      child: AnimatedBuilder(
+        animation: _scaleAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value,
+            child: child,
+          );
+        },
+        child: Container(
+          width: widget.size,
+          height: widget.size,
+          decoration: widget.decoration,
+          child: Center(
+            child: TweenAnimationBuilder<Color?>(
+              tween: ColorTween(
+                begin: widget.inactiveColor,
+                end: _isPressed ? widget.activeColor : widget.inactiveColor,
+              ),
+              duration: const Duration(milliseconds: 100),
+              curve: Curves.easeOut,
+              builder: (context, color, _) => Icon(
+                widget.icon,
+                color: color ?? widget.inactiveColor,
+                size: (widget.size * 0.5).sp,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

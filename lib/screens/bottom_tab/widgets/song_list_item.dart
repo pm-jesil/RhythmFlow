@@ -262,7 +262,7 @@ class _SongListItemState extends State<SongListItem>
             child: Padding(
               padding: EdgeInsets.symmetric(
                 horizontal: 12.w,
-                vertical: 4.h,
+                vertical: 8.h,
               ),
               child: Row(
                 children: [
@@ -285,7 +285,9 @@ class _SongListItemState extends State<SongListItem>
                   SizedBox(width: 10.w),
                   Expanded(
                     child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
                           widget.songTitle,
@@ -293,13 +295,13 @@ class _SongListItemState extends State<SongListItem>
                             color: isSelected
                                 ? context.primaryStart
                                 : context.onSurfaceColor,
-                            fontSize: 14.sp,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w500,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        SizedBox(height: 1.h),
+                        SizedBox(height: 4.h),
                         Text(
                           widget.artistName,
                           style: TextStyle(
@@ -307,19 +309,6 @@ class _SongListItemState extends State<SongListItem>
                                 ? context.primaryStart.withValues(alpha: 0.8)
                                 : context.onSurfaceVariantColor,
                             fontSize: 12.sp,
-                            fontWeight: FontWeight.w400,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        SizedBox(height: 0.5.h),
-                        Text(
-                          widget.albumName,
-                          style: TextStyle(
-                            color: isSelected
-                                ? context.primaryStart.withValues(alpha: 0.6)
-                                : context.onSurfaceVariantColor.withValues(alpha: 0.8),
-                            fontSize: 10.sp,
                             fontWeight: FontWeight.w400,
                           ),
                           maxLines: 1,

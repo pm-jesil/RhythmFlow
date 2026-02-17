@@ -57,7 +57,8 @@ class _ForYouScreenState extends State<ForYouScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final musicBloc = context.read<MusicBloc>();
       final currentState = musicBloc.state;
-      final newHorizontalIndex = currentState.horizondalScrollingWidgetHomeIndex == 0 ? 1 : 0;
+      final newHorizontalIndex =
+          currentState.horizondalScrollingWidgetHomeIndex == 0 ? 1 : 0;
       musicBloc.add(
         MusicEvent.updateMusicBlocState(
           newState: currentState.copyWith(
@@ -237,11 +238,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
                     current.horizondalScrollingWidgetHomeIndex ||
                 !identical(previous.allSongs, current.allSongs) ||
                 !identical(previous.artistList, current.artistList) ||
-                !identical(previous.albumList, current.albumList) ||
-                !identical(
-                  previous.myPlayerState.currentPlayList,
-                  current.myPlayerState.currentPlayList,
-                );
+                !identical(previous.albumList, current.albumList);
           },
           builder: (context, musicState) {
             return BlocBuilder<AppSettingsBloc, AppSettingsState>(
@@ -291,7 +288,10 @@ class _ForYouScreenState extends State<ForYouScreen> {
       builder: (context, appSettingsState) {
         final nickName = appSettingsState.nickName ?? 'Music Lover';
         final quoteIndex = appSettingsState.currentQuoteIndex;
-        final safeQuoteIndex = quoteIndex.clamp(0, AppConstants.musicQuotes.length - 1);
+        final safeQuoteIndex = quoteIndex.clamp(
+          0,
+          AppConstants.musicQuotes.length - 1,
+        );
         final selectedQuote = AppConstants.musicQuotes[safeQuoteIndex];
 
         return Custom3DCard(
@@ -370,21 +370,25 @@ class _ForYouScreenState extends State<ForYouScreen> {
                   ),
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 400),
-                    transitionBuilder: (Widget child, Animation<double> animation) {
-                      return FadeTransition(
-                        opacity: animation,
-                        child: SlideTransition(
-                          position: Tween<Offset>(
-                            begin: const Offset(0.0, 0.3),
-                            end: Offset.zero,
-                          ).animate(CurvedAnimation(
-                            parent: animation,
-                            curve: Curves.easeOut,
-                          )),
-                          child: child,
-                        ),
-                      );
-                    },
+                    transitionBuilder:
+                        (Widget child, Animation<double> animation) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position:
+                                  Tween<Offset>(
+                                    begin: const Offset(0.0, 0.3),
+                                    end: Offset.zero,
+                                  ).animate(
+                                    CurvedAnimation(
+                                      parent: animation,
+                                      curve: Curves.easeOut,
+                                    ),
+                                  ),
+                              child: child,
+                            ),
+                          );
+                        },
                     child: Text(
                       selectedQuote,
                       key: ValueKey<String>(selectedQuote),
@@ -453,17 +457,34 @@ class _ForYouScreenState extends State<ForYouScreen> {
     );
   }
 
-  Widget _buildQuiltedGrid(MusicState state, AppSettingsState appSettingsState) {
-    final currentPlaylistIds = state.myPlayerState.currentPlayList;
-    final currentPlaylistSongs = state.allSongs
-        .where((song) => currentPlaylistIds.contains(song.id))
-        .toList();
+  List<Song> _getSuggestionSongsFromAllSongs(List<Song> allSongs) {
+    final mostPlayed = allSongs.where((s) => (s.playCount ?? 0) > 0).toList();
+    if (mostPlayed.isNotEmpty) {
+      return SortingHelper.sortByPlayCount(mostPlayed, ascending: false);
+    }
+    final withDate = allSongs.where((s) => s.dateAdded != null).toList();
+    if (withDate.isNotEmpty) {
+      return SortingHelper.sortByDateAdded(withDate, newestFirst: true);
+    }
+    return allSongs;
+  }
 
-    if (currentPlaylistSongs.isEmpty) {
+  Widget _buildQuiltedGrid(
+    MusicState state,
+    AppSettingsState appSettingsState,
+  ) {
+    final suggestionSongs = _getSuggestionSongsFromAllSongs(state.allSongs);
+    final displaySongs = suggestionSongs.take(10).toList();
+
+    if (displaySongs.isEmpty) {
       return _buildEmptyStateCard(
-        appSettingsState.isAiShuffleEnabled ? 'AI Suggestions' : 'My Suggestions',
+        appSettingsState.isAiShuffleEnabled
+            ? 'AI Suggestions'
+            : 'My Suggestions',
         'Start playing songs to see personalized suggestions here!',
-        appSettingsState.isAiShuffleEnabled ? CupertinoIcons.sparkles : CupertinoIcons.lightbulb,
+        appSettingsState.isAiShuffleEnabled
+            ? CupertinoIcons.sparkles
+            : CupertinoIcons.lightbulb,
         0,
       );
     }
@@ -473,7 +494,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
       children: [
         SizedBox(height: _itemSpacing.h),
         SizedBox(
-          height: 280.h, // Fixed height for the quilted grid
+          height: 280.h,
           child: LayoutBuilder(
             builder: (context, constraints) {
               final width = constraints.maxWidth;
@@ -502,33 +523,30 @@ class _ForYouScreenState extends State<ForYouScreen> {
                     QuiltedGridTile(1, 1),
                   ],
                 ),
-                childrenDelegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    if (index == 0) {
-                      return _buildMySuggestionsCard(appSettingsState);
-                    }
-                    if (index >= 1 && index <= 4) {
-                      final songIndex = index - 1;
-                      if (songIndex < currentPlaylistSongs.length) {
-                        return _buildAlbumArtCard(currentPlaylistSongs[songIndex]);
-                      }
-                      return _buildEmptyAlbumCard();
-                    }
-                    if (index >= 5 && index <= 8) {
-                      final songIndex = index - 1;
-                      if (songIndex < currentPlaylistSongs.length) {
-                        return _buildAlbumArtCard(currentPlaylistSongs[songIndex]);
-                      }
-                      return _buildEmptyAlbumCard();
-                    }
+                childrenDelegate: SliverChildBuilderDelegate((context, index) {
+                  if (index == 0) {
+                    return _buildMySuggestionsCard(appSettingsState);
+                  }
+                  if (index >= 1 && index <= 4) {
                     final songIndex = index - 1;
-                    if (songIndex < currentPlaylistSongs.length) {
-                      return _buildAlbumArtCard(currentPlaylistSongs[songIndex]);
+                    if (songIndex < displaySongs.length) {
+                      return _buildAlbumArtCard(displaySongs[songIndex]);
                     }
                     return _buildEmptyAlbumCard();
-                  },
-                  childCount: 11,
-                ),
+                  }
+                  if (index >= 5 && index <= 8) {
+                    final songIndex = index - 1;
+                    if (songIndex < displaySongs.length) {
+                      return _buildAlbumArtCard(displaySongs[songIndex]);
+                    }
+                    return _buildEmptyAlbumCard();
+                  }
+                  final songIndex = index - 1;
+                  if (songIndex < displaySongs.length) {
+                    return _buildAlbumArtCard(displaySongs[songIndex]);
+                  }
+                  return _buildEmptyAlbumCard();
+                }, childCount: 11),
               );
             },
           ),
@@ -541,8 +559,10 @@ class _ForYouScreenState extends State<ForYouScreen> {
     final isAiEnabled = appSettingsState.isAiShuffleEnabled;
     final titleText = isAiEnabled ? 'AI' : 'My';
     final subtitleText = 'Suggestions';
-    final icon = isAiEnabled ? CupertinoIcons.sparkles : CupertinoIcons.lightbulb;
-    
+    final icon = isAiEnabled
+        ? CupertinoIcons.sparkles
+        : CupertinoIcons.lightbulb;
+
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(

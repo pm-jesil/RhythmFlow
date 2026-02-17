@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:injectable/injectable.dart';
@@ -66,8 +67,19 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
   /// ignore onSongChanged queue, and ignore "invalid song" from interrupted loads.
   int _programmaticChangeCount = 0;
 
+  /// Guard to prevent re-entrant song completion handling (double completion).
+  bool _isHandlingCompletion = false;
+
   // Track previous AI shuffle state to detect when it's enabled
   bool _previousAiShuffleState = false;
+
+  /// Ensures currentPlayList is non-empty when currentSongId is set (fixes display-only queue).
+  MyPlayerStateModel _ensureQueueConsistency(MyPlayerStateModel ps) {
+    if (ps.currentSongId != null && ps.currentPlayList.isEmpty) {
+      return ps.copyWith(currentPlayList: [ps.currentSongId!]);
+    }
+    return ps;
+  }
 
   // Sorting options constants
   static const List<String> sortingOptions = [
@@ -384,7 +396,28 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
             ? Duration(milliseconds: mp['lastPosition'] as int)
             : null,
       );
-      // Restore: if we have a current song but queue was empty, repopulate queue
+      // Restore: validate IDs against allSongs so we never reference removed songs
+      final validIds = songs.map((s) => s.id).toSet();
+      final filteredPlayList = myPlayerState.currentPlayList
+          .where((id) => validIds.contains(id))
+          .toList();
+      final filteredCompleted =
+          myPlayerState.completedSongs.where((id) => validIds.contains(id)).toList();
+      var currentSongId = myPlayerState.currentSongId;
+      var previousSongId = myPlayerState.previousSongId;
+      if (currentSongId != null && !validIds.contains(currentSongId)) {
+        currentSongId = null;
+      }
+      if (previousSongId != null && !validIds.contains(previousSongId)) {
+        previousSongId = null;
+      }
+      myPlayerState = myPlayerState.copyWith(
+        currentPlayList: filteredPlayList,
+        completedSongs: filteredCompleted,
+        currentSongId: currentSongId,
+        previousSongId: previousSongId,
+      );
+      // If we have a current song but queue was empty, repopulate queue
       if (myPlayerState.currentSongId != null &&
           myPlayerState.currentPlayList.isEmpty) {
         myPlayerState = myPlayerState.copyWith(
@@ -1114,11 +1147,55 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
       // Check if this is the same song that's currently selected
       if (event.songId == state.myPlayerState.currentSongId) {
-        _logger.i('🔄 Same song - toggling play/pause');
-        // Same song - toggle play/pause
-        if (state.myPlayerState.isPlaying) {
+        // Same song - check if user selected from a DIFFERENT playlist/source.
+        // If so: update currentPlayList only, do NOT toggle play/pause.
+        List<String>? incomingIds;
+        if (event.playlistSource != null) {
+          final playlistSongs = _getPlaylistSongs(event.playlistSource!);
+          incomingIds = getSongIds(playlistSongs);
+        } else if (event.currentPlayList != null &&
+            event.currentPlayList!.isNotEmpty) {
+          incomingIds = event.currentPlayList!;
+        }
+
+        final playlistChanged = incomingIds != null &&
+            !listEquals(incomingIds, state.myPlayerState.currentPlayList);
+
+        if (playlistChanged) {
+          _logger.i(
+            '🔄 Same song from different playlist - updating queue only (no play/pause)',
+          );
+          final playlistId = event.playlistSource != null
+              ? _getPlaylistId(event.playlistSource!)
+              : 'all_songs';
+
+          final updatedPlayerState = state.myPlayerState
+              .copyWith(
+                playlistId: playlistId,
+                currentPlayList: incomingIds,
+              )
+              .reorderToStartWith(event.songId!)
+              .copyWith(completedSongs: []);
+
+          emit(state.copyWith(myPlayerState: updatedPlayerState));
+          _audioService.updateShuffleRepeatState(
+            isShuffle: updatedPlayerState.isShuffle,
+            isAiShuffle: _appSettingsBloc.state.isAiShuffleEnabled,
+            repeatModeIndex: updatedPlayerState.repeatModeIndex,
+          );
+          _updateNotificationForCurrentSong();
+          return;
+        }
+
+        _logger.i('🔄 Same song, same playlist - toggling play/pause');
+        // Ensure queue consistency (empty queue but current song -> repopulate in state)
+        var playerState = _ensureQueueConsistency(state.myPlayerState);
+        if (playerState != state.myPlayerState) {
+          emit(state.copyWith(myPlayerState: playerState));
+        }
+        // Same song, same playlist - toggle play/pause
+        if (playerState.isPlaying) {
           // Currently playing - pause
-          // Save current position before pausing
           final currentPosition = _audioService.position;
           _logger.i(
             '⏸️ Pausing and saving position: ${currentPosition.inSeconds}s',
@@ -1126,7 +1203,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
           emit(
             state.copyWith(
-              myPlayerState: state.myPlayerState.copyWith(
+              myPlayerState: playerState.copyWith(
                 isPlaying: false,
                 lastPosition: currentPosition,
               ),
@@ -1135,21 +1212,15 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           _audioService.pause();
           _updateNotificationForCurrentSong();
 
-          // Stop sleep timer when pausing
           SyncAppSettingsHelper.stopSleepTimer(musicBloc: this);
         } else {
-          // Currently paused - resume
           emit(
             state.copyWith(
-              myPlayerState: state.myPlayerState.copyWith(isPlaying: true),
+              myPlayerState: playerState.copyWith(isPlaying: true),
             ),
           );
-
-          // Resume playback
           _audioService.resume();
           _updateNotificationForCurrentSong();
-
-          // Start sleep timer when resuming playback
           SyncAppSettingsHelper.startSleepTimer(
             appSettingsBloc: _appSettingsBloc,
             musicBloc: this,
@@ -1251,21 +1322,25 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     try {
       _logger.i('Playing next song from queue');
 
-      if (state.myPlayerState.currentPlayList.isNotEmpty) {
-        // Use nextSongIgnoringRepeat() - Next button should NOT respect repeat mode
-        final updatedQueue = state.myPlayerState.nextSongIgnoringRepeat();
+      var playerState = _ensureQueueConsistency(state.myPlayerState);
+      if (playerState != state.myPlayerState) {
+        emit(state.copyWith(myPlayerState: playerState));
+      }
+
+      if (playerState.currentPlayList.isNotEmpty) {
+        final updatedQueue = playerState.nextSongIgnoringRepeat();
 
         if (updatedQueue.currentSongId != null &&
-            updatedQueue.currentSongId != state.myPlayerState.currentSongId) {
+            updatedQueue.currentSongId != playerState.currentSongId) {
           final nextSong = state.allSongs.firstWhere(
             (s) => s.id == updatedQueue.currentSongId,
           );
           _logger.i('🎵 Playing next song in queue: "${nextSong.title}"');
           _logger.i(
-            '📋 Queue updated: ${state.myPlayerState.remainingSongs} → ${updatedQueue.remainingSongs} songs',
+            '📋 Queue updated: ${playerState.totalQueueLength} → ${updatedQueue.totalQueueLength} songs',
           );
           _logger.i(
-            '✅ Completed songs: ${state.myPlayerState.completedCount} → ${updatedQueue.completedCount} songs',
+            '✅ Completed songs: ${playerState.completedCount} → ${updatedQueue.completedCount} songs',
           );
 
           // Update state immediately with new queue
@@ -1303,7 +1378,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           );
         } else {
           _logger.w(
-            '⚠️ Next button: No next song available (playlist has only one song or is empty)',
+            '⚠️ Next button: No next song available (playlist has only one song or current not in list)',
           );
         }
       } else {
@@ -1321,11 +1396,16 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     try {
       _logger.i('Playing previous song from completed songs');
 
-      if (state.myPlayerState.completedSongs.isNotEmpty) {
-        final updatedQueue = state.myPlayerState.previousSong();
+      var playerState = _ensureQueueConsistency(state.myPlayerState);
+      if (playerState != state.myPlayerState) {
+        emit(state.copyWith(myPlayerState: playerState));
+      }
+
+      if (playerState.completedSongs.isNotEmpty) {
+        final updatedQueue = playerState.previousSong();
 
         if (updatedQueue.currentSongId != null &&
-            updatedQueue.currentSongId != state.myPlayerState.currentSongId) {
+            updatedQueue.currentSongId != playerState.currentSongId) {
           final previousSong = state.allSongs.firstWhere(
             (s) => s.id == updatedQueue.currentSongId,
           );
@@ -1333,10 +1413,10 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
             '🎵 Playing previous song from completed: "${previousSong.title}"',
           );
           _logger.i(
-            '📋 Queue updated: ${state.myPlayerState.remainingSongs} → ${updatedQueue.remainingSongs} songs',
+            '📋 Queue updated: ${playerState.totalQueueLength} → ${updatedQueue.totalQueueLength} songs',
           );
           _logger.i(
-            '✅ Completed songs: ${state.myPlayerState.completedCount} → ${updatedQueue.completedCount} songs',
+            '✅ Completed songs: ${playerState.completedCount} → ${updatedQueue.completedCount} songs',
           );
 
           // Update state immediately with new queue
@@ -1483,7 +1563,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
       );
 
       _logger.i(
-        '✅ Shuffle enabled | Queue: ${shuffledQueue.remainingSongs} songs',
+        '✅ Shuffle enabled | Queue: ${shuffledQueue.totalQueueLength} songs',
       );
 
       // Auto-start if requested and there's a current song
@@ -1598,7 +1678,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
       );
 
       _logger.i(
-        '✅ Shuffle disabled | Queue: ${revertedQueue.remainingSongs} songs',
+        '✅ Shuffle disabled | Queue: ${revertedQueue.totalQueueLength} songs',
       );
     }
   }
@@ -2206,77 +2286,133 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
   // ==================== SONG COMPLETION HANDLING ====================
   /// Handle when a song completes - move it to completed songs and play next
   Future<void> _handleSongCompletion() async {
-    _logger.i('🎯 Song completed - checking autoPlayNext setting');
+    if (_isHandlingCompletion) {
+      _logger.w('⚠️ Song completion ignored - already handling');
+      return;
+    }
+    _isHandlingCompletion = true;
+    try {
+      _logger.i('🎯 Song completed - checking autoPlayNext setting');
 
-    if (state.myPlayerState.currentSongId != null &&
-        state.myPlayerState.currentPlayList.isNotEmpty) {
-      // Check autoPlayNext setting from AppSettingsBloc
-      final appSettingsState = _appSettingsBloc.state;
-      final autoPlayNext = appSettingsState.autoPlayNext;
-
-      _logger.i('⚙️ AutoPlayNext setting: $autoPlayNext');
-
-      if (autoPlayNext) {
-        // AutoPlayNext is enabled - continue with normal flow
-        _logger.i(
-          '✅ AutoPlayNext enabled - moving to completed songs and playing next',
+      var playerState = _ensureQueueConsistency(state.myPlayerState);
+      if (playerState != state.myPlayerState) {
+        add(
+          MusicEvent.updateMusicBlocState(
+            newState: state.copyWith(myPlayerState: playerState),
+          ),
         );
+      }
 
-        // Try to get next song (handles repeat/loop logic)
-        final updatedQueue = state.myPlayerState.nextSong();
+      if (playerState.currentSongId != null &&
+          playerState.currentPlayList.isNotEmpty) {
+        final appSettingsState = _appSettingsBloc.state;
+        final autoPlayNext = appSettingsState.autoPlayNext;
 
-        if (updatedQueue.currentSongId != null) {
-          // There's a next song to play
+        _logger.i('⚙️ AutoPlayNext setting: $autoPlayNext');
+
+        if (autoPlayNext) {
           _logger.i(
-            '📋 Queue updated: ${state.myPlayerState.remainingSongs} → ${updatedQueue.remainingSongs} songs',
-          );
-          _logger.i(
-            '✅ Completed songs: ${state.myPlayerState.completedCount} → ${updatedQueue.completedCount} songs',
+            '✅ AutoPlayNext enabled - moving to completed songs and playing next',
           );
 
-          // Update state with new queue and play next song
-          add(
-            MusicEvent.updateMusicBlocState(
-              newState: state.copyWith(
-                myPlayerState: updatedQueue.copyWith(isPlaying: true),
+          final updatedQueue = playerState.nextSong();
+
+          // No advancement (e.g. currentSongId not in list or at end without loop)
+          final noAdvance = updatedQueue.currentSongId == playerState.currentSongId &&
+              updatedQueue.completedCount == playerState.completedCount &&
+              !playerState.isRepeatOne;
+          if (noAdvance) {
+            final completedQueue = playerState.moveCurrentToCompleted();
+            _logger.i(
+              '📋 No next song - moving to completed: ${playerState.totalQueueLength} → ${completedQueue.totalQueueLength}',
+            );
+            add(
+              MusicEvent.updateMusicBlocState(
+                newState: state.copyWith(
+                  myPlayerState: completedQueue.copyWith(isPlaying: false),
+                ),
               ),
-            ),
-          );
+            );
+            await _audioService.seekTo(Duration.zero);
+            await _audioService.pause();
+            if (completedQueue.currentPlayList.isEmpty) {
+              _hideNotification();
+            }
+            return;
+          }
 
-          // Play the next song
-          final nextSong = state.allSongs.firstWhere(
-            (s) => s.id == updatedQueue.currentSongId,
-          );
+          if (updatedQueue.currentSongId != null) {
+            _logger.i(
+              '📋 Queue updated: ${playerState.totalQueueLength} → ${updatedQueue.totalQueueLength} songs',
+            );
+            _logger.i(
+              '✅ Completed songs: ${playerState.completedCount} → ${updatedQueue.completedCount} songs',
+            );
 
-          // Sync shuffle/repeat state to notification BEFORE playing
-          // This ensures notification shows correct icons from the start
-          _audioService.updateShuffleRepeatState(
-            isShuffle: updatedQueue.isShuffle,
-            isAiShuffle: _appSettingsBloc.state.isAiShuffleEnabled,
-            repeatModeIndex: updatedQueue.repeatModeIndex,
-          );
+            add(
+              MusicEvent.updateMusicBlocState(
+                newState: state.copyWith(
+                  myPlayerState: updatedQueue.copyWith(isPlaying: true),
+                ),
+              ),
+            );
 
-          await _audioService.playSong(
-            nextSong,
-            playlistId: state.myPlayerState.playlistId,
-            playlistSource: _getPlaylistSourceFromId(
-              state.myPlayerState.playlistId,
-            ),
-          );
+            final nextSong = state.allSongs.firstWhere(
+              (s) => s.id == updatedQueue.currentSongId,
+            );
 
-          _updateNotificationForCurrentSong();
+            _audioService.updateShuffleRepeatState(
+              isShuffle: updatedQueue.isShuffle,
+              isAiShuffle: _appSettingsBloc.state.isAiShuffleEnabled,
+              repeatModeIndex: updatedQueue.repeatModeIndex,
+            );
+
+            await _audioService.playSong(
+              nextSong,
+              playlistId: playerState.playlistId,
+              playlistSource: _getPlaylistSourceFromId(
+                playerState.playlistId,
+              ),
+            );
+
+            _updateNotificationForCurrentSong();
+          } else {
+            final completedQueue = playerState.moveCurrentToCompleted();
+
+            _logger.i(
+              '📋 Queue updated: ${playerState.totalQueueLength} → ${completedQueue.totalQueueLength} songs',
+            );
+            _logger.i(
+              '✅ Completed songs: ${playerState.completedCount} → ${completedQueue.completedCount} songs',
+            );
+
+            add(
+              MusicEvent.updateMusicBlocState(
+                newState: state.copyWith(
+                  myPlayerState: completedQueue.copyWith(isPlaying: false),
+                ),
+              ),
+            );
+
+            if (completedQueue.currentPlayList.isEmpty) {
+              _hideNotification();
+            }
+          }
         } else {
-          // No next song - just move current to completed
-          final completedQueue = state.myPlayerState.moveCurrentToCompleted();
-
+          // AutoPlayNext is disabled - just pause and move to completed
           _logger.i(
-            '📋 Queue updated: ${state.myPlayerState.remainingSongs} → ${completedQueue.remainingSongs} songs',
-          );
-          _logger.i(
-            '✅ Completed songs: ${state.myPlayerState.completedCount} → ${completedQueue.completedCount} songs',
+            '⏸️ AutoPlayNext disabled - pausing playback and moving to completed',
           );
 
-          // Update state with completed queue
+          final completedQueue = playerState.moveCurrentToCompleted();
+
+          _logger.i(
+            '📋 Queue updated: ${playerState.totalQueueLength} → ${completedQueue.totalQueueLength} songs',
+          );
+          _logger.i(
+            '✅ Completed songs: ${playerState.completedCount} → ${completedQueue.completedCount} songs',
+          );
+
           add(
             MusicEvent.updateMusicBlocState(
               newState: state.copyWith(
@@ -2285,47 +2421,18 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
             ),
           );
 
-          // Hide notification when queue is empty
+          await _audioService.seekTo(Duration.zero);
+          await _audioService.pause();
+
+          _logger.i('🔄 Song position reset to beginning for next play');
+
           if (completedQueue.currentPlayList.isEmpty) {
             _hideNotification();
           }
         }
-      } else {
-        // AutoPlayNext is disabled - just pause and move to completed
-        _logger.i(
-          '⏸️ AutoPlayNext disabled - pausing playback and moving to completed',
-        );
-
-        // Move current song to completed
-        final completedQueue = state.myPlayerState.moveCurrentToCompleted();
-
-        _logger.i(
-          '📋 Queue updated: ${state.myPlayerState.remainingSongs} → ${completedQueue.remainingSongs} songs',
-        );
-        _logger.i(
-          '✅ Completed songs: ${state.myPlayerState.completedCount} → ${completedQueue.completedCount} songs',
-        );
-
-        // Update state with completed queue and pause
-        add(
-          MusicEvent.updateMusicBlocState(
-            newState: state.copyWith(
-              myPlayerState: completedQueue.copyWith(isPlaying: false),
-            ),
-          ),
-        );
-
-        // Reset position to beginning and pause the audio service
-        await _audioService.seekTo(Duration.zero);
-        await _audioService.pause();
-
-        _logger.i('🔄 Song position reset to beginning for next play');
-
-        // Hide notification when queue is empty
-        if (completedQueue.currentPlayList.isEmpty) {
-          _hideNotification();
-        }
       }
+    } finally {
+      _isHandlingCompletion = false;
     }
   }
 

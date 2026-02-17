@@ -94,14 +94,13 @@ class _HorizondalScrollingWidgetHomeState
     return Column(
       children: [
         SizedBox(
-          height: 300.h, // Fixed height for PageView
+          height: 300.h,
           child: PageView.builder(
             controller: _pageController,
             itemCount: 2,
             onPageChanged: (index) => _updateCurrentWidgetIndex(index),
             itemBuilder: (context, index) {
               if (index == 0) {
-                // Recently Added - no play count on tiles
                 return _buildSongListSection(
                   context: context,
                   title: 'Recently Added',
@@ -321,7 +320,7 @@ class _HorizondalScrollingWidgetHomeState
                 Text(
                   song.title,
                   style: context.text.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: context.onSurfaceColor,
                   ),
                   maxLines: 1,

@@ -43,8 +43,13 @@ void main() async {
       androidNotificationChannelName: 'RhythmFlow',
       androidNotificationChannelDescription:
           'Shows currently playing music in the notification bar and on the lock screen.',
-      androidNotificationOngoing: true,
-      androidStopForegroundOnPause: true,
+      // Must be false when androidStopForegroundOnPause is false (package assertion).
+      // Notification still shows; user may swipe away when paused.
+      androidNotificationOngoing: false,
+      // Keep foreground during pause - critical for Android 12+ lock screen.
+      // When true: pausing stops foreground service; resuming from lock screen throws
+      // ForegroundServiceStartNotAllowedException (app is "in background").
+      androidStopForegroundOnPause: false,
       androidShowNotificationBadge: true,
       androidNotificationClickStartsActivity: true,
       notificationColor: Colors.deepPurple,

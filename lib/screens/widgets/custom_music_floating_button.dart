@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:rhythmflow/core/router/app_router.dart';
 import '../../core/theme/theme_extension.dart';
 import '../bottom_tab/bloc/music_bloc.dart';
 import '../app_settings/bloc/app_settings_bloc.dart';
@@ -217,11 +218,8 @@ class _CustomMusicFloatingButtonState extends State<CustomMusicFloatingButton>
               // Check if widget is still mounted before handling long press
               if (!mounted) return;
               
-              // Trigger shuffle action
-              _onShuffleAction(
-                currentSongId: currentSongId,
-                currentPlayList: state.myPlayerState.currentPlayList,
-              );
+              // Navigate to Music Player Screen
+              context.navigateToPlaySong(currentSongId);
             },
             child: AnimatedBuilder(
               animation: _pulseController,
