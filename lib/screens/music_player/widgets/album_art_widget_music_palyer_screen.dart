@@ -50,6 +50,9 @@ class _AlbumArtWidgetOnMusicPlayerScreenState extends State<AlbumArtWidgetOnMusi
   Song? _nextSong;
   Song? _previousSong;
   bool _isAnimating = false;
+  /// When set, skip AnimatedSwitcher transition (song changed via swipe - album already visible).
+  String? _lastSwipeTargetSongId;
+  VoidCallback? _animationListenerRemove;
 
   @override
   void initState() {
@@ -63,6 +66,10 @@ class _AlbumArtWidgetOnMusicPlayerScreenState extends State<AlbumArtWidgetOnMusi
     super.didUpdateWidget(oldWidget);
     if (oldWidget.currentSong.id != widget.currentSong.id) {
       _updateAdjacentSongs();
+      // Clear swipe-target after this frame (we skip transition this build, then clear)
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _lastSwipeTargetSongId = null;
+      });
     }
   }
 
@@ -99,27 +106,37 @@ class _AlbumArtWidgetOnMusicPlayerScreenState extends State<AlbumArtWidgetOnMusi
   }
 
   void _updateAdjacentSongs() {
+    if (widget.playlist.isEmpty) {
+      _nextSong = null;
+      _previousSong = null;
+      return;
+    }
+
     final currentIndex = widget.playlist.indexWhere(
       (song) => song.id == widget.currentSong.id,
     );
 
     if (currentIndex != -1) {
-      // Get next song (for left swipe)
+      // Get next song (for left swipe) - wrap to first if at end
       _nextSong = currentIndex < widget.playlist.length - 1
           ? widget.playlist[currentIndex + 1]
           : widget.playlist.first;
 
-      // Get previous song (for right swipe)
+      // Get previous song (for right swipe) - wrap to last if at start
       _previousSong = currentIndex > 0
           ? widget.playlist[currentIndex - 1]
           : widget.playlist.last;
+    } else {
+      // Current song not in playlist (e.g. switched playlist) - clear to avoid stale data
+      _nextSong = null;
+      _previousSong = null;
     }
   }
 
-  // Calculate position on arc based on angle
+  // Calculate position on arc based on angle (center album at angle 0 aligns with Stack center)
   Offset _calculateArcPosition(double angle) {
     final x = _arcRadius * math.sin(angle);
-    final y = -_arcRadius * math.cos(angle) + 140.0; // Center at 140.h (half of 280.h)
+    final y = -_arcRadius * math.cos(angle) + _arcRadius;
     return Offset(x, y);
   }
 
@@ -193,12 +210,16 @@ class _AlbumArtWidgetOnMusicPlayerScreenState extends State<AlbumArtWidgetOnMusi
     HapticFeedback.mediumImpact();
     _logger.i('🎵 Swipe ${isSwipeRight ? 'right' : 'left'}: ${targetSong.title}');
 
+    // Remember target so we can skip redundant AnimatedSwitcher transition
+    final targetSongId = targetSong.id;
+
     // Animate to final position
     final targetAngle = isSwipeRight ? _arcAngleSpacing : -_arcAngleSpacing;
     
     _animateToAngle(targetAngle).then((_) {
-      // Trigger song change
       if (mounted) {
+        // Set BEFORE song change so we skip AnimatedSwitcher when parent rebuilds
+        _lastSwipeTargetSongId = targetSongId;
         if (isSwipeRight) {
           context.read<MusicBloc>().add(const MusicEvent.playPrevious());
         } else {
@@ -206,26 +227,37 @@ class _AlbumArtWidgetOnMusicPlayerScreenState extends State<AlbumArtWidgetOnMusi
         }
       }
       
-      // Reset after song change
+      // Reset after song change (do NOT reset _arcController here - it triggers stale listener)
       _resetAfterSongChange();
     });
   }
 
   Future<void> _animateToAngle(double targetAngle) async {
+    // Remove previous listener to avoid leaks and stale updates
+    _animationListenerRemove?.call();
+    _animationListenerRemove = null;
+
     final startAngle = _currentArcAngle;
     final animation = Tween<double>(
       begin: startAngle,
       end: targetAngle,
     ).animate(_arcController);
 
-    animation.addListener(() {
-      setState(() {
-        _currentArcAngle = animation.value;
-      });
-    });
+    void listener() {
+      if (mounted) {
+        setState(() {
+          _currentArcAngle = animation.value;
+        });
+      }
+    }
+    animation.addListener(listener);
+    _animationListenerRemove = () => animation.removeListener(listener);
 
     _arcController.reset();
     await _arcController.forward();
+    // Remove listener when done so _arcController.reset() elsewhere won't cause glitches
+    _animationListenerRemove?.call();
+    _animationListenerRemove = null;
   }
 
   void _resetToCenter() {
@@ -240,7 +272,8 @@ class _AlbumArtWidgetOnMusicPlayerScreenState extends State<AlbumArtWidgetOnMusi
   }
 
   void _resetAfterSongChange() {
-    _arcController.reset();
+    // Don't call _arcController.reset() - it would trigger stale animation listener
+    // and cause _currentArcAngle to jump. Listener is removed in _animateToAngle.forward().then.
     _scaleController.reverse();
     setState(() {
       _dragOffset = 0.0;
@@ -252,6 +285,8 @@ class _AlbumArtWidgetOnMusicPlayerScreenState extends State<AlbumArtWidgetOnMusi
 
   @override
   void dispose() {
+    _animationListenerRemove?.call();
+    _animationListenerRemove = null;
     _arcController.dispose();
     _scaleController.dispose();
     super.dispose();
@@ -370,6 +405,10 @@ class _AlbumArtWidgetOnMusicPlayerScreenState extends State<AlbumArtWidgetOnMusi
   static const Curve _artTransitionCurve = Curves.easeOut;
 
   Widget _buildAlbumArt(Song song, bool isCurrent) {
+    // When song changed via swipe, album is already visible - skip transition to avoid glitch
+    final skipTransition = isCurrent && song.id == _lastSwipeTargetSongId;
+    final transitionDuration = skipTransition ? Duration.zero : _artTransitionDuration;
+
     final hasValidArt = song.albumArt != null && song.albumArt!.trim().isNotEmpty;
     final Widget content = hasValidArt
         ? SizedBox(
@@ -415,7 +454,7 @@ class _AlbumArtWidgetOnMusicPlayerScreenState extends State<AlbumArtWidgetOnMusi
       child: ClipRRect(
         borderRadius: BorderRadius.circular(18.r),
         child: AnimatedSwitcher(
-          duration: _artTransitionDuration,
+          duration: transitionDuration,
           switchInCurve: _artTransitionCurve,
           switchOutCurve: _artTransitionCurve,
           transitionBuilder: (Widget child, Animation<double> animation) {

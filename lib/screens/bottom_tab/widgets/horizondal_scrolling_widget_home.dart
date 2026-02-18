@@ -75,7 +75,10 @@ class _HorizondalScrollingWidgetHomeState
   void initState() {
     super.initState();
     // Initialize PageController with the current index from MusicBloc
-    final currentIndex = context.read<MusicBloc>().state.horizondalScrollingWidgetHomeIndex;
+    final currentIndex = context
+        .read<MusicBloc>()
+        .state
+        .horizondalScrollingWidgetHomeIndex;
     _currentPage = currentIndex;
     _pageController = PageController(initialPage: currentIndex);
   }
@@ -100,29 +103,31 @@ class _HorizondalScrollingWidgetHomeState
             itemCount: 2,
             onPageChanged: (index) => _updateCurrentWidgetIndex(index),
             itemBuilder: (context, index) {
-              if (index == 0) {
-                return _buildSongListSection(
-                  context: context,
-                  title: 'Recently Added',
-                  songs: recentSongs,
-                  onViewAllPressed: widget.onRecentlyAddedPressed,
-                  emptyStateIcon: CupertinoIcons.star,
-                  emptyStateMessage: 'No recently added songs found.',
-                  showPlayCount: false,
-                );
-              } else {
-                // Most Played
-                return _buildSongListSection(
-                  context: context,
-                  title: 'Most Played',
-                  songs: mostPlayedSongs,
-                  onViewAllPressed: widget.onMostPlayedPressed,
-                  emptyStateIcon: CupertinoIcons.chart_bar,
-                  emptyStateMessage:
-                      'Start playing songs to see your most played here!',
-                  showPlayCount: true,
-                );
-              }
+              const double pageGap = 12.0;
+              final section = index == 0
+                  ? _buildSongListSection(
+                      context: context,
+                      title: 'Recently Added',
+                      songs: recentSongs,
+                      onViewAllPressed: widget.onRecentlyAddedPressed,
+                      emptyStateIcon: CupertinoIcons.star,
+                      emptyStateMessage: 'No recently added songs found.',
+                      showPlayCount: false,
+                    )
+                  : _buildSongListSection(
+                      context: context,
+                      title: 'Most Played',
+                      songs: mostPlayedSongs,
+                      onViewAllPressed: widget.onMostPlayedPressed,
+                      emptyStateIcon: CupertinoIcons.chart_bar,
+                      emptyStateMessage:
+                          'Start playing songs to see your most played here!',
+                      showPlayCount: true,
+                    );
+              return Padding(
+                padding: EdgeInsets.symmetric(horizontal: pageGap.w),
+                child: section,
+              );
             },
           ),
         ),

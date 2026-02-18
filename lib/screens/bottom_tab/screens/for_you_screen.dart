@@ -1,3 +1,5 @@
+import 'dart:math' show Random;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
@@ -457,16 +459,35 @@ class _ForYouScreenState extends State<ForYouScreen> {
     );
   }
 
+  /// Suggestions: first up to 10 most played songs, then fill remaining slots
+  /// with random songs from all songs (not already in the list).
   List<Song> _getSuggestionSongsFromAllSongs(List<Song> allSongs) {
-    final mostPlayed = allSongs.where((s) => (s.playCount ?? 0) > 0).toList();
-    if (mostPlayed.isNotEmpty) {
-      return SortingHelper.sortByPlayCount(mostPlayed, ascending: false);
+    const int targetCount = 10;
+    if (allSongs.isEmpty) return [];
+
+    // 1. Get most played songs (sorted by play count), take up to targetCount
+    final mostPlayed = allSongs
+        .where((s) => (s.playCount ?? 0) > 0)
+        .toList();
+    final sortedMostPlayed = mostPlayed.isNotEmpty
+        ? SortingHelper.sortByPlayCount(mostPlayed, ascending: false)
+        : <Song>[];
+    final result = sortedMostPlayed.take(targetCount).toList();
+    final resultIds = result.map((s) => s.id).toSet();
+
+    // 2. If fewer than 10, fill remaining slots with random songs from all songs
+    if (result.length < targetCount) {
+      final remainingSongs = allSongs
+          .where((s) => !resultIds.contains(s.id))
+          .toList()
+        ..shuffle(Random());
+      final needed = targetCount - result.length;
+      for (int i = 0; i < needed && i < remainingSongs.length; i++) {
+        result.add(remainingSongs[i]);
+      }
     }
-    final withDate = allSongs.where((s) => s.dateAdded != null).toList();
-    if (withDate.isNotEmpty) {
-      return SortingHelper.sortByDateAdded(withDate, newestFirst: true);
-    }
-    return allSongs;
+
+    return result;
   }
 
   Widget _buildQuiltedGrid(
