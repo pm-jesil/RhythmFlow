@@ -13,7 +13,12 @@ class MockMusicBloc extends Mock implements MusicBloc {
   Future<void> close() async {}
 }
 
-class FakeMusicEvent extends Fake implements MusicEvent {}
+class FakeMusicEvent extends Fake implements MusicEvent {
+  @override
+  String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) {
+    return super.toString();
+  }
+}
 
 void main() {
   setUpAll(() {

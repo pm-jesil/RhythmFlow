@@ -15,6 +15,8 @@ import 'package:injectable/injectable.dart' as _i526;
 
 import '../../screens/app_settings/bloc/app_settings_bloc.dart' as _i558;
 import '../../screens/bottom_tab/bloc/music_bloc.dart' as _i264;
+import '../../screens/equalizer/bloc/equalizer_bloc.dart' as _i403;
+import '../../utils/services/audio_effects_service.dart' as _i332;
 import '../../utils/services/audio_service.dart' as _i333;
 import '../../utils/services/remote_control_service.dart' as _i298;
 import 'injection.dart' as _i464;
@@ -31,6 +33,8 @@ extension GetItInjectableX on _i174.GetIt {
       () => registerModule.navigatorKey,
     );
     gh.singleton<_i558.AppSettingsBloc>(() => _i558.AppSettingsBloc());
+    gh.singleton<_i403.EqualizerBloc>(() => _i403.EqualizerBloc());
+    gh.singleton<_i332.AudioEffectsService>(() => _i332.AudioEffectsService());
     gh.singleton<_i333.AudioService>(() => _i333.AudioService());
     gh.singleton<_i298.RemoteControlService>(
       () => _i298.RemoteControlService(),

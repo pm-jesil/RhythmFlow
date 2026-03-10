@@ -12,6 +12,7 @@ import '../../screens/app_settings/music_library_settings_screen.dart';
 import '../../screens/app_settings/profile_edit_screen.dart';
 import '../../screens/app_settings/comprehensive_features_settings_screen.dart';
 import '../../screens/app_settings/custom_webview.dart';
+import '../../screens/equalizer/equalizer_screen.dart';
 import '../../screens/welcome_screen.dart';
 import '../../screens/app_settings/bloc/app_settings_bloc.dart';
 import '../../utils/services/app_update_service.dart';
@@ -117,6 +118,13 @@ class AppRouter {
       ),
 
       
+      GoRoute(
+        path: '/settings/equalizer',
+        builder: (context, state) {
+          return const EqualizerScreen();
+        },
+      ),
+
       GoRoute(
         path: '/comprehensive-features-settings',
         builder: (context, state) {
@@ -295,6 +303,10 @@ extension NavigationExtension on BuildContext {
 
   void navigateToComprehensiveFeaturesSettings() {
     GoRouter.of(this).push('/comprehensive-features-settings');
+  }
+
+  void navigateToEqualizer() {
+    GoRouter.of(this).push('/settings/equalizer');
   }
 
   void navigateToAboutUs() {

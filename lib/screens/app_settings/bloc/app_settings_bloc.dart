@@ -4,6 +4,8 @@ import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:injectable/injectable.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/di/injection.dart';
+import '../../equalizer/bloc/equalizer_bloc.dart';
 
 part 'app_settings_event.dart';
 part 'app_settings_state.dart';
@@ -198,6 +200,11 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
     );
 
     emit(resetState);
+
+    // Reset equalizer and sound effects to defaults
+    try {
+      getIt<EqualizerBloc>().add(const EqualizerEvent.resetToDefaults());
+    } catch (_) {}
 
     // Sync with AppTheme using preserved theme values
     if (currentIsDarkMode != null && currentFollowSystemTheme != null) {

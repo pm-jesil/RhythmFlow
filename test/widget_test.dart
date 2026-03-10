@@ -17,7 +17,12 @@ class MockMusicBloc extends Mock implements MusicBloc {
   Future<void> close() async {}
 }
 
-class FakeMusicEvent extends Fake implements MusicEvent {}
+class FakeMusicEvent extends Fake implements MusicEvent {
+  @override
+  String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) {
+    return super.toString();
+  }
+}
 
 void main() {
   setUpAll(() {
@@ -27,7 +32,7 @@ void main() {
   testWidgets('App loads without crashing', (WidgetTester tester) async {
     // Create mock bloc
     final mockMusicBloc = MockMusicBloc();
-    
+
     // Mock the state to return a basic state
     when(() => mockMusicBloc.state).thenReturn(
       MusicState(
@@ -56,19 +61,20 @@ void main() {
         comprehensiveFeatureExtractionFailureCount: const <String, int>{},
       ),
     );
-    
-    when(() => mockMusicBloc.stream).thenAnswer((_) => Stream.value(mockMusicBloc.state));
+
+    when(
+      () => mockMusicBloc.stream,
+    ).thenAnswer((_) => Stream.value(mockMusicBloc.state));
 
     // Build a simplified app for testing
     await tester.pumpWidget(
       MultiBlocProvider(
         providers: [
           BlocProvider<ThemeBloc>(
-            create: (context) => ThemeBloc()..add(const ThemeEvent.initialize()),
+            create: (context) =>
+                ThemeBloc()..add(const ThemeEvent.initialize()),
           ),
-          BlocProvider<MusicBloc>(
-            create: (context) => mockMusicBloc,
-          ),
+          BlocProvider<MusicBloc>(create: (context) => mockMusicBloc),
         ],
         child: BlocBuilder<ThemeBloc, ThemeState>(
           builder: (context, themeState) {
@@ -86,9 +92,9 @@ void main() {
                   home: const ForYouScreen(),
                   builder: (context, child) {
                     return MediaQuery(
-                      data: MediaQuery.of(context).copyWith(
-                        textScaler: const TextScaler.linear(1.0),
-                      ),
+                      data: MediaQuery.of(
+                        context,
+                      ).copyWith(textScaler: const TextScaler.linear(1.0)),
                       child: child!,
                     );
                   },
@@ -102,7 +108,7 @@ void main() {
 
     // Verify that the app loads without crashing
     expect(find.byType(MaterialApp), findsOneWidget);
-    
+
     // Verify that the main screen is loaded
     expect(find.byType(ForYouScreen), findsOneWidget);
   });
@@ -110,7 +116,7 @@ void main() {
   testWidgets('App theme switching works', (WidgetTester tester) async {
     // Create mock bloc
     final mockMusicBloc = MockMusicBloc();
-    
+
     // Mock the state to return a basic state
     when(() => mockMusicBloc.state).thenReturn(
       MusicState(
@@ -139,19 +145,20 @@ void main() {
         comprehensiveFeatureExtractionFailureCount: const <String, int>{},
       ),
     );
-    
-    when(() => mockMusicBloc.stream).thenAnswer((_) => Stream.value(mockMusicBloc.state));
+
+    when(
+      () => mockMusicBloc.stream,
+    ).thenAnswer((_) => Stream.value(mockMusicBloc.state));
 
     // Build a simplified app for testing
     await tester.pumpWidget(
       MultiBlocProvider(
         providers: [
           BlocProvider<ThemeBloc>(
-            create: (context) => ThemeBloc()..add(const ThemeEvent.initialize()),
+            create: (context) =>
+                ThemeBloc()..add(const ThemeEvent.initialize()),
           ),
-          BlocProvider<MusicBloc>(
-            create: (context) => mockMusicBloc,
-          ),
+          BlocProvider<MusicBloc>(create: (context) => mockMusicBloc),
         ],
         child: BlocBuilder<ThemeBloc, ThemeState>(
           builder: (context, themeState) {
@@ -169,9 +176,9 @@ void main() {
                   home: const ForYouScreen(),
                   builder: (context, child) {
                     return MediaQuery(
-                      data: MediaQuery.of(context).copyWith(
-                        textScaler: const TextScaler.linear(1.0),
-                      ),
+                      data: MediaQuery.of(
+                        context,
+                      ).copyWith(textScaler: const TextScaler.linear(1.0)),
                       child: child!,
                     );
                   },
@@ -185,15 +192,17 @@ void main() {
 
     // Verify that the app loads without crashing
     expect(find.byType(MaterialApp), findsOneWidget);
-    
+
     // Verify that the main screen is loaded
     expect(find.byType(ForYouScreen), findsOneWidget);
-    
+
     // Verify that ScreenUtil is properly initialized
     expect(find.byType(ScreenUtilInit), findsOneWidget);
   });
 
-  testWidgets('App handles empty state gracefully', (WidgetTester tester) async {
+  testWidgets('App handles empty state gracefully', (
+    WidgetTester tester,
+  ) async {
     // Create a simple MaterialApp without complex widgets to avoid SliverList issues
     await tester.pumpWidget(
       MaterialApp(
@@ -204,10 +213,7 @@ void main() {
         themeMode: ThemeMode.system,
         home: Scaffold(
           body: Center(
-            child: Text(
-              'RhythmFlow',
-              style: TextStyle(fontSize: 24),
-            ),
+            child: Text('RhythmFlow', style: TextStyle(fontSize: 24)),
           ),
         ),
       ),

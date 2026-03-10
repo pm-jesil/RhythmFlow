@@ -14,21 +14,33 @@ class CustomToast {
   }) {
     final color = _getToastColor(context, type);
     final icon = _getToastIcon(type);
+    final isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
+    final iconSize = isLandscape ? 14.0 : 20.0;
+    final fontSize = isLandscape ? 11.0 : 14.0;
+    final margin = isLandscape
+        ? EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h)
+        : EdgeInsets.all(16.w);
+    final radius = isLandscape ? 6.r : 8.r;
+    final padding = isLandscape
+        ? EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h)
+        : null;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
-              Icon(icon, color: Colors.white, size: 20.sp),
-              SizedBox(width: 8.w),
+              Icon(icon, color: Colors.white, size: iconSize.sp),
+              SizedBox(width: isLandscape ? 6.w : 8.w),
             ],
-            Expanded(
+            Flexible(
               child: Text(
                 message,
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 14.sp,
+                  fontSize: fontSize.sp,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -38,8 +50,9 @@ class CustomToast {
         backgroundColor: color,
         duration: duration,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
-        margin: EdgeInsets.all(16.w),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
+        margin: margin,
+        padding: padding,
         action: onTap != null
             ? SnackBarAction(
                 label: 'Dismiss',

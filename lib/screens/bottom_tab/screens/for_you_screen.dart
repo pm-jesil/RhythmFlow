@@ -18,6 +18,7 @@ import '../../../utils/models/artist/artist_model.dart';
 import '../../../utils/models/album/album_model.dart';
 import '../../../utils/models/playlist_source/playlist_source_model.dart';
 import '../bloc/music_bloc.dart';
+import '../../equalizer/bloc/equalizer_bloc.dart';
 import '../../widgets/album_art_widget.dart';
 import '../bottom_tab.dart';
 import '../../app_settings/bloc/app_settings_bloc.dart';
@@ -238,6 +239,12 @@ class _ForYouScreenState extends State<ForYouScreen> {
                 previous.albumList.length != current.albumList.length ||
                 previous.horizondalScrollingWidgetHomeIndex !=
                     current.horizondalScrollingWidgetHomeIndex ||
+                previous.myPlayerState.currentSongId !=
+                    current.myPlayerState.currentSongId ||
+                previous.myPlayerState.completedSongs !=
+                    current.myPlayerState.completedSongs ||
+                previous.myPlayerState.currentPlayList !=
+                    current.myPlayerState.currentPlayList ||
                 !identical(previous.allSongs, current.allSongs) ||
                 !identical(previous.artistList, current.artistList) ||
                 !identical(previous.albumList, current.albumList);
@@ -264,7 +271,11 @@ class _ForYouScreenState extends State<ForYouScreen> {
                           SizedBox(height: _largeSpacing.h),
                           _buildQuickStats(musicState),
                           SizedBox(height: _largeSpacing.h),
+                          _buildCustomizeEqualizerCard(),
+                          SizedBox(height: _largeSpacing.h),
                           _buildQuiltedGrid(musicState, appSettingsState),
+                          SizedBox(height: _largeSpacing.h),
+                          _buildListenAgain(musicState),
                           SizedBox(height: _largeSpacing.h),
                           _buildHorizondalScrollingWidget(musicState),
                           SizedBox(height: _largeSpacing.h),
@@ -459,6 +470,241 @@ class _ForYouScreenState extends State<ForYouScreen> {
     );
   }
 
+  /// Attractive card that opens the Equalizer screen. On tap, enables equalizer
+  /// and navigates immediately.
+  Widget _buildCustomizeEqualizerCard() {
+    return Custom3DCard(
+      enableAnimation: true,
+      animationDelay: 3,
+      padding:
+          EdgeInsets.zero, // Remove default padding so image expands to edge
+      onTap: () {
+        HapticFeedback.lightImpact();
+        context.read<EqualizerBloc>().add(
+          const EqualizerEvent.persistEqualizerState(isEnabled: true),
+        );
+        context.navigateToEqualizer();
+      },
+      child: Container(
+        height: 70.h, // Explicit slightly reduced height
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(_borderRadius.r),
+          image: const DecorationImage(
+            image: AssetImage('assets/images/equalizer_bg.png'),
+            fit: BoxFit.cover,
+            colorFilter: ColorFilter.mode(
+              Colors.black54, // Darken the image so text pops
+              BlendMode.darken,
+            ),
+          ),
+          border: Border.all(
+            color: context.primaryStart.withValues(alpha: 0.3),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: context.primaryStart.withValues(alpha: 0.1),
+              blurRadius: 8.r,
+              offset: Offset(0, 2.h),
+            ),
+          ],
+        ),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(_borderRadius.r),
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                context.primaryStart.withValues(alpha: 0.4),
+                Colors.transparent,
+              ],
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(10.r),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10.r),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    width: 1,
+                  ),
+                ),
+                child: Icon(
+                  CupertinoIcons.waveform,
+                  color: Colors.white,
+                  size: 24.sp,
+                ),
+              ),
+              SizedBox(width: 14.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Customize Equalizer',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15.sp,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Poppins',
+                        letterSpacing: 0.3,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black45,
+                            blurRadius: 4.r,
+                            offset: Offset(0, 1.h),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      'Tune your sound',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11.sp,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: EdgeInsets.all(6.r),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  CupertinoIcons.chevron_right,
+                  color: Colors.white,
+                  size: 16.sp,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Song> _getListenAgainSongs(MusicState state) {
+    final ps = state.myPlayerState;
+    final songMap = {for (var s in state.allSongs) s.id: s};
+    final recentIds = <String>[];
+    if (ps.currentSongId != null) recentIds.add(ps.currentSongId!);
+    for (var i = ps.completedSongs.length - 1; i >= 0; i--) {
+      recentIds.add(ps.completedSongs[i]);
+    }
+    return recentIds
+        .take(6)
+        .map((id) => songMap[id])
+        .whereType<Song>()
+        .toList();
+  }
+
+  Widget _buildListenAgain(MusicState state) {
+    final listenAgainSongs = _getListenAgainSongs(state);
+    if (listenAgainSongs.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader('Listen Again', listenAgainSongs.length, () {
+          context.read<MusicBloc>().add(
+            MusicEvent.changeSortingOrder(
+              sortingIndex: 5,
+              sortingList: state.allSongs.map((s) => s.id).toList(),
+              playlistSource: PlaylistSource.allSongs(),
+            ),
+          );
+          _navigateToTab(1);
+        }),
+        SizedBox(height: _itemSpacing.h),
+        SizedBox(
+          height: 180.h,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            cacheExtent: 200,
+            itemCount: listenAgainSongs.length,
+            itemBuilder: (context, index) {
+              final song = listenAgainSongs[index];
+              return RepaintBoundary(child: _buildListenAgainCard(song));
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildListenAgainCard(Song song) {
+    return GestureDetector(
+      onTap: () => _playSong(song),
+      child: Container(
+        width: 140.w,
+        margin: EdgeInsets.only(right: 12.w),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12.r),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      offset: Offset(0, 2.h),
+                      blurRadius: 6.r,
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12.r),
+                  child: AlbumArtWidget(
+                    albumArt: song.albumArt,
+                    borderRadius: 12.r,
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              song.title,
+              style: TextStyle(
+                color: context.onSurfaceColor,
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w500,
+                fontFamily: 'Poppins',
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            SizedBox(height: 2.h),
+            Text(
+              song.artists.isNotEmpty ? song.artists.first : 'Unknown Artist',
+              style: TextStyle(
+                color: context.onSurfaceVariantColor,
+                fontSize: 11.sp,
+                fontFamily: 'Poppins',
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Suggestions: first up to 10 most played songs, then fill remaining slots
   /// with random songs from all songs (not already in the list).
   List<Song> _getSuggestionSongsFromAllSongs(List<Song> allSongs) {
@@ -466,9 +712,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
     if (allSongs.isEmpty) return [];
 
     // 1. Get most played songs (sorted by play count), take up to targetCount
-    final mostPlayed = allSongs
-        .where((s) => (s.playCount ?? 0) > 0)
-        .toList();
+    final mostPlayed = allSongs.where((s) => (s.playCount ?? 0) > 0).toList();
     final sortedMostPlayed = mostPlayed.isNotEmpty
         ? SortingHelper.sortByPlayCount(mostPlayed, ascending: false)
         : <Song>[];
@@ -477,10 +721,9 @@ class _ForYouScreenState extends State<ForYouScreen> {
 
     // 2. If fewer than 10, fill remaining slots with random songs from all songs
     if (result.length < targetCount) {
-      final remainingSongs = allSongs
-          .where((s) => !resultIds.contains(s.id))
-          .toList()
-        ..shuffle(Random());
+      final remainingSongs =
+          allSongs.where((s) => !resultIds.contains(s.id)).toList()
+            ..shuffle(Random());
       final needed = targetCount - result.length;
       for (int i = 0; i < needed && i < remainingSongs.length; i++) {
         result.add(remainingSongs[i]);

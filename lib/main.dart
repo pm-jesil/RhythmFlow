@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:rhythmflow/core/di/injection.dart';
 import 'package:rhythmflow/screens/app_settings/bloc/app_settings_bloc.dart';
+import 'package:rhythmflow/screens/equalizer/bloc/equalizer_bloc.dart';
 import 'package:music_feature_analyzer/music_feature_analyzer.dart';
 import 'package:audio_service/audio_service.dart' as audio_service_pkg;
 import 'utils/logger/logger.dart';
@@ -18,6 +19,7 @@ import 'core/router/app_router.dart';
 import 'core/constants/app_constants.dart';
 import 'screens/bottom_tab/bloc/music_bloc.dart';
 import 'utils/services/app_lifecycle_handler.dart';
+import 'utils/services/equalizer_initializer.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -149,33 +151,36 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ),
         BlocProvider(create: (ctx) => getIt<MusicBloc>()),
         BlocProvider(create: (ctx) => getIt<AppSettingsBloc>()),
+        BlocProvider(create: (ctx) => getIt<EqualizerBloc>()),
       ],
-      child: BlocBuilder<AppSettingsBloc, AppSettingsState>(
-        builder: (context, appSettingsState) {
-          return ScreenUtilInit(
-            designSize: const Size(375, 812),
-            minTextAdapt: true,
-            splitScreenMode: true,
-            builder: (context, child) {
-              return MaterialApp.router(
-                title: AppConstants.appName,
-                debugShowCheckedModeBanner: false,
-                theme: AppTheme.lightTheme,
-                darkTheme: AppTheme.darkTheme,
-                themeMode: _getThemeMode(appSettingsState),
-                routerConfig: AppRouter.router,
-                builder: (context, child) {
-                  return MediaQuery(
-                    data: MediaQuery.of(
-                      context,
-                    ).copyWith(textScaler: const TextScaler.linear(1.0)),
-                    child: child!,
-                  );
-                },
-              );
-            },
-          );
-        },
+      child: EqualizerInitializer(
+        child: BlocBuilder<AppSettingsBloc, AppSettingsState>(
+          builder: (context, appSettingsState) {
+            return ScreenUtilInit(
+              designSize: const Size(375, 812),
+              minTextAdapt: true,
+              splitScreenMode: true,
+              builder: (context, child) {
+                return MaterialApp.router(
+                  title: AppConstants.appName,
+                  debugShowCheckedModeBanner: false,
+                  theme: AppTheme.lightTheme,
+                  darkTheme: AppTheme.darkTheme,
+                  themeMode: _getThemeMode(appSettingsState),
+                  routerConfig: AppRouter.router,
+                  builder: (context, child) {
+                    return MediaQuery(
+                      data: MediaQuery.of(
+                        context,
+                      ).copyWith(textScaler: const TextScaler.linear(1.0)),
+                      child: child!,
+                    );
+                  },
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
@@ -10,7 +11,40 @@ class RhythmFlowAudioHandler extends BaseAudioHandler
     with SeekHandler, QueueHandler {
   static final AppLogger _logger = AppLogger('RhythmFlowAudioHandler');
 
-  final AudioPlayer _player = AudioPlayer();
+  final AudioPlayer _player;
+  final AndroidEqualizer? _equalizer;
+  final AndroidLoudnessEnhancer? _loudnessEnhancer;
+
+  RhythmFlowAudioHandler._(
+    this._player,
+    this._equalizer,
+    this._loudnessEnhancer,
+  ) {
+    _initializePlayer();
+  }
+
+  factory RhythmFlowAudioHandler() {
+    if (Platform.isAndroid) {
+      final equalizer = AndroidEqualizer();
+      final loudnessEnhancer = AndroidLoudnessEnhancer();
+      final pipeline = AudioPipeline(
+        androidAudioEffects: [equalizer, loudnessEnhancer],
+      );
+      final player = AudioPlayer(audioPipeline: pipeline);
+      RhythmFlowAudioHandler._logger.i('🎚️ Equalizer and Loudness enabled on Android');
+      return RhythmFlowAudioHandler._(player, equalizer, loudnessEnhancer);
+    } else {
+      final player = AudioPlayer();
+      RhythmFlowAudioHandler._logger.i('🎵 AudioHandler (no equalizer on this platform)');
+      return RhythmFlowAudioHandler._(player, null, null);
+    }
+  }
+
+  /// Equalizer instance (Android only; null on iOS)
+  AndroidEqualizer? get equalizer => _equalizer;
+
+  /// Loudness enhancer instance (Android only; null on iOS)
+  AndroidLoudnessEnhancer? get loudnessEnhancer => _loudnessEnhancer;
 
   // Shuffle and Repeat state
   bool _isShuffle = false;
@@ -27,10 +61,6 @@ class RhythmFlowAudioHandler extends BaseAudioHandler
   static final CustomMediaAction repeatAction = CustomMediaAction(
     name: 'Repeat',
   );
-
-  RhythmFlowAudioHandler() {
-    _initializePlayer();
-  }
 
   /// Update shuffle state
   void updateShuffleState(bool isShuffle) {

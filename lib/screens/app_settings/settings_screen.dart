@@ -6,12 +6,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../../../core/di/injection.dart';
 import '../../../core/theme/theme_extension.dart';
+import '../../../utils/services/audio_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_bloc.dart';
 import '../../../core/router/app_router.dart';
 import '../../../utils/services/permission_service.dart';
 import 'bloc/app_settings_bloc.dart';
+import 'package:rhythmflow/screens/equalizer/bloc/equalizer_bloc.dart';
 import '../bottom_tab/bloc/music_bloc.dart';
 import '../../../core/widgets/app_custom.dart';
 
@@ -103,6 +106,8 @@ class _SettingsScreenState extends State<SettingsScreen>
             SizedBox(height: 24.h),
             _buildMusicSection(state),
             SizedBox(height: 24.h),
+            _buildSoundAndEqualizerSection(state),
+            SizedBox(height: 24.h),
             _buildAdvancedSection(state),
             SizedBox(height: 24.h),
             _buildAboutSection(),
@@ -127,6 +132,72 @@ class _SettingsScreenState extends State<SettingsScreen>
         _buildSectionHeader('Music & Playback'),
         _buildMusicSettings(state),
       ],
+    );
+  }
+
+  Widget _buildSoundAndEqualizerSection(AppSettingsState state) {
+    return Column(
+      children: [
+        _buildSectionHeader('Sound & Equalizer'),
+        BlocBuilder<EqualizerBloc, EqualizerState>(
+          buildWhen: (p, c) => p.isEqualizerEnabled != c.isEqualizerEnabled,
+          builder: (context, eqState) {
+            return _buildSoundAndEqualizerSettings(eqState);
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSoundAndEqualizerSettings(EqualizerState eqState) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16.w),
+      decoration: BoxDecoration(
+        color: context.surfaceColor,
+        borderRadius: BorderRadius.circular(12.r),
+        boxShadow: [
+          BoxShadow(
+            color: context.onSurfaceColor.withValues(alpha: 0.05),
+            blurRadius: 8.r,
+            offset: Offset(0, 2.h),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          if (Platform.isAndroid) ...[
+            _buildNativeSwitchTile(
+              icon: CupertinoIcons.waveform,
+              title: 'Enable Equalizer',
+              subtitle: 'Customize frequency bands for your sound',
+              value: eqState.isEqualizerEnabled,
+              onChanged: (value) => _updateEqualizerEnabled(value),
+            ),
+          ],
+          if (eqState.isEqualizerEnabled) ...[
+            _buildDivider(),
+            _buildNativeActionTile(
+              icon: CupertinoIcons.waveform,
+              title: 'Equalizer',
+              subtitle: Platform.isAndroid
+                  ? 'Customize frequency bands for your sound'
+                  : 'Available on Android',
+              onTap: () => context.navigateToEqualizer(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _updateEqualizerEnabled(bool value) async {
+    final audioService = getIt<AudioService>();
+    final eq = audioService.equalizer;
+    if (eq != null) {
+      await eq.setEnabled(value);
+    }
+    context.read<EqualizerBloc>().add(
+      EqualizerEvent.persistEqualizerState(isEnabled: value),
     );
   }
 
@@ -156,10 +227,7 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   Widget _buildAboutSection() {
     return Column(
-      children: [
-        _buildSectionHeader('About'),
-        _buildAboutSettings(),
-      ],
+      children: [_buildSectionHeader('About'), _buildAboutSettings()],
     );
   }
 
@@ -348,28 +416,30 @@ class _SettingsScreenState extends State<SettingsScreen>
     return BlocBuilder<MusicBloc, MusicState>(
       builder: (context, musicState) {
         final isNormalShuffleEnabled = musicState.myPlayerState.isShuffle;
-        
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16.w),
-      decoration: BoxDecoration(
-        color: context.surfaceColor,
-        borderRadius: BorderRadius.circular(12.r),
-        boxShadow: [
-          BoxShadow(
-            color: context.onSurfaceColor.withValues(alpha: 0.05),
-            blurRadius: 8.r,
-            offset: Offset(0, 2.h),
+
+        return Container(
+          margin: EdgeInsets.symmetric(horizontal: 16.w),
+          decoration: BoxDecoration(
+            color: context.surfaceColor,
+            borderRadius: BorderRadius.circular(12.r),
+            boxShadow: [
+              BoxShadow(
+                color: context.onSurfaceColor.withValues(alpha: 0.05),
+                blurRadius: 8.r,
+                offset: Offset(0, 2.h),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        children: [
-          _buildNativeSwitchTile(
-            icon: CupertinoIcons.sparkles,
-            title: 'Enable AI Shuffle',
-            subtitle: 'Intelligently reorders playlist based on current song features',
-            value: state.isAiShuffleEnabled,
-                onChanged: (value) => _updateAiShuffle(value, isNormalShuffleEnabled),
+          child: Column(
+            children: [
+              _buildNativeSwitchTile(
+                icon: CupertinoIcons.sparkles,
+                title: 'Enable AI Shuffle',
+                subtitle:
+                    'Intelligently reorders playlist based on current song features',
+                value: state.isAiShuffleEnabled,
+                onChanged: (value) =>
+                    _updateAiShuffle(value, isNormalShuffleEnabled),
               ),
               _buildDivider(),
               _buildNativeSwitchTile(
@@ -377,24 +447,27 @@ class _SettingsScreenState extends State<SettingsScreen>
                 title: 'Enable Normal Shuffle',
                 subtitle: 'Randomly shuffle the playlist order',
                 value: isNormalShuffleEnabled,
-                onChanged: (value) => _updateNormalShuffle(value, state.isAiShuffleEnabled, musicState),
+                onChanged: (value) => _updateNormalShuffle(
+                  value,
+                  state.isAiShuffleEnabled,
+                  musicState,
+                ),
+              ),
+              _buildDivider(),
+              _buildNativeListTile(
+                icon: CupertinoIcons.chart_bar,
+                title: 'Music Features Analysis',
+                subtitle: 'Extract comprehensive features from your music',
+                onTap: () {
+                  context.navigateToComprehensiveFeaturesSettings();
+                },
+              ),
+            ],
           ),
-          _buildDivider(),
-          _buildNativeListTile(
-            icon: CupertinoIcons.chart_bar,
-            title: 'Music Features Analysis',
-            subtitle: 'Extract comprehensive features from your music',
-            onTap: () {
-              context.navigateToComprehensiveFeaturesSettings();
-            },
-          ),
-        ],
-      ),
         );
       },
     );
   }
-
 
   Widget _buildAdvancedSettings(AppSettingsState state) {
     return Container(
@@ -588,7 +661,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     context.read<AppSettingsBloc>().add(
       AppSettingsEvent.updateAiShuffle(isEnabled: isEnabled),
     );
-    
+
     // If enabling AI shuffle and normal shuffle is currently enabled,
     // manually disable normal shuffle for immediate response
     // (MusicBloc listener will also handle this, but doing it here ensures UI updates immediately)
@@ -604,10 +677,14 @@ class _SettingsScreenState extends State<SettingsScreen>
     }
   }
 
-  void _updateNormalShuffle(bool isEnabled, bool isAiShuffleEnabled, MusicState musicState) {
+  void _updateNormalShuffle(
+    bool isEnabled,
+    bool isAiShuffleEnabled,
+    MusicState musicState,
+  ) {
     final musicBloc = context.read<MusicBloc>();
     final currentPlayList = musicState.myPlayerState.currentPlayList;
-    
+
     // If enabling normal shuffle, disable AI shuffle first
     // (MusicBloc's _onToggleShuffle will also handle this, but doing it here ensures consistency)
     if (isEnabled && isAiShuffleEnabled) {
@@ -615,7 +692,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         AppSettingsEvent.updateAiShuffle(isEnabled: false),
       );
     }
-    
+
     // Update normal shuffle via MusicBloc
     // Note: MusicBloc's _onToggleShuffle will also disable AI shuffle if it's enabled,
     // but we do it above for immediate UI response
@@ -628,9 +705,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-
   // ==================== HELPER METHODS ====================
-
 
   // ==================== UI COMPONENTS ====================
 
@@ -883,17 +958,18 @@ class _SettingsScreenState extends State<SettingsScreen>
     AppCustom.showResetConfirm(
       context: context,
       itemName: 'Settings',
-      customMessage: 'This will reset all settings to default values while preserving your profile information and theme preferences.',
+      customMessage:
+          'This will reset all settings to default values while preserving your profile information and theme preferences.',
       onConfirm: () async {
         try {
           // Reset to default settings (preserving user name, nickname, and theme)
           context.read<AppSettingsBloc>().add(
             AppSettingsEvent.resetToDefaults(),
           );
-          
+
           // Show success message
           AppCustom.showSettingsSavedToast(context);
-          
+
           // Close the dialog
           Navigator.of(context).pop();
         } catch (e) {

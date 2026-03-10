@@ -2,7 +2,7 @@ name: rhythmflow
 description: "A modern Flutter music player application with local storage support."
 publish_to: "none"
 
-version: 1.0.0+13
+version: 1.0.1+14
 
 environment:
   sdk: ^3.8.1
@@ -70,6 +70,7 @@ dependencies:
   iconify_flutter_plus: ^1.0.4
   skeletonizer: ^2.1.0+1
   text_scroll: ^0.2.1
+  knob_widget: ^1.0.3
 
   # Utilities
   logger: ^2.6.1

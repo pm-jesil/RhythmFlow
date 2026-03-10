@@ -9,6 +9,8 @@ import '../models/playlist_source/playlist_source_model.dart';
 import '../logger/logger.dart';
 import 'enhanced_notification_service.dart';
 import 'play_count_tracking_service.dart';
+import 'package:rhythmflow/core/di/injection.dart';
+import 'audio_effects_service.dart';
 import 'audio_handler.dart';
 import 'permission_service.dart';
 
@@ -76,7 +78,56 @@ class AudioService {
   // Getters
   AudioPlayer get player => _audioPlayer;
   Song? get currentSong => _currentSong;
-  
+
+  /// Equalizer instance (Android only; null on iOS)
+  AndroidEqualizer? get equalizer => _audioHandler?.equalizer;
+
+  /// Loudness enhancer instance (Android only; null on iOS)
+  AndroidLoudnessEnhancer? get loudnessEnhancer => _audioHandler?.loudnessEnhancer;
+
+  /// Set equalizer enabled state (Android only)
+  Future<void> setEqualizerEnabled(bool enabled) async {
+    final eq = equalizer;
+    if (eq != null) {
+      await eq.setEnabled(enabled);
+      _logger.i('🎚️ Equalizer ${enabled ? "enabled" : "disabled"}');
+    }
+  }
+
+  /// Set gain for a specific equalizer band (Android only)
+  Future<void> setEqualizerBandGain(int bandIndex, double gainDb) async {
+    final eq = equalizer;
+    if (eq == null) return;
+    try {
+      final params = await eq.parameters;
+      if (bandIndex >= 0 && bandIndex < params.bands.length) {
+        final band = params.bands[bandIndex];
+        await band.setGain(gainDb);
+        _logger.d('🎚️ Band $bandIndex set to ${gainDb.toStringAsFixed(1)} dB');
+      }
+    } catch (e) {
+      _logger.e('❌ Error setting equalizer band $bandIndex: $e');
+    }
+  }
+
+  /// Set loudness enhancer gain (Android only). gainMb: 0 = no change, 1000 = +10 dB
+  Future<void> setLoudnessGain(int gainMb) async {
+    final le = loudnessEnhancer;
+    if (le != null) {
+      await le.setTargetGain(gainMb / 100.0);
+      _logger.d('🔊 Loudness gain set to ${gainMb / 100.0} dB');
+    }
+  }
+
+  /// Set loudness enhancer enabled state (Android only)
+  Future<void> setLoudnessEnabled(bool enabled) async {
+    final le = loudnessEnhancer;
+    if (le != null) {
+      await le.setEnabled(enabled);
+      _logger.d('🔊 Loudness ${enabled ? "enabled" : "disabled"}');
+    }
+  }
+
   // Set audio handler (called after audio_service initialization)
   void setAudioHandler(RhythmFlowAudioHandler handler) {
     _audioHandler = handler;
@@ -129,6 +180,17 @@ class AudioService {
     // This is critical because listeners were set up on fallback player
     _initializeAudioPlayer();
     _logger.i('✅ AudioService listeners reinitialized with AudioHandler player');
+
+    // Wire native audio effects (Reverb, Virtualizer, BassBoost) to session ID
+    if (Platform.isAndroid) {
+      try {
+        final effectsService = getIt<AudioEffectsService>();
+        effectsService.setupSessionSync(handler.player);
+        _logger.i('✅ Audio effects session sync configured');
+      } catch (e) {
+        _logger.w('⚠️ Could not setup audio effects session: $e');
+      }
+    }
   }
   
   /// Set callbacks for skip actions (called by MusicBloc)

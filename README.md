@@ -1,10 +1,10 @@
 # 🎵 RhythmFlow - AI Music Player
 
-A modern, feature-rich Flutter music player application with AI-powered music analysis, intelligent playlist management, and comprehensive local music library support.
+A modern, feature-rich Flutter music player application with a powerful built-in Equalizer, AI-powered music analysis, intelligent playlist management, and comprehensive local music library support.
 
 ## 📱 Overview
 
-RhythmFlow is a sophisticated music player built with Flutter that offers advanced features like AI-powered music analysis, intelligent shuffle, comprehensive metadata extraction, and a beautiful modern UI. The app supports local music files and provides a personalized music experience.
+RhythmFlow is a sophisticated music player built with Flutter that offers a studio-grade 10-band Equalizer with 3D audio effects, AI-powered music analysis, intelligent shuffle, comprehensive metadata extraction, and a beautiful modern UI. The app supports local music files and provides a highly personalized, acoustically tuned music experience.
 
 ## ✨ Key Features
 
@@ -15,7 +15,9 @@ RhythmFlow is a sophisticated music player built with Flutter that offers advanc
 - **Lock Screen Controls**: Full media controls on lock screen and notification panel
 - **Queue Management**: Play, pause, next, previous, and queue management
 - **Seek Controls**: Precise seeking through tracks
-- **Volume Control**: Adjustable volume with system integration
+- **Studio-Grade Equalizer**: Advanced multi-band EQ with custom presets
+- **3D Audio Effects**: Hardware-accelerated Bass Boost, Virtualizer, Reverb, and Echo
+- **Volume & Balance**: Adjustable master volume and independent L/R stereo balance
 
 ### 🤖 AI-Powered Features
 - **Music Feature Analysis**: Comprehensive analysis of musical characteristics
@@ -39,6 +41,7 @@ RhythmFlow is a sophisticated music player built with Flutter that offers advanc
 - **Glass Morphism**: Modern glassmorphism effects throughout the app
 - **Custom Animations**: Smooth transitions and micro-interactions
 - **Responsive Design**: Optimized for different screen sizes
+- **Dynamic Equalizer UI**: Glowing, spring-animated sliders with real-time feedback
 - **Accessibility**: Full accessibility support
 
 ### 🎵 Music Organization
@@ -105,7 +108,13 @@ RhythmFlow is a sophisticated music player built with Flutter that offers advanc
 - **Multiple Format Support**: 13+ audio formats supported
 - **High-Quality Playback**: Professional audio processing
 - **Crossfade Support**: Smooth transitions between tracks
-- **Equalizer**: Audio enhancement options
+- **Advanced Equalizer & Audio Effects**:
+  - **Dynamic Frequency Bands**: Multi-band frequency control for precise audio tuning
+  - **Built-in & Custom Presets**: Pre-configured EQ presets (Pop, Rock, Classic, etc.) and saveable custom presets
+  - **Bass Boost & Virtualizer**: Hardware-accelerated low-frequency enhancement and 3D spatial audio
+  - **Reverb & Echo**: Environmental Reverb and Preset Reverb settings to simulate different acoustic spaces
+  - **Loudness Enhancer**: Intelligent volume boosting without clipping
+  - **Stereo Balance**: Independent Left/Right channel volume controls
 - **Speed Control**: Variable playback speed
 
 ### Metadata & Organization
