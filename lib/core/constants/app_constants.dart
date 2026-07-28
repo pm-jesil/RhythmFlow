@@ -1,6 +1,6 @@
 class Sources {
   const Sources();
-  
+
   static const String allSongs = 'allSongs';
   static const String album = 'album';
   static const String artist = 'artist';
@@ -9,7 +9,7 @@ class Sources {
 
 class TabLabels {
   const TabLabels();
-  
+
   static const String forYou = 'For You';
   static const String songs = 'Songs';
   static const String albums = 'Albums';
@@ -19,12 +19,12 @@ class TabLabels {
 
 class AppConstants {
   const AppConstants();
-  
+
   static const String appName = 'RhythmFlow';
   static const String appNamePlayStore = 'RhythmFlow - AI Music Player';
   static const String appTagline = 'Music that flows with you';
   static const Duration longAnimation = Duration(milliseconds: 800);
-  
+
   // Music quotes for personalized experience
   static const List<String> musicQuotes = [
     "Music is the universal language of mankind",
@@ -60,19 +60,6 @@ class AppConstants {
   ];
 }
 
-/// Equalizer reverb preset IDs (match Android PresetReverb.PRESET_*).
-class EqualizerReverbPresets {
-  const EqualizerReverbPresets();
-
-  static const int none = 0;
-  static const int smallRoom = 1;
-  static const int mediumRoom = 2;
-  static const int largeRoom = 3;
-  static const int mediumHall = 4;
-  static const int largeHall = 5;
-  static const int plate = 6;
-}
-
 /// Equalizer band gain presets (5-band default; use with presetForBandCount for other band counts).
 class EqualizerBandPresets {
   const EqualizerBandPresets();
@@ -87,12 +74,32 @@ class EqualizerBandPresets {
   static const List<double> classical = [0.0, 0.0, 2.0, 4.0, 4.0];
   static const List<double> studio = [0.0, 0.0, 0.5, 0.5, 0.0];
   static const List<double> smallRoom = [1.0, 2.0, 1.0, 0.0, -1.0];
+  static const List<double> mediumRoom = [1.5, 2.5, 1.5, 0.5, -0.5];
+  static const List<double> largeRoom = [2.0, 3.0, 2.0, 1.0, 0.0];
   static const List<double> smallHall = [0.0, 1.0, 2.0, 3.0, 2.0];
+  static const List<double> mediumHall = [0.0, 1.0, 2.5, 3.5, 2.5];
+  static const List<double> largeHall = [0.0, 0.5, 3.0, 4.5, 3.5];
+  static const List<double> plate = [-0.5, 0.5, 2.0, 3.0, 3.5];
   static const List<double> concertHall = [0.0, 0.0, 2.0, 4.0, 5.0];
   static const List<double> liveStage = [0.0, 1.0, 3.0, 3.0, 2.0];
   static const List<double> ambientSpace = [-1.0, 0.0, 1.0, 3.0, 5.0];
   static const List<double> carCabin = [4.0, 3.0, 0.0, -1.0, -1.0];
   static const List<double> headphonesBoost = [0.0, 0.0, 1.0, 2.0, 2.0];
+
+  /// Adjusts [preset] gains to exactly [count] bands via linear interpolation.
+  /// Used when the device's EQ band count differs from the preset's 5-band default.
+  static List<double> forBandCount(List<double> preset, int count) {
+    if (preset.isEmpty) return List.filled(count, 0.0);
+    if (preset.length >= count) return preset.sublist(0, count);
+    if (count <= 1) return [preset[0]];
+    return List.generate(count, (i) {
+      final srcIdx = (i / (count - 1)) * (preset.length - 1);
+      final lo = srcIdx.floor().clamp(0, preset.length - 1);
+      final hi = (lo + 1).clamp(0, preset.length - 1);
+      final frac = srcIdx - lo;
+      return preset[lo] * (1 - frac) + preset[hi] * frac;
+    });
+  }
 
   /// Returns built-in band gains for [presetId], or flat if unknown.
   static List<double> getGains(String presetId) {
@@ -117,8 +124,18 @@ class EqualizerBandPresets {
         return List<double>.from(studio);
       case 'small_room':
         return List<double>.from(smallRoom);
+      case 'medium_room':
+        return List<double>.from(mediumRoom);
+      case 'large_room':
+        return List<double>.from(largeRoom);
       case 'small_hall':
         return List<double>.from(smallHall);
+      case 'medium_hall':
+        return List<double>.from(mediumHall);
+      case 'large_hall':
+        return List<double>.from(largeHall);
+      case 'plate':
+        return List<double>.from(plate);
       case 'concert_hall':
         return List<double>.from(concertHall);
       case 'live_stage':
@@ -139,7 +156,9 @@ class EqualizerBandPresets {
 class EqualizerPresetEffects {
   const EqualizerPresetEffects();
 
-  static ({int echo, int virtualizer, int loudness, int bassBoost}) get(String presetId) {
+  static ({int echo, int virtualizer, int loudness, int bassBoost}) get(
+    String presetId,
+  ) {
     switch (presetId) {
       case 'flat':
         return (echo: 0, virtualizer: 0, loudness: 0, bassBoost: 0);
@@ -161,8 +180,18 @@ class EqualizerPresetEffects {
         return (echo: 0, virtualizer: 100, loudness: 0, bassBoost: 0);
       case 'small_room':
         return (echo: 25, virtualizer: 0, loudness: 0, bassBoost: 200);
+      case 'medium_room':
+        return (echo: 30, virtualizer: 150, loudness: 0, bassBoost: 200);
+      case 'large_room':
+        return (echo: 35, virtualizer: 250, loudness: 0, bassBoost: 200);
       case 'small_hall':
         return (echo: 35, virtualizer: 400, loudness: 0, bassBoost: 0);
+      case 'medium_hall':
+        return (echo: 40, virtualizer: 500, loudness: 0, bassBoost: 0);
+      case 'large_hall':
+        return (echo: 50, virtualizer: 650, loudness: 0, bassBoost: 0);
+      case 'plate':
+        return (echo: 30, virtualizer: 300, loudness: 0, bassBoost: 0);
       case 'concert_hall':
         return (echo: 45, virtualizer: 600, loudness: 0, bassBoost: 0);
       case 'live_stage':

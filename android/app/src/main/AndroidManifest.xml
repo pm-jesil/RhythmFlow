@@ -37,6 +37,7 @@
         android:icon="@mipmap/ic_launcher"
         android:requestLegacyExternalStorage="true"
         android:preserveLegacyExternalStorage="true"
+        android:enableOnBackInvokedCallback="true"
 >
 
         <!-- Audio Service for background playback and now-playing notification.

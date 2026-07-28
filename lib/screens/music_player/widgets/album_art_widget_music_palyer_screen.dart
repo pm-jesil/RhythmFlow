@@ -419,10 +419,7 @@ class _AlbumArtWidgetOnMusicPlayerScreenState extends State<AlbumArtWidgetOnMusi
               width: 180.r,
               height: 180.r,
               fit: BoxFit.cover,
-              frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                if (frame == null) return _buildDefaultAlbumArt(context);
-                return child;
-              },
+              gaplessPlayback: true,
               errorBuilder: (context, error, stackTrace) {
                 return _buildDefaultAlbumArt(context);
               },

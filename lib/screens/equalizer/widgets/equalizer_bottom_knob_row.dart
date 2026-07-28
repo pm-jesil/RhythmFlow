@@ -1,21 +1,15 @@
-import 'dart:io';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:just_audio/just_audio.dart';
 import 'package:rhythmflow/core/constants/app_constants.dart';
 import 'package:rhythmflow/core/theme/theme_extension.dart';
-import 'package:rhythmflow/screens/equalizer/widgets/master_volume_knob.dart';
 import 'package:rhythmflow/screens/equalizer/bloc/equalizer_bloc.dart';
-
-// ── Bottom row: L volume knob | Presets + Reverb chips | R volume knob ───────
+import 'package:rhythmflow/screens/equalizer/widgets/master_volume_knob.dart';
 
 class EqualizerBottomKnobRow extends StatefulWidget {
   const EqualizerBottomKnobRow({
     super.key,
-    required this.eq,
     required this.state,
     required this.height,
     required this.volumeLeft,
@@ -26,10 +20,8 @@ class EqualizerBottomKnobRow extends StatefulWidget {
     this.presetRemoving,
     required this.onPresetSelected,
     this.onPresetDeleteRequested,
-    required this.onReverbSelected,
   });
 
-  final AndroidEqualizer eq;
   final EqualizerState state;
   final double height;
   final double volumeLeft;
@@ -42,23 +34,43 @@ class EqualizerBottomKnobRow extends StatefulWidget {
   onPresetSelected;
   final void Function(String id, String name, List<double> gains)?
   onPresetDeleteRequested;
-  final Future<void> Function(int presetId) onReverbSelected;
 
   @override
   State<EqualizerBottomKnobRow> createState() => _EqualizerBottomKnobRowState();
 }
 
 class _EqualizerBottomKnobRowState extends State<EqualizerBottomKnobRow> {
-  final ScrollController _presetScroll = ScrollController();
-  final ScrollController _reverbScroll = ScrollController();
+  static const List<({String id, String label})> _builtInPresetChips = [
+    (id: 'flat', label: 'Flat'),
+    (id: 'bass_boost', label: 'Bass Boost'),
+    (id: 'treble', label: 'Treble'),
+    (id: 'vocal', label: 'Vocal'),
+    (id: 'rock', label: 'Rock'),
+    (id: 'pop', label: 'Pop'),
+    (id: 'jazz', label: 'Jazz'),
+    (id: 'classical', label: 'Classical'),
+    (id: 'studio', label: 'Studio'),
+    (id: 'small_room', label: 'Small Room'),
+    (id: 'medium_room', label: 'Medium Room'),
+    (id: 'large_room', label: 'Large Room'),
+    (id: 'small_hall', label: 'Small Hall'),
+    (id: 'medium_hall', label: 'Medium Hall'),
+    (id: 'large_hall', label: 'Large Hall'),
+    (id: 'plate', label: 'Plate'),
+    (id: 'concert_hall', label: 'Concert Hall'),
+    (id: 'live_stage', label: 'Live Stage'),
+    (id: 'ambient_space', label: 'Ambient Space'),
+    (id: 'car_cabin', label: 'Car Cabin'),
+    (id: 'headphones_boost', label: 'Headphones Boost'),
+  ];
 
-  // Keep chip keys so we can measure their positions for auto-scroll
+  final ScrollController _presetScroll = ScrollController();
   final Map<String, GlobalKey> _chipKeys = {};
+  String? _deleteArmedPresetId;
 
   @override
   void dispose() {
     _presetScroll.dispose();
-    _reverbScroll.dispose();
     super.dispose();
   }
 
@@ -67,6 +79,9 @@ class _EqualizerBottomKnobRowState extends State<EqualizerBottomKnobRow> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedPresetId != widget.selectedPresetId) {
       _scrollToSelected(widget.selectedPresetId);
+    }
+    if (_deleteArmedPresetId != null && widget.presetRemoving?.id == _deleteArmedPresetId) {
+      _deleteArmedPresetId = null;
     }
   }
 
@@ -79,24 +94,28 @@ class _EqualizerBottomKnobRowState extends State<EqualizerBottomKnobRow> {
       Scrollable.ensureVisible(
         ctx,
         alignment: 0.3,
-        duration: const Duration(milliseconds: 350),
+        duration: const Duration(milliseconds: 320),
         curve: Curves.easeOutCubic,
       );
     });
   }
 
+  void _clearDeleteArm() {
+    if (_deleteArmedPresetId == null) return;
+    setState(() => _deleteArmedPresetId = null);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final chipRowHeight = (widget.height * 0.45).clamp(28.r, 35.h);
+    final chipRowHeight = (widget.height * 0.56).clamp(28.r, 38.r);
     return SizedBox(
       height: widget.height,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(
-            padding: EdgeInsets.only(top: 15.w),
+          SizedBox(
             height: widget.height,
-            width: 70.w,
+            width: 150.r,
             child: MasterVolumeKnob(
               label: 'L',
               value: widget.volumeLeft,
@@ -107,47 +126,23 @@ class _EqualizerBottomKnobRowState extends State<EqualizerBottomKnobRow> {
           Expanded(
             child: Container(
               height: double.infinity,
-              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+              padding: EdgeInsets.symmetric(horizontal: 18.r, vertical: 8.r),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    context.surfaceColor.withValues(alpha: 0.7),
-                    context.surfaceColor.withValues(alpha: 0.5),
-                  ],
+                color: context.surfaceColor.withValues(
+                  alpha: context.isDark ? 0.62 : 0.78,
                 ),
-                borderRadius: BorderRadius.circular(10.r),
+                borderRadius: BorderRadius.circular(12.r),
                 border: Border.all(
-                  color: context.primaryStart.withValues(
-                    alpha: context.isDark ? 0.28 : 0.18,
-                  ),
+                  color: context.onSurfaceVariantColor.withValues(alpha: 0.18),
                   width: 1,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: context.primaryStart.withValues(
-                      alpha: context.isDark ? 0.08 : 0.04,
-                    ),
-                    blurRadius: 8.r,
-                    offset: Offset(0, 2.h),
-                  ),
-                ],
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildPresetsCompact(context, chipRowHeight),
-                  if (Platform.isAndroid)
-                    _buildReverbCompact(context, chipRowHeight),
-                ],
-              ),
+              child: _buildPresetsCompact(context, chipRowHeight),
             ),
           ),
-          Container(
-            padding: EdgeInsets.only(top: 15.w),
+          SizedBox(
             height: widget.height,
-            width: 70.w,
+            width: 150.r,
             child: MasterVolumeKnob(
               label: 'R',
               value: widget.volumeRight,
@@ -168,16 +163,16 @@ class _EqualizerBottomKnobRowState extends State<EqualizerBottomKnobRow> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 7.sp, color: context.primaryStart),
-        SizedBox(width: 2.w),
+        Icon(icon, size: 8.sp, color: context.primaryStart),
+        SizedBox(width: 4.r),
         Text(
           label,
           style: TextStyle(
             color: context.onSurfaceVariantColor,
             fontSize: 7.sp,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
             fontFamily: 'Poppins',
-            letterSpacing: 0.3,
+            letterSpacing: 0.35,
           ),
         ),
       ],
@@ -185,28 +180,16 @@ class _EqualizerBottomKnobRowState extends State<EqualizerBottomKnobRow> {
   }
 
   Widget _buildPresetsCompact(BuildContext context, double chipRowHeight) {
-    final builtIn = [
-      ('flat', 'Flat', EqualizerBandPresets.flat),
-      ('bass_boost', 'Bass Boost', EqualizerBandPresets.bassBoost),
-      ('treble', 'Treble', EqualizerBandPresets.treble),
-      ('vocal', 'Vocal', EqualizerBandPresets.vocal),
-      ('rock', 'Rock', EqualizerBandPresets.rock),
-      ('pop', 'Pop', EqualizerBandPresets.pop),
-      ('jazz', 'Jazz', EqualizerBandPresets.jazz),
-      ('classical', 'Classical', EqualizerBandPresets.classical),
-      ('studio', 'Studio', EqualizerBandPresets.studio),
-      ('small_room', 'Small Room', EqualizerBandPresets.smallRoom),
-      ('small_hall', 'Small Hall', EqualizerBandPresets.smallHall),
-      ('concert_hall', 'Concert Hall', EqualizerBandPresets.concertHall),
-      ('live_stage', 'Live Stage', EqualizerBandPresets.liveStage),
-      ('ambient_space', 'Ambient Space', EqualizerBandPresets.ambientSpace),
-      ('car_cabin', 'Car Cabin', EqualizerBandPresets.carCabin),
-      (
-        'headphones_boost',
-        'Headphones Boost',
-        EqualizerBandPresets.headphonesBoost,
-      ),
-    ];
+    final builtIn = _builtInPresetChips
+        .map(
+          (preset) => (
+            preset.id,
+            preset.label,
+            EqualizerBandPresets.getGains(preset.id),
+          ),
+        )
+        .toList();
+
     var custom = (widget.state.equalizerCustomPresets ?? {}).values
         .map((e) => (e.id, e.name, List<double>.from(e.gains)))
         .toList();
@@ -220,10 +203,8 @@ class _EqualizerBottomKnobRowState extends State<EqualizerBottomKnobRow> {
         ),
       ];
     }
-    final presets = [
-      ...builtIn.map((e) => (e.$1, e.$2, List<double>.from(e.$3))),
-      ...custom,
-    ];
+    custom.sort((a, b) => a.$1.compareTo(b.$1));
+    final presets = [...builtIn, ...custom];
 
     return SizedBox(
       height: chipRowHeight,
@@ -234,46 +215,67 @@ class _EqualizerBottomKnobRowState extends State<EqualizerBottomKnobRow> {
             'PRESETS',
             CupertinoIcons.music_note_list,
           ),
-          SizedBox(width: 4.w),
+          SizedBox(width: 8.r),
           Expanded(
             child: ListView.separated(
               controller: _presetScroll,
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
               itemCount: presets.length,
-              separatorBuilder: (_, __) => SizedBox(width: 3.w),
+              separatorBuilder: (context, index) => SizedBox(width: 6.r),
               itemBuilder: (context, index) {
                 final (id, name, gains) = presets[index];
                 final isSelected = widget.selectedPresetId == id;
                 final isCustom =
                     id.startsWith('custom_') || widget.presetRemoving?.id == id;
                 final isRemoving = widget.presetRemoving?.id == id;
+                final isDeleteArmed = _deleteArmedPresetId == id && isCustom;
 
                 _chipKeys.putIfAbsent(id, () => GlobalKey());
 
                 return AnimatedOpacity(
-                  duration: const Duration(milliseconds: 300),
+                  duration: const Duration(milliseconds: 260),
                   opacity: isRemoving ? 0.0 : 1.0,
                   child: _AnimatedEqChip(
                     key: _chipKeys[id],
                     label: name,
                     isSelected: isSelected,
                     isCustom: isCustom,
-                    onSelected: isRemoving
+                    isDeleteArmed: isDeleteArmed,
+                    onTap: isRemoving
                         ? null
                         : () {
+                            if (isDeleteArmed) {
+                              if (widget.onPresetDeleteRequested != null) {
+                                HapticFeedback.mediumImpact();
+                                _clearDeleteArm();
+                                widget.onPresetDeleteRequested!(
+                                  id,
+                                  name,
+                                  List<double>.from(gains),
+                                );
+                              }
+                              return;
+                            }
+                            if (_deleteArmedPresetId != null) {
+                              _clearDeleteArm();
+                            }
+                            HapticFeedback.lightImpact();
                             widget.onPresetSelected(
                               id,
                               name,
                               List<double>.from(gains),
                             );
                           },
-                    onDelete: isCustom && widget.onPresetDeleteRequested != null
-                        ? () => widget.onPresetDeleteRequested!(
-                            id,
-                            name,
-                            List<double>.from(gains),
-                          )
+                    onLongPress: isCustom &&
+                            !isRemoving &&
+                            widget.onPresetDeleteRequested != null
+                        ? () {
+                            HapticFeedback.mediumImpact();
+                            setState(
+                              () => _deleteArmedPresetId = isDeleteArmed ? null : id,
+                            );
+                          }
                         : null,
                   ),
                 );
@@ -284,462 +286,132 @@ class _EqualizerBottomKnobRowState extends State<EqualizerBottomKnobRow> {
       ),
     );
   }
-
-  Widget _buildReverbCompact(BuildContext context, double chipRowHeight) {
-    final presets = [
-      (EqualizerReverbPresets.none, 'None'),
-      (EqualizerReverbPresets.smallRoom, 'S.Room'),
-      (EqualizerReverbPresets.mediumRoom, 'M.Room'),
-      (EqualizerReverbPresets.largeRoom, 'L.Room'),
-      (EqualizerReverbPresets.mediumHall, 'M.Hall'),
-      (EqualizerReverbPresets.largeHall, 'L.Hall'),
-      (EqualizerReverbPresets.plate, 'Plate'),
-    ];
-    final selectedReverb = widget.state.reverbEnabled
-        ? widget.state.reverbPreset
-        : EqualizerReverbPresets.none;
-
-    return SizedBox(
-      height: chipRowHeight,
-      child: Row(
-        children: [
-          _buildChipSectionLabel(context, 'REVERB', CupertinoIcons.waveform),
-          SizedBox(width: 4.w),
-          Expanded(
-            child: ListView.separated(
-              controller: _reverbScroll,
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              itemCount: presets.length,
-              separatorBuilder: (_, __) => SizedBox(width: 3.w),
-              itemBuilder: (context, index) {
-                final (id, name) = presets[index];
-                final isSelected = selectedReverb == id;
-
-                return _AnimatedEqChip(
-                  label: name,
-                  isSelected: isSelected,
-                  isCustom: false,
-                  onSelected: () async {
-                    final preset = isSelected
-                        ? EqualizerReverbPresets.none
-                        : id;
-                    await widget.onReverbSelected(preset);
-                  },
-                  onDelete: null,
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
-// ── Animated Chip ────────────────────────────────────────────────────────────
-
-/// A premium animated chip for preset/reverb selection. Supports:
-/// - Scale animation on selection (0.85 → 1.0)
-/// - Color morph: transparent → primaryStart glow background
-/// - Glowing animated border on selection
-/// - Font weight/color animation
-/// - Optional delete icon (only visible when selected + custom)
-class _AnimatedEqChip extends StatefulWidget {
-  final String label;
-  final bool isSelected;
-  final bool isCustom;
-  final VoidCallback? onSelected;
-  final VoidCallback? onDelete;
-
+class _AnimatedEqChip extends StatelessWidget {
   const _AnimatedEqChip({
     super.key,
     required this.label,
     required this.isSelected,
     required this.isCustom,
-    required this.onSelected,
-    required this.onDelete,
+    required this.isDeleteArmed,
+    required this.onTap,
+    required this.onLongPress,
   });
 
-  @override
-  State<_AnimatedEqChip> createState() => _AnimatedEqChipState();
-}
-
-class _AnimatedEqChipState extends State<_AnimatedEqChip>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnim;
-  late Animation<double> _glowAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 280),
-    );
-    _scaleAnim = Tween<double>(
-      begin: 0.88,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
-    _glowAnim = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
-
-    if (widget.isSelected) _controller.value = 1.0;
-  }
-
-  @override
-  void didUpdateWidget(covariant _AnimatedEqChip oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isSelected != oldWidget.isSelected) {
-      if (widget.isSelected) {
-        _controller.forward();
-      } else {
-        _controller.reverse();
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  final String label;
+  final bool isSelected;
+  final bool isCustom;
+  final bool isDeleteArmed;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        final glow = _glowAnim.value;
-        final isSelected = widget.isSelected;
+    final fillColor = isDeleteArmed
+        ? const Color(0xFFC62828).withValues(alpha: context.isDark ? 0.24 : 0.16)
+        : isSelected
+            ? context.primaryStart.withValues(alpha: context.isDark ? 0.26 : 0.16)
+            : context.onSurfaceVariantColor.withValues(
+                alpha: context.isDark ? 0.10 : 0.08,
+              );
 
-        // Single AnimatedContainer — shadow + fill + border all on one BoxDecoration.
-        // Root fix for rounded shadow: remove spreadRadius entirely.
-        // Flutter's BoxShadow expands by spreadRadius as a plain Rect BEFORE applying
-        // borderRadius, so non-zero spreadRadius produces visually square corners.
-        // Using only blurRadius means the glow blur is always applied to the RRect
-        // shape directly, giving perfectly rounded pill-shaped glow on all 4 corners.
-        return Transform.scale(
-          scale: _scaleAnim.value,
-          child: GestureDetector(
-            onTap: () {
-              if (widget.onSelected != null) {
-                HapticFeedback.lightImpact();
-                widget.onSelected!();
-              }
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 280),
-              curve: Curves.easeOutCubic,
-              padding: EdgeInsets.symmetric(
-                horizontal: widget.isCustom && isSelected ? 5.w : 7.w,
-                vertical: 3.h,
-              ),
-              decoration: BoxDecoration(
-                gradient: isSelected
-                    ? LinearGradient(
-                        colors: [
-                          context.primaryStart.withValues(
-                            alpha: 0.18 + glow * 0.10,
-                          ),
-                          context.primaryEnd.withValues(
-                            alpha: 0.14 + glow * 0.08,
-                          ),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                    : null,
-                // color: transparent when no gradient — ensures Flutter always
-                // uses the RRect paint path (with borderRadius) for this decoration,
-                // so boxShadow is rendered rounded even when gradient is null.
-                color: isSelected
-                    ? null
-                    : context.onSurfaceVariantColor.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(20.r),
-                border: Border.all(
-                  color: isSelected
-                      ? context.primaryStart
-                          .withValues(alpha: 0.5 + glow * 0.4)
-                      : context.onSurfaceVariantColor.withValues(alpha: 0.2),
-                  width: isSelected ? 1.4 : 0.8,
+    final borderColor = isDeleteArmed
+        ? const Color(0xFFC62828).withValues(alpha: 0.9)
+        : isSelected
+            ? context.primaryStart.withValues(alpha: 0.45)
+            : context.onSurfaceVariantColor.withValues(alpha: 0.22);
+
+    final textColor = isDeleteArmed
+        ? const Color(0xFFC62828)
+        : isSelected
+            ? context.primaryStart
+            : context.onSurfaceVariantColor;
+
+    return AnimatedScale(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      scale: isSelected ? 1.0 : 0.97,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onTap,
+              onLongPress: onLongPress,
+              borderRadius: BorderRadius.circular(10.r),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                constraints: BoxConstraints(
+                  minWidth: 56.r,
+                  maxWidth: 92.r,
+                  minHeight: 28.r,
                 ),
-                // No spreadRadius — blur alone gives a perfectly rounded pill glow.
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: context.primaryStart.withValues(
-                            alpha: 0.22 + glow * 0.28,
+                padding: EdgeInsets.symmetric(horizontal: 8.r, vertical: 5.r),
+                decoration: BoxDecoration(
+                  color: fillColor,
+                  borderRadius: BorderRadius.circular(10.r),
+                  border: Border.all(color: borderColor, width: 1),
+                ),
+                child: Center(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    child: isDeleteArmed
+                        ? Icon(
+                            CupertinoIcons.delete_solid,
+                            key: const ValueKey('delete_icon'),
+                            size: 9.sp,
+                            color: const Color(0xFFC62828),
+                          )
+                        : Text(
+                            label,
+                            key: const ValueKey('preset_label'),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            softWrap: true,
+                            style: TextStyle(
+                              fontSize: 6.6.sp,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                              height: 1.2,
+                              fontFamily: 'Poppins',
+                              color: textColor,
+                            ),
                           ),
-                          blurRadius: 9.r + glow * 7,
-                          // spreadRadius intentionally omitted — see comment above
-                        ),
-                      ]
-                    : [],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 250),
-                    style: TextStyle(
-                      fontSize: 6.sp,
-                      fontWeight: isSelected
-                          ? FontWeight.w700
-                          : FontWeight.w400,
-                      fontFamily: 'Poppins',
-                      color: isSelected
-                          ? context.primaryStart
-                          : context.onSurfaceVariantColor,
-                    ),
-                    child: Text(widget.label),
                   ),
-                  // Custom delete 'x' — only visible when selected
-                  if (widget.isCustom && widget.onDelete != null)
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOutCubic,
-                      child: isSelected
-                          ? Padding(
-                              padding: EdgeInsets.only(left: 3.w),
-                              child: GestureDetector(
-                                onTap: () {
-                                  HapticFeedback.mediumImpact();
-                                  widget.onDelete!();
-                                },
-                                child: Icon(
-                                  CupertinoIcons.xmark_circle_fill,
-                                  size: 7.sp,
-                                  color: const Color(0xFFFF6B6B),
-                                ),
-                              ),
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ── Save / Update / Select / Undo bar ────────────────────────────────────────
-
-class EqualizerBottomSaveUpdateButton extends StatelessWidget {
-  const EqualizerBottomSaveUpdateButton({
-    super.key,
-    required this.hasPendingSave,
-    required this.currentPresetModified,
-    required this.isCustomPreset,
-    required this.onConfirmSelection,
-    required this.onUndo,
-    required this.onUpdate,
-  });
-
-  final bool hasPendingSave;
-  final bool currentPresetModified;
-  final bool isCustomPreset;
-  final VoidCallback onConfirmSelection;
-  final VoidCallback onUndo;
-  final VoidCallback onUpdate;
-
-  @override
-  Widget build(BuildContext context) {
-    final showSelectOnly = hasPendingSave && !currentPresetModified;
-    final showUndoUpdate = currentPresetModified;
-    final visible = showSelectOnly || showUndoUpdate;
-    if (!visible) return const SizedBox.shrink();
-
-    return AnimatedSlide(
-      offset: visible ? Offset.zero : const Offset(0, 1),
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.easeOutBack,
-      child: AnimatedOpacity(
-        opacity: visible ? 1 : 0,
-        duration: const Duration(milliseconds: 260),
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 260),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeIn,
-          transitionBuilder: (child, animation) => FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 0.15),
-                end: Offset.zero,
-              ).animate(animation),
-              child: child,
-            ),
-          ),
-          child: Container(
-            key: ValueKey(showSelectOnly ? 'select' : 'undoupdate'),
-            padding: EdgeInsets.fromLTRB(
-              10.w,
-              4.h,
-              10.w,
-              4.h + MediaQuery.of(context).padding.bottom,
-            ),
-            decoration: BoxDecoration(
-              color: context.surfaceColor,
-              border: Border(
-                top: BorderSide(
-                  color: context.primaryStart.withValues(alpha: 0.15),
-                  width: 1,
                 ),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: context.primaryStart.withValues(alpha: 0.08),
-                  blurRadius: 10.r,
-                  offset: Offset(0, -3.h),
-                ),
-                BoxShadow(
-                  color: context.onSurfaceColor.withValues(alpha: 0.06),
-                  blurRadius: 6.r,
-                  offset: Offset(0, -1.h),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              top: false,
-              child: showSelectOnly
-                  ? _buildSelectButton(context)
-                  : _buildUndoUpdateRow(context),
             ),
           ),
-        ),
+          if (isCustom && !isDeleteArmed)
+            Positioned(
+              top: -3.r,
+              right: -3.r,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: context.surfaceColor,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: context.primaryStart.withValues(alpha: 0.55),
+                    width: 1,
+                  ),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.all(1.6.r),
+                  child: Icon(
+                    CupertinoIcons.pencil,
+                    size: 5.4.sp,
+                    color: context.primaryStart,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildSelectButton(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [context.primaryStart, context.primaryEnd],
-          ),
-          borderRadius: BorderRadius.circular(8.r),
-          boxShadow: [
-            BoxShadow(
-              color: context.primaryStart.withValues(alpha: 0.35),
-              blurRadius: 8.r,
-              offset: Offset(0, 3.h),
-            ),
-          ],
-        ),
-        child: FilledButton(
-          onPressed: () {
-            HapticFeedback.mediumImpact();
-            onConfirmSelection();
-          },
-          style: FilledButton.styleFrom(
-            backgroundColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-            foregroundColor: Colors.white,
-            padding: EdgeInsets.symmetric(vertical: 4.h),
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8.r),
-            ),
-          ),
-          child: Text(
-            'Select',
-            style: TextStyle(
-              fontSize: 10.sp,
-              fontWeight: FontWeight.w700,
-              fontFamily: 'Poppins',
-              letterSpacing: 0.5,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildUndoUpdateRow(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          flex: 40,
-          child: OutlinedButton(
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              onUndo();
-            },
-            style: OutlinedButton.styleFrom(
-              foregroundColor: context.onSurfaceVariantColor,
-              side: BorderSide(
-                color: context.primaryStart.withValues(alpha: 0.45),
-                width: 1.2,
-              ),
-              padding: EdgeInsets.symmetric(vertical: 4.h),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8.r),
-              ),
-            ),
-            child: Text(
-              'Undo',
-              style: TextStyle(
-                fontSize: 9.sp,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'Poppins',
-              ),
-            ),
-          ),
-        ),
-        SizedBox(width: 6.w),
-        Expanded(
-          flex: 60,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [context.primaryStart, context.primaryEnd],
-              ),
-              borderRadius: BorderRadius.circular(8.r),
-              boxShadow: [
-                BoxShadow(
-                  color: context.primaryStart.withValues(alpha: 0.35),
-                  blurRadius: 8.r,
-                  offset: Offset(0, 3.h),
-                ),
-              ],
-            ),
-            child: FilledButton(
-              onPressed: () {
-                HapticFeedback.mediumImpact();
-                onUpdate();
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(vertical: 4.h),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8.r),
-                ),
-              ),
-              child: Text(
-                isCustomPreset ? 'Update' : 'Save as new',
-                style: TextStyle(
-                  fontSize: 9.sp,
-                  fontWeight: FontWeight.w700,
-                  fontFamily: 'Poppins',
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

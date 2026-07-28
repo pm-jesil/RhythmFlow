@@ -115,6 +115,12 @@ class RhythmFlowEffectPlugin : FlutterPlugin, MethodCallHandler {
             // and scale left/right visually in the knob UI.
             // Left-attenuated: lower left knob → right channel louder → panned right
             // Right-attenuated: lower right knob → left channel louder → panned left
+            "getChannelVolumes" -> {
+                result.success(mapOf(
+                    "left"  to channelVolumeLeft.toDouble(),
+                    "right" to channelVolumeRight.toDouble()
+                ))
+            }
             "setChannelVolumes" -> {
                 val left  = (call.argument<Number>("left"))?.toFloat()?.coerceIn(0f, 1f)  ?: 1f
                 val right = (call.argument<Number>("right"))?.toFloat()?.coerceIn(0f, 1f) ?: 1f
@@ -212,8 +218,10 @@ class RhythmFlowEffectPlugin : FlutterPlugin, MethodCallHandler {
 
     private fun setReverbEnabled(enabled: Boolean, result: Result) {
         try {
-            presetReverb?.enabled = enabled
-            result.success(null)
+            presetReverb?.let {
+                it.enabled = enabled
+                result.success(null)
+            } ?: result.error("EFFECT_NOT_INIT", "PresetReverb not initialized", null)
         } catch (e: Exception) {
             result.error("REVERB_FAILED", e.message, null)
         }

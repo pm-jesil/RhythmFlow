@@ -20,6 +20,7 @@ import 'package:get_it/get_it.dart';
 import 'widgets/playlist_selection_popup.dart';
 import '../widgets/custom_scrolling_text.dart';
 import '../../core/widgets/app_custom.dart';
+import 'widgets/equalizer_wave_button.dart';
 
 // Popup Music Player Modal
 class MusicPlayerModal extends StatefulWidget {
@@ -304,21 +305,29 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                                     'Playing queue',
                                                     style: TextStyle(
                                                       color: context.isDark
-                                                          ? context.onSurfaceColor
+                                                          ? context
+                                                                .onSurfaceColor
                                                           : Colors.white,
                                                       fontSize: 14.sp,
-                                                      fontWeight: FontWeight.w600,
+                                                      fontWeight:
+                                                          FontWeight.w600,
                                                       fontFamily: 'Poppins',
                                                       letterSpacing: 0.5,
                                                     ),
                                                     maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                   ),
                                                   Text(
-                                                    _nextSongSubtitle(context.read<MusicBloc>().state),
+                                                    _nextSongSubtitle(
+                                                      context
+                                                          .read<MusicBloc>()
+                                                          .state,
+                                                    ),
                                                     style: TextStyle(
                                                       color: context.isDark
-                                                          ? context.onSurfaceColor
+                                                          ? context
+                                                                .onSurfaceColor
                                                                 .withValues(
                                                                   alpha: 0.5,
                                                                 )
@@ -327,11 +336,13 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                                                   alpha: 0.5,
                                                                 ),
                                                       fontSize: 10.sp,
-                                                      fontWeight: FontWeight.w400,
+                                                      fontWeight:
+                                                          FontWeight.w400,
                                                       fontFamily: 'Poppins',
                                                     ),
                                                     maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                   ),
                                                 ],
                                               ),
@@ -341,6 +352,8 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                       ),
                                     ),
                                   ),
+                                  SizedBox(width: 8.w),
+                                  const EqualizerWaveButton(),
                                 ],
                               ),
                             ),
@@ -350,9 +363,13 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                               child: LayoutBuilder(
                                 builder: (context, constraints) {
                                   const double overflowSafety = 8;
-                                  final maxH = constraints.maxHeight - overflowSafety;
-                                  final fixed = 75.h + 110.h + 60.h + 80.h + 15.h + 50.h;
-                                  final albumArtH = (maxH - fixed).clamp(140.0, 280.h).toDouble();
+                                  final maxH =
+                                      constraints.maxHeight - overflowSafety;
+                                  final fixed =
+                                      75.h + 110.h + 60.h + 80.h + 15.h + 50.h;
+                                  final albumArtH = (maxH - fixed)
+                                      .clamp(140.0, 280.h)
+                                      .toDouble();
                                   return Column(
                                     children: [
                                       SizedBox(height: 75.h),
@@ -365,471 +382,21 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                       ),
                                       songInfoWidget(currentSong, context),
 
-                                  // Progress Bar Section - Optimized Height
-                                  Container(
-                                    height: 60.h, // Optimized height
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 20.w,
-                                    ),
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        // Progress Bar with Glass Effect
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(
-                                              12.r,
-                                            ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: context.isDark
-                                                    ? Colors.black.withValues(
-                                                        alpha: 0.3,
-                                                      )
-                                                    : Colors.black.withValues(
-                                                        alpha: 0.1,
-                                                      ),
-                                                blurRadius: 8.r,
-                                                offset: Offset(0, 2.h),
-                                              ),
-                                            ],
-                                          ),
-                                          child: ClipRRect(
-                                            borderRadius: BorderRadius.circular(
-                                              12.r,
-                                            ),
-                                            child: SliderTheme(
-                                              data: SliderTheme.of(context)
-                                                  .copyWith(
-                                                    activeTrackColor:
-                                                        context.primaryStart,
-                                                    inactiveTrackColor:
-                                                        context.isDark
-                                                        ? context.onSurfaceColor
-                                                              .withValues(
-                                                                alpha: 0.15,
-                                                              )
-                                                        : Colors.white
-                                                              .withValues(
-                                                                alpha: 0.15,
-                                                              ),
-                                                    thumbColor:
-                                                        context.primaryStart,
-                                                    trackHeight: 2.h,
-                                                    thumbShape:
-                                                        RoundSliderThumbShape(
-                                                          enabledThumbRadius:
-                                                              8.r,
-                                                        ),
-                                                    overlayShape:
-                                                        RoundSliderOverlayShape(
-                                                          overlayRadius: 20.r,
-                                                        ),
-                                                  ),
-                                              child: Slider(
-                                                value: _calculateSliderValue(),
-                                                onChanged: _handleSeek,
-                                                onChangeEnd: _handleSeekEnd,
-                                              ),
-                                            ),
-                                          ),
+                                      // Progress Bar Section - Optimized Height
+                                      Container(
+                                        height: 60.h, // Optimized height
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 20.w,
                                         ),
-
-                                        // Time Display with Simple Text
-                                        Padding(
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: 16.w,
-                                          ),
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text(
-                                                _formatDuration(
-                                                  _currentPosition,
-                                                ),
-                                                style: TextStyle(
-                                                  color: context.primaryStart,
-                                                  fontSize: 12.sp,
-                                                  fontWeight: FontWeight.w600,
-                                                  fontFamily: 'Poppins',
-                                                ),
-                                              ),
-                                              Text(
-                                                _formatDuration(_totalDuration),
-                                                style: TextStyle(
-                                                  color: context.isDark
-                                                      ? context.onSurfaceColor
-                                                            .withValues(
-                                                              alpha: 0.8,
-                                                            )
-                                                      : Colors.white,
-                                                  fontSize: 12.sp,
-                                                  fontWeight: FontWeight.w600,
-                                                  fontFamily: 'Poppins',
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-
-                                  // Controls Section - Optimized Height
-                                  Container(
-                                    height: 80.h, // Optimized height
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 20.w,
-                                    ),
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        // Main Control Row
-                                        Row(
+                                        child: Column(
                                           mainAxisAlignment:
-                                              MainAxisAlignment.spaceEvenly,
+                                              MainAxisAlignment.center,
                                           children: [
-                                            // Repeat Button
-                                            _buildRepeatButton(context, state),
-
-                                            SizedBox(width: 15.w),
-
-                                            // Previous Button
-                                            _buildPressablePrevNextButton(
-                                              icon:
-                                                  CupertinoIcons.backward_fill,
-                                              onPressed: () {
-                                                context.read<MusicBloc>().add(
-                                                  const MusicEvent.playPrevious(),
-                                                );
-                                              },
-                                              size: 45.w,
-                                              currentSongId:
-                                                  state.myPlayerState
-                                                      .currentSongId,
-                                              buttonType: 'prev',
-                                            ),
-
-                                            // Enhanced Play/Pause Button - Optimized for immediate response
-                                            GestureDetector(
-                                              onTap: () {
-                                                HapticFeedback.mediumImpact();
-                                                _logger.i(
-                                                  '🎵 Play/Pause button tapped | Current state: isPlaying=${state.myPlayerState.isPlaying} | currentSongId=${state.myPlayerState.currentSongId}',
-                                                );
-
-                                                // Log current progress state before action
-                                                _logProgressState(
-                                                  'Before Play/Pause',
-                                                );
-                                                _logRealTimeAudioState(
-                                                  'Before Play/Pause',
-                                                );
-
-                                                final songId = state
-                                                    .myPlayerState
-                                                    .currentSongId!;
-                                                final songTitle =
-                                                    currentSong.title;
-
-                                                _logger.i(
-                                                  '📤 Sending playOrPause event | Song ID: $songId | Song Title: "$songTitle" | Playlist size: ${state.myPlayerState.currentPlayList.length}',
-                                                );
-
-                                                context.read<MusicBloc>().add(
-                                                  MusicEvent.playOrPauseSong(
-                                                    songId: songId,
-                                                    currentPlayList: context
-                                                        .read<MusicBloc>()
-                                                        .state
-                                                        .myPlayerState
-                                                        .currentPlayList,
-                                                  ),
-                                                );
-
-                                                _logger.i(
-                                                  '✅ PlayOrPause event sent to bloc',
-                                                );
-                                              },
-                                              child: AnimatedContainer(
-                                                duration: const Duration(
-                                                  milliseconds: 200,
-                                                ), // Smooth but fast animation
-                                                width: 68.w,
-                                                height: 68.h,
-                                                decoration: BoxDecoration(
-                                                  gradient:
-                                                      context.primaryGradient,
-                                                  shape: BoxShape.circle,
-                                                  // Simplified shadows for better performance
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: context
-                                                          .primaryStart
-                                                          .withValues(
-                                                            alpha: 0.3,
-                                                          ),
-                                                      blurRadius:
-                                                          15.r, // Reduced blur
-                                                      spreadRadius:
-                                                          1.r, // Reduced spread
-                                                      offset: Offset(
-                                                        0,
-                                                        6.h,
-                                                      ), // Reduced offset
-                                                    ),
-                                                    BoxShadow(
-                                                      color: context.isDark
-                                                          ? Colors.black
-                                                                .withValues(
-                                                                  alpha: 0.3,
-                                                                )
-                                                          : Colors.black
-                                                                .withValues(
-                                                                  alpha: 0.15,
-                                                                ),
-                                                      blurRadius:
-                                                          8.r, // Reduced blur
-                                                      offset: Offset(
-                                                        0,
-                                                        3.h,
-                                                      ), // Reduced offset
-                                                    ),
-                                                  ],
-                                                ),
-                                                child: Center(
-                                                  child: AnimatedSwitcher(
-                                                    duration: const Duration(
-                                                      milliseconds: 150,
-                                                    ),
-                                                    child: Icon(
-                                                      state
-                                                              .myPlayerState
-                                                              .isPlaying
-                                                          ? CupertinoIcons
-                                                                .pause_fill
-                                                          : CupertinoIcons
-                                                                .play_fill,
-                                                      key: ValueKey(
-                                                        'main_player_modal_${state.myPlayerState.currentSongId}_${state.myPlayerState.isPlaying}',
-                                                      ),
-                                                      color: Colors.white,
-                                                      size: 32.sp,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-
-                                            // Next Button
-                                            _buildPressablePrevNextButton(
-                                              icon: CupertinoIcons.forward_fill,
-                                              onPressed: () {
-                                                context.read<MusicBloc>().add(
-                                                  const MusicEvent.playNext(),
-                                                );
-                                              },
-                                              size: 45.w,
-                                              currentSongId:
-                                                  state.myPlayerState
-                                                      .currentSongId,
-                                              buttonType: 'next',
-                                            ),
-
-                                            SizedBox(width: 15.w),
-
-                                            // Shuffle Button
-                                            BlocBuilder<AppSettingsBloc, AppSettingsState>(
-                                              builder: (context, appSettingsState) {
-                                                final isAiShuffleEnabled = appSettingsState.isAiShuffleEnabled;
-                                                final isShuffleActive = state.myPlayerState.isShuffle;
-                                                final noShuffleActive = !isAiShuffleEnabled && !isShuffleActive;
-
-                                                return _buildEnhancedControlButton(
-                                                  child: _buildShuffleIcon(
-                                                    isAi: isAiShuffleEnabled,
-                                                    isNormal: isShuffleActive,
-                                                    size: 37.w,
-                                                  ),
-                                                  onPressed: () {
-                                                    final musicBloc = context.read<MusicBloc>();
-                                                    final appSettingsBloc = context.read<AppSettingsBloc>();
-                                                    final currentPlayList = musicBloc.state.myPlayerState.currentPlayList;
-                                                    final currentSongId = musicBloc.state.myPlayerState.currentSongId;
-
-                                                    if (isAiShuffleEnabled) {
-                                                      // AI → Normal: disable AI, then enable regular shuffle (auto-start)
-                                                      appSettingsBloc.add(
-                                                        AppSettingsEvent.updateAiShuffle(isEnabled: false),
-                                                      );
-
-                                                      musicBloc.add(
-                                                        MusicEvent.toggleShuffle(
-                                                          isShuffle: true,
-                                                          currentPlayList: currentPlayList,
-                                                        ),
-                                                      );
-                                                    } else if (isShuffleActive) {
-                                                      // Normal → None: disable regular shuffle
-                                                      musicBloc.add(
-                                                        MusicEvent.toggleShuffle(
-                                                          isShuffle: false,
-                                                          currentPlayList: currentPlayList,
-                                                        ),
-                                                      );
-                                                    } else {
-                                                      // None → AI: enable AI and trigger AI shuffle
-                                                      appSettingsBloc.add(
-                                                        AppSettingsEvent.updateAiShuffle(isEnabled: true),
-                                                      );
-
-                                                      if (currentSongId != null) {
-                                                        musicBloc.add(
-                                                          MusicEvent.aiShuffle(
-                                                            currentSongId: currentSongId,
-                                                            currentPlayList: currentPlayList,
-                                                          ),
-                                                        );
-                                                      }
-                                                    }
-                                                  },
-                                                  isActive: !noShuffleActive,
-                                                  size: 37.w,
-                                                );
-                                              },
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  SizedBox(height: 15.h),
-                                  // Right-aligned Sliding Bottom Options Section with Swipe Gestures
-                                  Container(
-                                    height: 50.h,
-                                    margin: EdgeInsets.only(
-                                      left: 20.w,
-                                    ), // Only left margin, no right margin
-                                    child: Stack(
-                                      children: [
-                                        // Playing Queue Button
-                                        AnimatedPositioned(
-                                          duration: const Duration(
-                                            milliseconds: 300,
-                                          ),
-                                          curve: Curves.easeOutCubic,
-                                          left: _showAllOptions
-                                              ? -60.w
-                                              : 0.w, // Move left when expanded, show when collapsed
-                                          child: AnimatedOpacity(
-                                            duration: const Duration(
-                                              milliseconds: 300,
-                                            ),
-                                            opacity: _showAllOptions
-                                                ? 0.0
-                                                : 1.0,
-                                            child: GestureDetector(
-                                              onTap: () {
-                                                HapticFeedback.lightImpact();
-                                                context.navigateToPlayingQueue();
-                                              },
-                                              child: Container(
-                                                width: 40.r,
-                                                height: 40.r,
-                                                margin: EdgeInsets.only(
-                                                  left: 10.w,
-                                                ),
-                                                decoration: _controlButtonDecoration(40.r),
-                                                child: Center(
-                                                  child: Icon(
-                                                    CupertinoIcons.list_bullet,
-                                                    color: context.onSurfaceColor,
-                                                    size: 20.sp,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-
-                                        // Main Options Container - Positioned on the right
-                                        AnimatedPositioned(
-                                          duration: _isDragging
-                                              ? const Duration(
-                                                  milliseconds: 0,
-                                                ) // No animation during drag
-                                              : const Duration(
-                                                  milliseconds: 300,
-                                                ), // Smooth animation when snapping
-                                          curve: _isDragging
-                                              ? Curves
-                                                    .linear // Linear during drag
-                                              : Curves
-                                                    .easeOutCubic, // Smooth cubic curve for snapping
-                                          right: _optionsSlideOffset,
-                                          child: GestureDetector(
-                                            onPanStart: (details) {
-                                              // Start of drag gesture
-                                              _handleDragStart();
-                                            },
-                                            onPanUpdate: (details) {
-                                              // Handle horizontal drag gestures
-                                              _handleDragGesture(
-                                                details.delta.dx,
-                                              );
-                                            },
-                                            onPanEnd: (details) {
-                                              // Handle drag end
-                                              _handleDragEnd(
-                                                details
-                                                    .velocity
-                                                    .pixelsPerSecond
-                                                    .dx,
-                                              );
-                                            },
-                                            onTap: () {
-                                              // Single tap to toggle expand/collapse
-                                              _toggleExpandCollapse();
-                                            },
-                                            child: Container(
-                                              height: 45.h,
-                                              width: _showAllOptions
-                                                  ? MediaQuery.of(
-                                                          context,
-                                                        ).size.width -
-                                                        20.w // Full width minus left margin when expanded
-                                                  : 140.w, // Show 3 icons initially (2 + arrow)
+                                            // Progress Bar with Glass Effect
+                                            Container(
                                               decoration: BoxDecoration(
-                                                gradient: LinearGradient(
-                                                  begin: Alignment.topLeft,
-                                                  end: Alignment.bottomRight,
-                                                  colors: [
-                                                    context.onSurfaceColor
-                                                        .withValues(
-                                                          alpha: 0.08,
-                                                        ),
-                                                    context.onSurfaceColor
-                                                        .withValues(
-                                                          alpha: 0.04,
-                                                        ),
-                                                  ],
-                                                ),
-                                                borderRadius: BorderRadius.only(
-                                                  bottomLeft: Radius.circular(
-                                                    22.r,
-                                                  ),
-                                                  topLeft: Radius.circular(
-                                                    22.r,
-                                                  ),
-                                                ),
-                                                border: Border.all(
-                                                  color: context.onSurfaceColor
-                                                      .withValues(alpha: 0.1),
-                                                  width: 1.w,
-                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(12.r),
                                                 boxShadow: [
                                                   BoxShadow(
                                                     color: context.isDark
@@ -839,106 +406,636 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                                               )
                                                         : Colors.black
                                                               .withValues(
-                                                                alpha: 0.2,
+                                                                alpha: 0.1,
                                                               ),
                                                     blurRadius: 8.r,
                                                     offset: Offset(0, 2.h),
                                                   ),
                                                 ],
                                               ),
+                                              child: ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(12.r),
+                                                child: SliderTheme(
+                                                  data: SliderTheme.of(context)
+                                                      .copyWith(
+                                                        activeTrackColor:
+                                                            context
+                                                                .primaryStart,
+                                                        inactiveTrackColor:
+                                                            context.isDark
+                                                            ? context
+                                                                  .onSurfaceColor
+                                                                  .withValues(
+                                                                    alpha: 0.15,
+                                                                  )
+                                                            : Colors.white
+                                                                  .withValues(
+                                                                    alpha: 0.15,
+                                                                  ),
+                                                        thumbColor: context
+                                                            .primaryStart,
+                                                        trackHeight: 2.h,
+                                                        thumbShape:
+                                                            RoundSliderThumbShape(
+                                                              enabledThumbRadius:
+                                                                  8.r,
+                                                            ),
+                                                        overlayShape:
+                                                            RoundSliderOverlayShape(
+                                                              overlayRadius:
+                                                                  20.r,
+                                                            ),
+                                                      ),
+                                                  child: Slider(
+                                                    value:
+                                                        _calculateSliderValue(),
+                                                    onChanged: _handleSeek,
+                                                    onChangeEnd: _handleSeekEnd,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+
+                                            // Time Display with Simple Text
+                                            Padding(
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal: 16.w,
+                                              ),
                                               child: Row(
                                                 mainAxisAlignment:
                                                     MainAxisAlignment
-                                                        .spaceEvenly,
+                                                        .spaceBetween,
                                                 children: [
-                                                  // Left Arrow Button (part of main container) - Dynamic appearance
-                                                  _buildDynamicLeftButton(
-                                                    isExpanded: _showAllOptions,
-                                                    onPressed: () {
-                                                      if (_showAllOptions) {
-                                                        // If expanded, collapse back to 3 icons
-                                                        _collapseOptions();
-                                                      } else {
-                                                        // If collapsed, expand to show all options
-                                                        _slideOptionsLeft();
-                                                      }
-                                                    },
-                                                  ),
-
-                                                  // Favorite Button
-                                                  _buildCompactBottomButton(
-                                                    icon: CupertinoIcons.heart,
-                                                    activeIcon: CupertinoIcons
-                                                        .heart_fill,
-                                                    onPressed: () {
-                                                      _toggleFavorite(
-                                                        context,
-                                                        currentSong,
-                                                      );
-                                                    },
-                                                    isActive: _isFavorite(
-                                                      currentSong,
+                                                  Text(
+                                                    _formatDuration(
+                                                      _currentPosition,
+                                                    ),
+                                                    style: TextStyle(
+                                                      color:
+                                                          context.primaryStart,
+                                                      fontSize: 12.sp,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      fontFamily: 'Poppins',
                                                     ),
                                                   ),
-
-                                                  // Playlist Button
-                                                  _buildCompactBottomButton(
-                                                    icon: CupertinoIcons.add,
-                                                    onPressed: () {
-                                                      _showCreatePlaylistDialog(
-                                                        context,
-                                                        currentSong,
-                                                      );
-                                                    },
+                                                  Text(
+                                                    _formatDuration(
+                                                      _totalDuration,
+                                                    ),
+                                                    style: TextStyle(
+                                                      color: context.isDark
+                                                          ? context
+                                                                .onSurfaceColor
+                                                                .withValues(
+                                                                  alpha: 0.8,
+                                                                )
+                                                          : Colors.white,
+                                                      fontSize: 12.sp,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      fontFamily: 'Poppins',
+                                                    ),
                                                   ),
-
-                                                  // Playback Settings Button (hidden initially)
-                                                  if (_showAllOptions)
-                                                    _buildCompactBottomButton(
-                                                      icon: CupertinoIcons
-                                                          .speedometer,
-                                                      onPressed: () {
-                                                        _showPlaybackSpeedDialog(
-                                                          context,
-                                                        );
-                                                      },
-                                                    ),
-
-                                                  // Sleep Timer Button (hidden initially)
-                                                  if (_showAllOptions)
-                                                    _buildCompactBottomButton(
-                                                      icon: CupertinoIcons.moon,
-                                                      onPressed: () {
-                                                        _showSleepTimerDialog(
-                                                          context,
-                                                        );
-                                                      },
-                                                    ),
-
-                                                  // Auto Play Button (hidden initially)
-                                                  if (_showAllOptions)
-                                                    _buildCompactBottomButton(
-                                                      icon: Icons
-                                                          .play_circle_outline,
-                                                      activeIcon: Icons
-                                                          .play_circle_filled,
-                                                      onPressed: () {
-                                                        _toggleAutoplay(
-                                                          context,
-                                                        );
-                                                      },
-                                                      isActive:
-                                                          _isAutoplayEnabled(),
-                                                    ),
                                                 ],
                                               ),
                                             ),
-                                          ),
+                                          ],
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
+                                      ),
+
+                                      // Controls Section - Optimized Height
+                                      Container(
+                                        height: 80.h, // Optimized height
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 20.w,
+                                        ),
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            // Main Control Row
+                                            Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.spaceEvenly,
+                                              children: [
+                                                // Repeat Button
+                                                _buildRepeatButton(
+                                                  context,
+                                                  state,
+                                                ),
+
+                                                SizedBox(width: 15.w),
+
+                                                // Previous Button
+                                                _buildPressablePrevNextButton(
+                                                  icon: CupertinoIcons
+                                                      .backward_fill,
+                                                  onPressed: () {
+                                                    context.read<MusicBloc>().add(
+                                                      const MusicEvent.playPrevious(),
+                                                    );
+                                                  },
+                                                  size: 45.w,
+                                                  currentSongId: state
+                                                      .myPlayerState
+                                                      .currentSongId,
+                                                  buttonType: 'prev',
+                                                ),
+
+                                                // Enhanced Play/Pause Button - Optimized for immediate response
+                                                GestureDetector(
+                                                  onTap: () {
+                                                    HapticFeedback.mediumImpact();
+                                                    _logger.i(
+                                                      '🎵 Play/Pause button tapped | Current state: isPlaying=${state.myPlayerState.isPlaying} | currentSongId=${state.myPlayerState.currentSongId}',
+                                                    );
+
+                                                    // Log current progress state before action
+                                                    _logProgressState(
+                                                      'Before Play/Pause',
+                                                    );
+                                                    _logRealTimeAudioState(
+                                                      'Before Play/Pause',
+                                                    );
+
+                                                    final songId = state
+                                                        .myPlayerState
+                                                        .currentSongId!;
+                                                    final songTitle =
+                                                        currentSong.title;
+
+                                                    _logger.i(
+                                                      '📤 Sending playOrPause event | Song ID: $songId | Song Title: "$songTitle" | Playlist size: ${state.myPlayerState.currentPlayList.length}',
+                                                    );
+
+                                                    context.read<MusicBloc>().add(
+                                                      MusicEvent.playOrPauseSong(
+                                                        songId: songId,
+                                                        currentPlayList: context
+                                                            .read<MusicBloc>()
+                                                            .state
+                                                            .myPlayerState
+                                                            .currentPlayList,
+                                                      ),
+                                                    );
+
+                                                    _logger.i(
+                                                      '✅ PlayOrPause event sent to bloc',
+                                                    );
+                                                  },
+                                                  child: AnimatedContainer(
+                                                    duration: const Duration(
+                                                      milliseconds: 200,
+                                                    ), // Smooth but fast animation
+                                                    width: 68.w,
+                                                    height: 68.h,
+                                                    decoration: BoxDecoration(
+                                                      gradient: context
+                                                          .primaryGradient,
+                                                      shape: BoxShape.circle,
+                                                      // Simplified shadows for better performance
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                          color: context
+                                                              .primaryStart
+                                                              .withValues(
+                                                                alpha: 0.3,
+                                                              ),
+                                                          blurRadius: 15
+                                                              .r, // Reduced blur
+                                                          spreadRadius: 1
+                                                              .r, // Reduced spread
+                                                          offset: Offset(
+                                                            0,
+                                                            6.h,
+                                                          ), // Reduced offset
+                                                        ),
+                                                        BoxShadow(
+                                                          color: context.isDark
+                                                              ? Colors.black
+                                                                    .withValues(
+                                                                      alpha:
+                                                                          0.3,
+                                                                    )
+                                                              : Colors.black
+                                                                    .withValues(
+                                                                      alpha:
+                                                                          0.15,
+                                                                    ),
+                                                          blurRadius: 8
+                                                              .r, // Reduced blur
+                                                          offset: Offset(
+                                                            0,
+                                                            3.h,
+                                                          ), // Reduced offset
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    child: Center(
+                                                      child: AnimatedSwitcher(
+                                                        duration:
+                                                            const Duration(
+                                                              milliseconds: 150,
+                                                            ),
+                                                        child: Icon(
+                                                          state
+                                                                  .myPlayerState
+                                                                  .isPlaying
+                                                              ? CupertinoIcons
+                                                                    .pause_fill
+                                                              : CupertinoIcons
+                                                                    .play_fill,
+                                                          key: ValueKey(
+                                                            'main_player_modal_${state.myPlayerState.currentSongId}_${state.myPlayerState.isPlaying}',
+                                                          ),
+                                                          color: Colors.white,
+                                                          size: 32.sp,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+
+                                                // Next Button
+                                                _buildPressablePrevNextButton(
+                                                  icon: CupertinoIcons
+                                                      .forward_fill,
+                                                  onPressed: () {
+                                                    context.read<MusicBloc>().add(
+                                                      const MusicEvent.playNext(),
+                                                    );
+                                                  },
+                                                  size: 45.w,
+                                                  currentSongId: state
+                                                      .myPlayerState
+                                                      .currentSongId,
+                                                  buttonType: 'next',
+                                                ),
+
+                                                SizedBox(width: 15.w),
+
+                                                // Shuffle Button
+                                                BlocBuilder<
+                                                  AppSettingsBloc,
+                                                  AppSettingsState
+                                                >(
+                                                  builder: (context, appSettingsState) {
+                                                    final isAiShuffleEnabled =
+                                                        appSettingsState
+                                                            .isAiShuffleEnabled;
+                                                    final isShuffleActive =
+                                                        state
+                                                            .myPlayerState
+                                                            .isShuffle;
+                                                    final noShuffleActive =
+                                                        !isAiShuffleEnabled &&
+                                                        !isShuffleActive;
+
+                                                    return _buildEnhancedControlButton(
+                                                      child: _buildShuffleIcon(
+                                                        isAi:
+                                                            isAiShuffleEnabled,
+                                                        isNormal:
+                                                            isShuffleActive,
+                                                        size: 37.w,
+                                                      ),
+                                                      onPressed: () {
+                                                        final musicBloc =
+                                                            context
+                                                                .read<
+                                                                  MusicBloc
+                                                                >();
+                                                        final appSettingsBloc =
+                                                            context
+                                                                .read<
+                                                                  AppSettingsBloc
+                                                                >();
+                                                        final currentPlayList =
+                                                            musicBloc
+                                                                .state
+                                                                .myPlayerState
+                                                                .currentPlayList;
+                                                        final currentSongId =
+                                                            musicBloc
+                                                                .state
+                                                                .myPlayerState
+                                                                .currentSongId;
+
+                                                        if (isAiShuffleEnabled) {
+                                                          // AI → Normal: disable AI, then enable regular shuffle (auto-start)
+                                                          appSettingsBloc.add(
+                                                            AppSettingsEvent.updateAiShuffle(
+                                                              isEnabled: false,
+                                                            ),
+                                                          );
+
+                                                          musicBloc.add(
+                                                            MusicEvent.toggleShuffle(
+                                                              isShuffle: true,
+                                                              currentPlayList:
+                                                                  currentPlayList,
+                                                            ),
+                                                          );
+                                                        } else if (isShuffleActive) {
+                                                          // Normal → None: disable regular shuffle
+                                                          musicBloc.add(
+                                                            MusicEvent.toggleShuffle(
+                                                              isShuffle: false,
+                                                              currentPlayList:
+                                                                  currentPlayList,
+                                                            ),
+                                                          );
+                                                        } else {
+                                                          // None → AI: enable AI and trigger AI shuffle
+                                                          appSettingsBloc.add(
+                                                            AppSettingsEvent.updateAiShuffle(
+                                                              isEnabled: true,
+                                                            ),
+                                                          );
+
+                                                          if (currentSongId !=
+                                                              null) {
+                                                            musicBloc.add(
+                                                              MusicEvent.aiShuffle(
+                                                                currentSongId:
+                                                                    currentSongId,
+                                                                currentPlayList:
+                                                                    currentPlayList,
+                                                              ),
+                                                            );
+                                                          }
+                                                        }
+                                                      },
+                                                      isActive:
+                                                          !noShuffleActive,
+                                                      size: 37.w,
+                                                    );
+                                                  },
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      SizedBox(height: 15.h),
+                                      // Right-aligned Sliding Bottom Options Section with Swipe Gestures
+                                      Container(
+                                        height: 50.h,
+                                        margin: EdgeInsets.only(
+                                          left: 20.w,
+                                        ), // Only left margin, no right margin
+                                        child: Stack(
+                                          children: [
+                                            // Playing Queue Button
+                                            AnimatedPositioned(
+                                              duration: const Duration(
+                                                milliseconds: 300,
+                                              ),
+                                              curve: Curves.easeOutCubic,
+                                              left: _showAllOptions
+                                                  ? -60.w
+                                                  : 0.w, // Move left when expanded, show when collapsed
+                                              child: AnimatedOpacity(
+                                                duration: const Duration(
+                                                  milliseconds: 300,
+                                                ),
+                                                opacity: _showAllOptions
+                                                    ? 0.0
+                                                    : 1.0,
+                                                child: GestureDetector(
+                                                  onTap: () {
+                                                    HapticFeedback.lightImpact();
+                                                    context
+                                                        .navigateToPlayingQueue();
+                                                  },
+                                                  child: Container(
+                                                    width: 40.r,
+                                                    height: 40.r,
+                                                    margin: EdgeInsets.only(
+                                                      left: 10.w,
+                                                    ),
+                                                    decoration:
+                                                        _controlButtonDecoration(
+                                                          40.r,
+                                                        ),
+                                                    child: Center(
+                                                      child: Icon(
+                                                        CupertinoIcons
+                                                            .list_bullet,
+                                                        color: context.isDark
+                                                            ? context
+                                                                  .onSurfaceColor
+                                                                  .withValues(
+                                                                    alpha: 0.8,
+                                                                  )
+                                                            : Colors.white,
+                                                        size: 20.sp,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+
+                                            // Main Options Container - Positioned on the right
+                                            AnimatedPositioned(
+                                              duration: _isDragging
+                                                  ? const Duration(
+                                                      milliseconds: 0,
+                                                    ) // No animation during drag
+                                                  : const Duration(
+                                                      milliseconds: 300,
+                                                    ), // Smooth animation when snapping
+                                              curve: _isDragging
+                                                  ? Curves
+                                                        .linear // Linear during drag
+                                                  : Curves
+                                                        .easeOutCubic, // Smooth cubic curve for snapping
+                                              right: _optionsSlideOffset,
+                                              child: GestureDetector(
+                                                onPanStart: (details) {
+                                                  // Start of drag gesture
+                                                  _handleDragStart();
+                                                },
+                                                onPanUpdate: (details) {
+                                                  // Handle horizontal drag gestures
+                                                  _handleDragGesture(
+                                                    details.delta.dx,
+                                                  );
+                                                },
+                                                onPanEnd: (details) {
+                                                  // Handle drag end
+                                                  _handleDragEnd(
+                                                    details
+                                                        .velocity
+                                                        .pixelsPerSecond
+                                                        .dx,
+                                                  );
+                                                },
+                                                onTap: () {
+                                                  // Single tap to toggle expand/collapse
+                                                  _toggleExpandCollapse();
+                                                },
+                                                child: Container(
+                                                  height: 45.h,
+                                                  width: _showAllOptions
+                                                      ? MediaQuery.of(
+                                                              context,
+                                                            ).size.width -
+                                                            20
+                                                                .w // Full width minus left margin when expanded
+                                                      : 140.w, // Show 3 icons initially (2 + arrow)
+                                                  decoration: BoxDecoration(
+                                                    gradient: LinearGradient(
+                                                      begin: Alignment.topLeft,
+                                                      end:
+                                                          Alignment.bottomRight,
+                                                      colors: [
+                                                        context.onSurfaceColor
+                                                            .withValues(
+                                                              alpha: 0.08,
+                                                            ),
+                                                        context.onSurfaceColor
+                                                            .withValues(
+                                                              alpha: 0.04,
+                                                            ),
+                                                      ],
+                                                    ),
+                                                    borderRadius:
+                                                        BorderRadius.only(
+                                                          bottomLeft:
+                                                              Radius.circular(
+                                                                22.r,
+                                                              ),
+                                                          topLeft:
+                                                              Radius.circular(
+                                                                22.r,
+                                                              ),
+                                                        ),
+                                                    border: Border.all(
+                                                      color: context
+                                                          .onSurfaceColor
+                                                          .withValues(
+                                                            alpha: 0.1,
+                                                          ),
+                                                      width: 1.w,
+                                                    ),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: context.isDark
+                                                            ? Colors.black
+                                                                  .withValues(
+                                                                    alpha: 0.3,
+                                                                  )
+                                                            : Colors.black
+                                                                  .withValues(
+                                                                    alpha: 0.2,
+                                                                  ),
+                                                        blurRadius: 8.r,
+                                                        offset: Offset(0, 2.h),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceEvenly,
+                                                    children: [
+                                                      // Left Arrow Button (part of main container) - Dynamic appearance
+                                                      _buildDynamicLeftButton(
+                                                        isExpanded:
+                                                            _showAllOptions,
+                                                        onPressed: () {
+                                                          if (_showAllOptions) {
+                                                            // If expanded, collapse back to 3 icons
+                                                            _collapseOptions();
+                                                          } else {
+                                                            // If collapsed, expand to show all options
+                                                            _slideOptionsLeft();
+                                                          }
+                                                        },
+                                                      ),
+
+                                                      // Favorite Button
+                                                      _buildCompactBottomButton(
+                                                        icon: CupertinoIcons
+                                                            .heart,
+                                                        activeIcon:
+                                                            CupertinoIcons
+                                                                .heart_fill,
+                                                        onPressed: () {
+                                                          _toggleFavorite(
+                                                            context,
+                                                            currentSong,
+                                                          );
+                                                        },
+                                                        isActive: _isFavorite(
+                                                          currentSong,
+                                                        ),
+                                                      ),
+
+                                                      // Playlist Button
+                                                      _buildCompactBottomButton(
+                                                        icon:
+                                                            CupertinoIcons.add,
+                                                        onPressed: () {
+                                                          _showCreatePlaylistDialog(
+                                                            context,
+                                                            currentSong,
+                                                          );
+                                                        },
+                                                      ),
+
+                                                      // Playback Settings Button (hidden initially)
+                                                      if (_showAllOptions)
+                                                        _buildCompactBottomButton(
+                                                          icon: CupertinoIcons
+                                                              .speedometer,
+                                                          onPressed: () {
+                                                            _showPlaybackSpeedDialog(
+                                                              context,
+                                                            );
+                                                          },
+                                                        ),
+
+                                                      // Sleep Timer Button (hidden initially)
+                                                      if (_showAllOptions)
+                                                        _buildCompactBottomButton(
+                                                          icon: CupertinoIcons
+                                                              .moon,
+                                                          onPressed: () {
+                                                            _showSleepTimerDialog(
+                                                              context,
+                                                            );
+                                                          },
+                                                        ),
+
+                                                      // Auto Play Button (hidden initially)
+                                                      if (_showAllOptions)
+                                                        _buildCompactBottomButton(
+                                                          icon: Icons
+                                                              .play_circle_outline,
+                                                          activeIcon: Icons
+                                                              .play_circle_filled,
+                                                          onPressed: () {
+                                                            _toggleAutoplay(
+                                                              context,
+                                                            );
+                                                          },
+                                                          isActive:
+                                                              _isAutoplayEnabled(),
+                                                        ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   );
                                 },
                               ),
@@ -958,6 +1055,25 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
   }
 
   Container songInfoWidget(Song currentSong, BuildContext context) {
+    final artistName = currentSong.artists
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .join(', ');
+    final albumName = currentSong.albums
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .join(', ');
+    final artistDisplayName = artistName.isEmpty
+        ? 'Unknown Artist'
+        : artistName;
+    final albumDisplayName = albumName.isEmpty ? 'Unknown Album' : albumName;
+    final artistTextColor = context.isDark
+        ? context.onSurfaceColor.withValues(alpha: 0.82)
+        : Colors.white.withValues(alpha: 0.9);
+    final albumTextColor = context.primaryStart.withValues(
+      alpha: context.isDark ? 0.9 : 0.84,
+    );
+
     return Container(
       height: 110.h,
       padding: EdgeInsets.symmetric(horizontal: 20.w),
@@ -992,11 +1108,9 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
             SizedBox(height: 3.h), // Reduced spacing
 
             Text(
-              currentSong.artists.join(', '),
+              artistDisplayName,
               style: TextStyle(
-                color: context.isDark
-                    ? context.onSurfaceColor.withValues(alpha: 0.8)
-                    : Colors.white,
+                color: artistTextColor,
                 fontSize: 13.sp,
                 fontWeight: FontWeight.w500,
                 letterSpacing: 0.3,
@@ -1019,9 +1133,9 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                 ),
               ),
               child: Text(
-                currentSong.albums.join(', '),
+                albumDisplayName,
                 style: TextStyle(
-                  color: context.primaryStart,
+                  color: albumTextColor,
                   fontSize: 11.sp,
                   fontWeight: FontWeight.w500,
                   fontFamily: 'Poppins',
@@ -1129,8 +1243,8 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
               color: isActive
                   ? context.primaryStart
                   : (context.isDark
-                      ? context.onSurfaceColor.withValues(alpha: 0.9)
-                      : Colors.white),
+                        ? context.onSurfaceColor.withValues(alpha: 0.9)
+                        : Colors.white),
               size: (37.w * 0.5).sp,
             ),
           ),
@@ -1163,8 +1277,8 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                 color: isActive
                     ? context.primaryStart
                     : (context.isDark
-                        ? context.onSurfaceColor.withValues(alpha: 0.9)
-                        : Colors.white),
+                          ? context.onSurfaceColor.withValues(alpha: 0.9)
+                          : Colors.white),
                 size: (size * 0.5).sp,
               ),
             ),
@@ -1206,11 +1320,7 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
     return Stack(
       alignment: Alignment.center,
       children: [
-        Icon(
-          CupertinoIcons.shuffle,
-          color: baseColor,
-          size: (size * 0.5).sp,
-        ),
+        Icon(CupertinoIcons.shuffle, color: baseColor, size: (size * 0.5).sp),
         Transform.rotate(
           angle: 0.8, // approx 45 degrees
           child: Container(
@@ -1571,7 +1681,9 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
               isExpanded
                   ? CupertinoIcons.chevron_right
                   : CupertinoIcons.chevron_left,
-              key: ValueKey('options_chevron_${isExpanded ? 'forward' : 'back'}'),
+              key: ValueKey(
+                'options_chevron_${isExpanded ? 'forward' : 'back'}',
+              ),
               color: context.isDark
                   ? context.onSurfaceColor.withValues(alpha: 0.8)
                   : Colors.white,
@@ -1784,7 +1896,7 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
     _totalDragDistance = 0.0;
   }
 
-    /// Subtitle for app bar: "Next - [next song title]" or "Next - End of list"
+  /// Subtitle for app bar: "Next - [next song title]" or "Next - End of list"
   String _nextSongSubtitle(MusicState state) {
     final playList = state.myPlayerState.currentPlayList;
     final currentId = state.myPlayerState.currentSongId;
@@ -1799,7 +1911,9 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
       if (!completed.contains(id)) {
         try {
           final nextSong = state.allSongs.firstWhere((s) => s.id == id);
-          final title = nextSong.title.trim().isEmpty ? 'Unknown' : nextSong.title;
+          final title = nextSong.title.trim().isEmpty
+              ? 'Unknown'
+              : nextSong.title;
           return 'Next - $title';
         } catch (_) {}
       }
@@ -2035,9 +2149,10 @@ class _PressablePrevNextButtonState extends State<_PressablePrevNextButton>
       duration: const Duration(milliseconds: 120),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.9).animate(
-      CurvedAnimation(parent: _scaleController, curve: Curves.easeOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.9,
+    ).animate(CurvedAnimation(parent: _scaleController, curve: Curves.easeOut));
   }
 
   @override
@@ -2078,10 +2193,7 @@ class _PressablePrevNextButtonState extends State<_PressablePrevNextButton>
       child: AnimatedBuilder(
         animation: _scaleAnimation,
         builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: child,
-          );
+          return Transform.scale(scale: _scaleAnimation.value, child: child);
         },
         child: Container(
           width: widget.size,

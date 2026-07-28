@@ -78,12 +78,10 @@ class _EqualizerInitializerState extends State<EqualizerInitializer> {
       } catch (_) {}
     }
 
-    // Native effects (reverb, echo, virtualizer, bass boost)
+    // Native effects (echo, virtualizer, bass boost)
     final effectsService = getIt<AudioEffectsService>();
     try {
       if (eqState.echoEnabled && eqState.echoStrength > 0) {
-        await effectsService.setReverbPreset(0);
-        await effectsService.setReverbEnabled(false);
         await effectsService.setEnvironmentalReverb(
           decayTime: 200 + (eqState.echoStrength * 3),
           reverbLevel: -2000 + (eqState.echoStrength * 20),
@@ -92,13 +90,6 @@ class _EqualizerInitializerState extends State<EqualizerInitializer> {
         await effectsService.setEnvironmentalReverbEnabled(true);
       } else {
         await effectsService.setEnvironmentalReverbEnabled(false);
-      }
-      if (eqState.reverbEnabled && !eqState.echoEnabled) {
-        await effectsService.setReverbPreset(eqState.reverbPreset);
-        await effectsService.setReverbEnabled(true);
-      } else {
-        await effectsService.setReverbPreset(0);
-        await effectsService.setReverbEnabled(false);
       }
 
       await effectsService.setVirtualizerStrength(eqState.virtualizerStrength);
@@ -114,8 +105,6 @@ class _EqualizerInitializerState extends State<EqualizerInitializer> {
   bool _listenWhen(EqualizerState prev, EqualizerState curr) {
     return prev.isEqualizerEnabled != curr.isEqualizerEnabled ||
         prev.equalizerBandGains != curr.equalizerBandGains ||
-        prev.reverbEnabled != curr.reverbEnabled ||
-        prev.reverbPreset != curr.reverbPreset ||
         prev.echoEnabled != curr.echoEnabled ||
         prev.echoStrength != curr.echoStrength ||
         prev.virtualizerEnabled != curr.virtualizerEnabled ||

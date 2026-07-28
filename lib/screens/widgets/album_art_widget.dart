@@ -32,68 +32,10 @@ class AlbumArtWidget extends StatefulWidget {
 }
 
 class _AlbumArtWidgetState extends State<AlbumArtWidget> {
-  bool _isLoading = true;
-  bool _hasError = false;
-
   /// True when we have a non-null, non-empty path to show (treat empty string as no art).
   bool get _hasValidAlbumArt {
     final path = widget.albumArt;
     return path != null && path.trim().isNotEmpty;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _checkImageExists();
-  }
-
-  @override
-  void didUpdateWidget(AlbumArtWidget oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.albumArt != widget.albumArt) {
-      _checkImageExists();
-    }
-  }
-
-  Future<void> _checkImageExists() async {
-    if (!_hasValidAlbumArt) {
-      setState(() {
-        _isLoading = false;
-        _hasError = false;
-      });
-      return;
-    }
-
-    if (widget.isNetworkImage) {
-      setState(() {
-        _isLoading = false;
-        _hasError = false;
-      });
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-      _hasError = false;
-    });
-
-    try {
-      final file = File(widget.albumArt!);
-      final exists = await file.exists();
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _hasError = !exists;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _hasError = true;
-        });
-      }
-    }
   }
 
   /// Icon size as ~50% of container so it scales with tile; capped for unbounded.
@@ -293,10 +235,7 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
                   width: w,
                   height: h,
                   fit: BoxFit.cover,
-                  frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                    if (frame == null) return placeholder();
-                    return child;
-                  },
+                  gaplessPlayback: true,
                   errorBuilder: (context, error, stackTrace) {
                     return placeholder();
                   },
@@ -332,7 +271,7 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
 
         Widget content;
         Object switchKey;
-        if (!_hasValidAlbumArt || _hasError || _isLoading) {
+        if (!_hasValidAlbumArt) {
           content = _buildDefaultAlbumArt(
             iconSize,
             padding,

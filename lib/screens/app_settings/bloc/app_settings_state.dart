@@ -22,6 +22,9 @@ abstract class AppSettingsState with _$AppSettingsState {
     DateTime? quoteUpdateDateTime,
     required int currentQuoteIndex,
     @Default(0) int notificationPermissionRejectedCount,
+    @Default(false) bool showAppIntroOnForYou,
+    String? lastSeenIntroBuildNumber,
+    @Default(false) bool hasSeenAppIntroOnce,
   }) = _Initial;
 
   factory AppSettingsState.initial() => AppSettingsState(
@@ -74,5 +77,8 @@ abstract class AppSettingsState with _$AppSettingsState {
     quoteUpdateDateTime: null,
     currentQuoteIndex: 0,
     notificationPermissionRejectedCount: 0,
+    showAppIntroOnForYou: false,
+    lastSeenIntroBuildNumber: null,
+    hasSeenAppIntroOnce: false,
   );
 }

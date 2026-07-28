@@ -17,7 +17,14 @@ class SongListItem extends StatefulWidget {
   final VoidCallback onOpenMusicPlayer;
   final String songId;
   final bool isImmediatelySelected;
-  final Function(String action, String songId, String songTitle, String artistName, String albumName)? onMenuAction;
+  final Function(
+    String action,
+    String songId,
+    String songTitle,
+    String artistName,
+    String albumName,
+  )?
+  onMenuAction;
 
   const SongListItem({
     super.key,
@@ -54,10 +61,7 @@ class _SongListItemState extends State<SongListItem>
       vsync: this,
     );
     _scaleAnimation = Tween<double>(begin: 1.0, end: 0.88).animate(
-      CurvedAnimation(
-        parent: _scaleController,
-        curve: Curves.elasticOut,
-      ),
+      CurvedAnimation(parent: _scaleController, curve: Curves.elasticOut),
     );
   }
 
@@ -139,7 +143,7 @@ class _SongListItemState extends State<SongListItem>
     final RenderBox renderBox = context.findRenderObject() as RenderBox;
     final position = renderBox.localToGlobal(Offset.zero);
     final size = renderBox.size;
-    
+
     showDialog(
       context: context,
       barrierColor: Colors.transparent,
@@ -192,16 +196,23 @@ class _SongListItemState extends State<SongListItem>
             (prevSongId == widget.songId) != (currSongId == widget.songId);
       },
       builder: (context, state) {
-        final isCurrentlyPlaying = state.myPlayerState.currentSongId == widget.songId &&
+        final isCurrentlyPlaying =
+            state.myPlayerState.currentSongId == widget.songId &&
             state.myPlayerState.isPlaying;
-        final isCurrentSong = state.myPlayerState.currentSongId == widget.songId;
+        final isCurrentSong =
+            state.myPlayerState.currentSongId == widget.songId;
         _controlAnimations(isCurrentlyPlaying, isCurrentSong);
         final isSelected = isCurrentSong;
         final isScaleAnimating = _scaleController.isAnimating;
 
         // When not scaling (idle), avoid AnimatedBuilder + Transform for smoother list scrolling
         if (!isScaleAnimating && _scaleAnimation.value == 1.0) {
-          return _buildTileContent(context, isSelected, isCurrentlyPlaying, 1.0);
+          return _buildTileContent(
+            context,
+            isSelected,
+            isCurrentlyPlaying,
+            1.0,
+          );
         }
         return AnimatedBuilder(
           animation: _scaleAnimation,
@@ -227,6 +238,15 @@ class _SongListItemState extends State<SongListItem>
     bool isCurrentlyPlaying, [
     double scaleValue = 1.0,
   ]) {
+    final artistDisplayName = widget.artistName.trim().isEmpty
+        ? 'Unknown Artist'
+        : widget.artistName.trim();
+    final artistTextColor = isSelected
+        ? context.primaryStart.withValues(alpha: context.isDark ? 0.68 : 0.72)
+        : context.onSurfaceVariantColor.withValues(
+            alpha: context.isDark ? 0.82 : 0.9,
+          );
+
     return Container(
       decoration: BoxDecoration(
         color: isSelected
@@ -240,9 +260,7 @@ class _SongListItemState extends State<SongListItem>
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(
-              alpha: 0.1 + (1 - scaleValue) * 0.1,
-            ),
+            color: Colors.black.withValues(alpha: 0.1 + (1 - scaleValue) * 0.1),
             blurRadius: 8 + (1 - scaleValue) * 4,
             offset: Offset(0, 2 + (1 - scaleValue) * 2),
           ),
@@ -260,10 +278,7 @@ class _SongListItemState extends State<SongListItem>
             borderRadius: BorderRadius.circular(10.r),
             onTap: _handleTileTap,
             child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: 12.w,
-                vertical: 8.h,
-              ),
+              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
               child: Row(
                 children: [
                   AlbumArtWidget(
@@ -303,11 +318,9 @@ class _SongListItemState extends State<SongListItem>
                         ),
                         SizedBox(height: 4.h),
                         Text(
-                          widget.artistName,
+                          artistDisplayName,
                           style: TextStyle(
-                            color: isSelected
-                                ? context.primaryStart.withValues(alpha: 0.8)
-                                : context.onSurfaceVariantColor,
+                            color: artistTextColor,
                             fontSize: 12.sp,
                             fontWeight: FontWeight.w400,
                           ),
@@ -356,7 +369,10 @@ class _SongListItemState extends State<SongListItem>
     bool isPlaying,
     bool isCurrentSong,
   ) {
-    if (isCurrentSong && isPlaying && _waveController != null && _pulseController != null) {
+    if (isCurrentSong &&
+        isPlaying &&
+        _waveController != null &&
+        _pulseController != null) {
       return AnimatedBuilder(
         animation: Listenable.merge([_waveController!, _pulseController!]),
         builder: (context, child) {
@@ -430,5 +446,4 @@ class _SongListItemState extends State<SongListItem>
       }),
     );
   }
-
 }

@@ -2,6 +2,9 @@ part of 'equalizer_bloc.dart';
 
 @freezed
 class EqualizerEvent with _$EqualizerEvent {
+  /// Initializes screen session values from the saved preset, if needed.
+  const factory EqualizerEvent.initializeSession() = _InitializeSession;
+
   /// Persists equalizer state (enable/disable and/or band gains).
   /// presetId/Name: which preset is now the saved/current one.
   const factory EqualizerEvent.persistEqualizerState({
@@ -26,23 +29,20 @@ class EqualizerEvent with _$EqualizerEvent {
   }) = _UpdateEqualizerPresetGains;
 
   /// Deletes a custom preset by id.
-  const factory EqualizerEvent.deleteEqualizerPreset({
-    required String id,
-  }) = _DeleteEqualizerPreset;
+  const factory EqualizerEvent.deleteEqualizerPreset({required String id}) =
+      _DeleteEqualizerPreset;
 
-  /// Persists audio effects state (reverb, echo, virtualizer, loudness, bass boost).
-  const factory EqualizerEvent.persistAudioEffectsState({
-    bool? reverbEnabled,
-    int? reverbPreset,
-    bool? echoEnabled,
-    int? echoStrength,
-    bool? virtualizerEnabled,
-    int? virtualizerStrength,
-    bool? loudnessEnabled,
-    int? loudnessGainMb,
-    bool? bassBoostEnabled,
-    int? bassBoostStrength,
-  }) = _PersistAudioEffectsState;
+  /// Persists preset + band gains + all effect values in one atomic update.
+  const factory EqualizerEvent.commitSelection({
+    required bool isEnabled,
+    required Map<String, double> bandGains,
+    required String presetId,
+    required String presetName,
+    required int echoStrength,
+    required int virtualizerStrength,
+    required int loudnessGainMb,
+    required int bassBoostStrength,
+  }) = _CommitSelection;
 
   /// Resets equalizer and sound effects to defaults.
   const factory EqualizerEvent.resetToDefaults() = _ResetToDefaults;

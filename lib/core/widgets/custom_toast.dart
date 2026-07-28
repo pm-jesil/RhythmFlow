@@ -16,14 +16,19 @@ class CustomToast {
     final icon = _getToastIcon(type);
     final isLandscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
-    final iconSize = isLandscape ? 14.0 : 20.0;
-    final fontSize = isLandscape ? 11.0 : 14.0;
-    final margin = isLandscape
-        ? EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h)
+
+    // ScreenUtil is calibrated for portrait (375×812). In landscape the width
+    // scale is ~2×, so .sp/.w/.r would double all sizes. Use raw logical-pixel
+    // values for landscape to avoid over-scaling.
+    final double finalIconSize = isLandscape ? 14.0 : 20.0.sp;
+    final double finalFontSize = isLandscape ? 11.0 : 14.0.sp;
+    final double iconGap      = isLandscape ? 6.0  : 8.0.w;
+    final EdgeInsets margin   = isLandscape
+        ? const EdgeInsets.symmetric(horizontal: 14, vertical: 6)
         : EdgeInsets.all(16.w);
-    final radius = isLandscape ? 6.r : 8.r;
-    final padding = isLandscape
-        ? EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h)
+    final double radius       = isLandscape ? 6.0  : 8.0.r;
+    final EdgeInsets? padding = isLandscape
+        ? const EdgeInsets.symmetric(horizontal: 14, vertical: 8)
         : null;
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -32,15 +37,15 @@ class CustomToast {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
-              Icon(icon, color: Colors.white, size: iconSize.sp),
-              SizedBox(width: isLandscape ? 6.w : 8.w),
+              Icon(icon, color: Colors.white, size: finalIconSize),
+              SizedBox(width: iconGap),
             ],
             Flexible(
               child: Text(
                 message,
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: fontSize.sp,
+                  fontSize: finalFontSize,
                   fontWeight: FontWeight.w500,
                 ),
               ),

@@ -13,7 +13,9 @@ import 'package:rhythmflow/core/theme/theme_extension.dart';
 import 'package:rhythmflow/core/widgets/app_custom.dart';
 import 'package:rhythmflow/screens/equalizer/widgets/equalizer_appbar.dart';
 import 'package:rhythmflow/screens/equalizer/widgets/equalizer_bottom_knob_row.dart';
+import 'package:rhythmflow/screens/equalizer/widgets/equalizer_hero_tags.dart';
 import 'package:rhythmflow/screens/equalizer/widgets/equalizer_sliders_container.dart';
+import 'package:rhythmflow/screens/equalizer/widgets/equalizer_transition_shell.dart';
 import 'package:rhythmflow/screens/equalizer/bloc/equalizer_bloc.dart';
 import 'package:rhythmflow/utils/services/audio_effects_service.dart';
 import 'package:rhythmflow/utils/services/audio_service.dart';
@@ -28,52 +30,192 @@ class EqualizerScreen extends StatefulWidget {
 
 class _EqualizerScreenState extends State<EqualizerScreen>
     with WidgetsBindingObserver {
+  static const _stageTransitionDuration = Duration(milliseconds: 320);
+  static const _orientationSettleDuration = Duration(milliseconds: 360);
   static final AppLogger _logger = AppLogger('EqualizerScreen');
   final AudioService _audioService = getIt<AudioService>();
   final AudioEffectsService _effectsService = getIt<AudioEffectsService>();
+  final HeroController _stageHeroController = HeroController();
   bool _isLoading = true;
   String? _errorMessage;
   double _volumeLeft = 1.0;
   double _volumeRight = 1.0;
+  double _committedVolumeLeft = 1.0;
+  double _committedVolumeRight = 1.0;
   String _selectedPresetId = 'flat';
   String _selectedPresetName = 'Flat';
   bool _currentPresetModified = false;
   ({String id, String name, List<double> gains})? _presetRemoving;
 
+  /// Preview effect values shown in sliders while a preset is applied but not
+  /// yet confirmed. Null means fall back to the persisted Bloc state.
+  int? _previewEcho;
+  int? _previewVirtualizer;
+  int? _previewLoudness;
+  int? _previewBassBoost;
+
+  /// Target gains for each band so sliders animate on preset tap even if
+  /// gainStream doesn't emit. Updated when preset is applied or user drags a band.
+  List<double>? _targetBandGains;
+  _EqualizerViewportStage _viewportStage = Platform.isAndroid
+      ? _EqualizerViewportStage.portraitShell
+      : _EqualizerViewportStage.landscapeContent;
+  bool _entryTransitionStarted = false;
+
   bool _isSavedPreset(EqualizerState eqState) =>
       _selectedPresetId == (eqState.equalizerSavedPresetId ?? 'flat');
 
-  bool _hasPendingSave(EqualizerState eqState) => !_isSavedPreset(eqState);
+  /// True when there are unsaved changes: different preset selected or volume.
+  bool _hasPendingSave(EqualizerState eqState) =>
+      !_isSavedPreset(eqState) ||
+      (_volumeLeft - _committedVolumeLeft).abs() > 0.001 ||
+      (_volumeRight - _committedVolumeRight).abs() > 0.001;
 
-  void _setEqualizerOrientation() {
-    if (Platform.isAndroid) {
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.landscapeRight,
-      ]);
+  bool _isSelectedPresetCustom(EqualizerState eqState) =>
+      (eqState.equalizerCustomPresets ?? {}).containsKey(_selectedPresetId);
+
+  /// Returns the effective effect values: preview overrides if present,
+  /// otherwise falls back to the last persisted bloc values.
+  ({int echo, int virtualizer, int loudness, int bassBoost})
+  _resolvedPendingEffects(EqualizerState appState) => (
+    echo: _previewEcho ?? appState.echoStrength,
+    virtualizer: _previewVirtualizer ?? appState.virtualizerStrength,
+    loudness: _previewLoudness ?? appState.loudnessGainMb,
+    bassBoost: _previewBassBoost ?? appState.bassBoostStrength,
+  );
+
+  void _commitSelectionToBloc({
+    required EqualizerState appState,
+    required Map<String, double> bandGains,
+    String? presetId,
+    String? presetName,
+  }) {
+    final effects = _resolvedPendingEffects(appState);
+    context.read<EqualizerBloc>().add(
+      EqualizerEvent.commitSelection(
+        isEnabled: true,
+        bandGains: bandGains,
+        presetId: presetId ?? _selectedPresetId,
+        presetName: presetName ?? _selectedPresetName,
+        echoStrength: effects.echo,
+        virtualizerStrength: effects.virtualizer,
+        loudnessGainMb: effects.loudness,
+        bassBoostStrength: effects.bassBoost,
+      ),
+    );
+  }
+
+  void _clearPendingUiAfterCommit() {
+    _committedVolumeLeft = _volumeLeft;
+    _committedVolumeRight = _volumeRight;
+    _currentPresetModified = false;
+    _previewEcho = null;
+    _previewVirtualizer = null;
+    _previewLoudness = null;
+    _previewBassBoost = null;
+  }
+
+  static const _flatGainEpsilonDb = 0.08;
+  static const _volumeFullEpsilon = 0.005;
+
+  /// True when UI + hardware + persisted state already match Flat — no save needed.
+  bool _isAlreadyFullyFlat(
+    EqualizerState eqState,
+    AndroidEqualizerParameters params,
+  ) {
+    if ((_volumeLeft - 1.0).abs() > _volumeFullEpsilon ||
+        (_volumeRight - 1.0).abs() > _volumeFullEpsilon) {
+      return false;
+    }
+    for (final b in params.bands) {
+      if (b.gain.abs() > _flatGainEpsilonDb) return false;
+    }
+    final fx = _resolvedPendingEffects(eqState);
+    if (fx.echo != 0 ||
+        fx.virtualizer != 0 ||
+        fx.loudness != 0 ||
+        fx.bassBoost != 0) {
+      return false;
+    }
+    final stored = eqState.equalizerBandGains;
+    if (stored != null && stored.isNotEmpty) {
+      for (final v in stored.values) {
+        if (v.abs() > _flatGainEpsilonDb) return false;
+      }
+    }
+    if (_selectedPresetId != 'flat') return false;
+    if ((eqState.equalizerSavedPresetId ?? 'flat') != 'flat') return false;
+    if (_currentPresetModified) return false;
+    if (_hasPendingSave(eqState)) return false;
+    return true;
+  }
+
+  /// L/R channel knobs at 100 % — matches [MasterVolumeKnob] display (0–100).
+  Future<void> _setChannelVolumesToFull() async {
+    const full = 1.0;
+    final r = await _effectsService.setChannelVolumes(left: full, right: full);
+    if (r != null) {
+      unawaited(_audioService.setVolume(r.globalVolume));
     }
   }
 
-  void _setDefaultOrientation() {
-    if (Platform.isAndroid) {
-      SystemChrome.setPreferredOrientations(DeviceOrientation.values);
-    }
+  Future<void> _setEqualizerOrientation() async {
+    if (!Platform.isAndroid) return;
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeRight])
+        .timeout(const Duration(seconds: 2), onTimeout: () {
+      _logger.w('setPreferredOrientations(landscape) timed out — continuing');
+    });
+  }
+
+  Future<void> _setPortraitOrientation() async {
+    if (!Platform.isAndroid) return;
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp])
+        .timeout(const Duration(seconds: 2), onTimeout: () {
+      _logger.w('setPreferredOrientations(portrait) timed out — continuing');
+    });
   }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _setEqualizerOrientation();
-    _applyStoredSettings();
+    unawaited(_initializeSessionAndApply());
+    if (Platform.isAndroid) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_startEntryTransition());
+      });
+    }
     final v = _audioService.volume;
     _volumeLeft = (v.isNaN || v.isInfinite) ? 1.0 : v.clamp(0.0, 1.0);
-    _volumeRight = (v.isNaN || v.isInfinite) ? 1.0 : v.clamp(0.0, 1.0);
+    _volumeRight = _volumeLeft;
+    _committedVolumeLeft = _volumeLeft;
+    _committedVolumeRight = _volumeRight;
+    // Restore individual L/R values persisted in the native plugin across
+    // screen open/close cycles (the plugin keeps them even when the Dart
+    // screen is disposed).
+    _effectsService.getChannelVolumes().then((vols) {
+      if (mounted && vols != null) {
+        setState(() {
+          _volumeLeft = vols.left;
+          _volumeRight = vols.right;
+          _committedVolumeLeft = vols.left;
+          _committedVolumeRight = vols.right;
+        });
+      }
+    });
+  }
+
+  Future<void> _initializeSessionAndApply() async {
+    context.read<EqualizerBloc>().add(const EqualizerEvent.initializeSession());
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) return;
+    await _applyStoredSettings();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _setDefaultOrientation();
+    unawaited(_setPortraitOrientation());
     super.dispose();
   }
 
@@ -81,10 +223,28 @@ class _EqualizerScreenState extends State<EqualizerScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!Platform.isAndroid) return;
     if (state == AppLifecycleState.paused) {
-      _setDefaultOrientation();
+      unawaited(_setPortraitOrientation());
     } else if (state == AppLifecycleState.resumed) {
-      if (mounted) _setEqualizerOrientation();
+      if (!mounted) return;
+      if (_viewportStage == _EqualizerViewportStage.landscapeContent) {
+        unawaited(_setEqualizerOrientation());
+      } else {
+        unawaited(_setPortraitOrientation());
+      }
     }
+  }
+
+  Future<void> _startEntryTransition() async {
+    if (!Platform.isAndroid || _entryTransitionStarted) return;
+    _entryTransitionStarted = true;
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    if (!mounted || _isNavigating) return;
+    // Do not block the viewport forever if the platform never completes
+    // setPreferredOrientations (seen on some devices during rotation).
+    unawaited(_setEqualizerOrientation());
+    await Future<void>.delayed(_orientationSettleDuration);
+    if (!mounted || _isNavigating) return;
+    setState(() => _viewportStage = _EqualizerViewportStage.landscapeContent);
   }
 
   Future<void> _applyStoredSettings() async {
@@ -122,44 +282,47 @@ class _EqualizerScreenState extends State<EqualizerScreen>
           );
       _logger.d('Equalizer enabled state set: ${eqState.isEqualizerEnabled}');
 
+      // Show landscape body immediately; band/effect restore can be slow or
+      // block on native — sliders area handles "play audio" / retry UX.
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+
       // ── 2. Restore band gains ─────────────────────────────────────────────
       if (eqState.equalizerBandGains != null &&
           eqState.equalizerBandGains!.isNotEmpty) {
-        final params = await eq.parameters.timeout(
-          const Duration(seconds: 5),
-          onTimeout: () => throw TimeoutException(
-            'eq.parameters timed out - play audio first',
-          ),
-        );
-        for (var i = 0; i < params.bands.length; i++) {
-          final stored = eqState.equalizerBandGains!['$i'];
-          if (stored != null) {
-            await params.bands[i].setGain(stored);
+        try {
+          final params = await eq.parameters.timeout(
+            const Duration(seconds: 5),
+            onTimeout: () => throw TimeoutException(
+              'eq.parameters timed out - play audio first',
+            ),
+          );
+          for (var i = 0; i < params.bands.length; i++) {
+            final stored = eqState.equalizerBandGains!['$i'];
+            if (stored != null) {
+              await params.bands[i].setGain(stored);
+            }
           }
+          _logger.d('Applied ${params.bands.length} band gains');
+        } on TimeoutException catch (e) {
+          _logger.w('Band restore skipped (params): $e');
         }
-        _logger.d('Applied ${params.bands.length} band gains');
       }
 
-      // ── 3. Restore ALL audio effects to hardware ──────────────────────────
-      // This is critical: native effects reset when the audio session
-      // re-initialises (e.g. on screen open). We must re-apply stored values.
-
-      // 3a. Reverb (PresetReverb) — restored separately from Echo
-      if (eqState.reverbEnabled &&
-          eqState.reverbPreset != EqualizerReverbPresets.none) {
-        await _effectsService.setReverbPreset(eqState.reverbPreset);
-        await _effectsService.setReverbEnabled(true);
-        _logger.d('Reverb restored: preset=${eqState.reverbPreset}');
-      } else {
-        await _effectsService.setReverbEnabled(false);
-      }
-
-      // 3b. Echo (EnvironmentalReverb), Virtualizer, Loudness, BassBoost
+      // ── 3. Restore audio effects (bounded) ───────────────────────────────
       await _applyEffectValues(
         eqState.echoStrength,
         eqState.virtualizerStrength,
         eqState.loudnessGainMb,
         eqState.bassBoostStrength,
+      ).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          _logger.w(
+            'Effects restore timed out — effects may apply when session is ready',
+          );
+        },
       );
       _logger.d(
         'Effects restored: echo=${eqState.echoStrength} '
@@ -168,39 +331,36 @@ class _EqualizerScreenState extends State<EqualizerScreen>
         'bass=${eqState.bassBoostStrength}',
       );
     } on TimeoutException catch (e) {
-      _logger.w('Equalizer params timeout (play audio first): $e');
+      _logger.w('Equalizer setup timeout: $e');
+      if (mounted) setState(() => _isLoading = false);
     } catch (e) {
       _logger.e('Error applying stored settings', error: e);
+      if (mounted) setState(() => _isLoading = false);
     } finally {
       if (mounted) {
-        final eqState = context.read<EqualizerBloc>().state;
-        setState(() {
-          _isLoading = false;
-          _errorMessage = null;
-          _selectedPresetId = eqState.equalizerSavedPresetId ?? 'flat';
-          _selectedPresetName = eqState.equalizerSavedPresetName ?? 'Flat';
-        });
+        try {
+          final eqState = context.read<EqualizerBloc>().state;
+          setState(() {
+            _isLoading = false;
+            _errorMessage = null;
+            _selectedPresetId = eqState.equalizerSavedPresetId ?? 'flat';
+            _selectedPresetName = eqState.equalizerSavedPresetName ?? 'Flat';
+          });
+        } catch (e) {
+          _logger.w('Could not read EqualizerBloc in finally: $e');
+          setState(() {
+            _isLoading = false;
+            _errorMessage = null;
+          });
+        }
         _logger.d('_applyStoredSettings done, _isLoading=false');
       }
     }
   }
 
-  List<double> _presetForBandCount(List<double> preset, int count) {
-    if (preset.isEmpty) return List.filled(count, 0.0);
-    if (preset.length >= count) return preset.sublist(0, count);
-    if (count <= 1) return preset.length > 0 ? [preset[0]] : [0.0];
-    final result = <double>[];
-    for (var i = 0; i < count; i++) {
-      final srcIdx = (i / (count - 1)) * (preset.length - 1);
-      final lo = srcIdx.floor().clamp(0, preset.length - 1);
-      final hi = (lo + 1).clamp(0, preset.length - 1);
-      final frac = srcIdx - lo;
-      result.add(preset[lo] * (1 - frac) + preset[hi] * frac);
-    }
-    return result;
-  }
-
-  List<double> _getPresetGains(String presetId, EqualizerState appState) {
+  /// Returns gains for [presetId] from custom presets or built-in fallback.
+  static List<double> _getPresetGains(
+      String presetId, EqualizerState appState) {
     final custom = appState.equalizerCustomPresets ?? {};
     if (custom.containsKey(presetId)) {
       return List<double>.from(custom[presetId]!.gains);
@@ -214,23 +374,47 @@ class _EqualizerScreenState extends State<EqualizerScreen>
     int loudness,
     int bassBoost,
   ) async {
-    if (echo > 0) {
-      await _effectsService.setReverbPreset(EqualizerReverbPresets.none);
-      await _effectsService.setEnvironmentalReverb(
-        decayTime: 200 + (echo * 3),
-        reverbLevel: -2000 + (echo * 20),
-        reflectionsLevel: -1500 + (echo * 15),
-      );
-      await _effectsService.setEnvironmentalReverbEnabled(true);
-    } else {
-      await _effectsService.setEnvironmentalReverbEnabled(false);
+    Future<void> tryEffect(String name, Future<void> Function() fn) async {
+      try {
+        await fn();
+      } on PlatformException catch (e) {
+        if (e.code == 'EFFECT_NOT_INIT') {
+          _logger.w(
+            'Effect $name not initialized yet (session not ready), skipping',
+          );
+        } else {
+          _logger.e('Effect $name failed', error: e);
+        }
+      }
     }
-    await _effectsService.setVirtualizerStrength(virtualizer);
-    await _effectsService.setVirtualizerEnabled(virtualizer > 0);
-    await _audioService.setLoudnessGain(loudness);
-    await _audioService.setLoudnessEnabled(loudness > 0);
-    await _effectsService.setBassBoostStrength(bassBoost);
-    await _effectsService.setBassBoostEnabled(bassBoost > 0);
+
+    await tryEffect('EnvironmentalReverb', () async {
+      if (echo > 0) {
+        await _effectsService.setEnvironmentalReverb(
+          // roomLevel: scale from silent (-6000) to -1600 as echo grows.
+          // Without this the room component is silent and echo sounds weak.
+          roomLevel: -6000 + (echo * 44),
+          decayTime: 200 + (echo * 3),
+          reverbLevel: -2000 + (echo * 20),
+          reflectionsLevel: -1500 + (echo * 15),
+        );
+        await _effectsService.setEnvironmentalReverbEnabled(true);
+      } else {
+        await _effectsService.setEnvironmentalReverbEnabled(false);
+      }
+    });
+    await tryEffect('Virtualizer', () async {
+      await _effectsService.setVirtualizerStrength(virtualizer);
+      await _effectsService.setVirtualizerEnabled(virtualizer > 0);
+    });
+    await tryEffect('Loudness', () async {
+      await _audioService.setLoudnessGain(loudness);
+      await _audioService.setLoudnessEnabled(loudness > 0);
+    });
+    await tryEffect('BassBoost', () async {
+      await _effectsService.setBassBoostStrength(bassBoost);
+      await _effectsService.setBassBoostEnabled(bassBoost > 0);
+    });
   }
 
   // ─── Build ───────────────────────────────────────────────────────────────────
@@ -247,55 +431,43 @@ class _EqualizerScreenState extends State<EqualizerScreen>
           p.equalizerBandGains != c.equalizerBandGains ||
           p.equalizerSavedPresetId != c.equalizerSavedPresetId,
       builder: (context, eqState) {
-        // Compute whether the bottom action bar is currently visible.
-        // When it is, we smoothly hide the AppBar to give sliders more space.
-        final bottomBarVisible =
-            _hasPendingSave(eqState) || _currentPresetModified;
+        final isCustomPreset = _isSelectedPresetCustom(eqState);
+        final showActionBar =
+            eq != null && (_hasPendingSave(eqState) || _currentPresetModified);
+        final actionPrimaryLabel = EqualizerActionBar.primaryLabelFor(
+          currentPresetModified: _currentPresetModified,
+          isCustomPreset: isCustomPreset,
+        );
 
-        return Scaffold(
-          backgroundColor: context.backgroundColor,
-          resizeToAvoidBottomInset: false,
-          // No appBar — we animate it inside the body so we can collapse it
-          body: SafeArea(
-            bottom: false,
-            child: Column(
-              children: [
-                // ── Animated App Bar ─────────────────────────────────────
-                // AnimatedAlign collapses height to 0 when bottomBarVisible,
-                // giving full extra space to the sliders below.
-                ClipRect(
-                  child: AnimatedAlign(
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOutCubic,
-                    alignment: Alignment.topCenter,
-                    heightFactor: bottomBarVisible ? 0.0 : 1.0,
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 200),
-                      opacity: bottomBarVisible ? 0.0 : 1.0,
-                      child: EqualizerAppBar(
-                        eq: eq,
-                        onBack: () => Navigator.pop(context),
-                        onAddPreset: eq != null
-                            ? () => _showAddPresetDialog(eq, eqState)
-                            : null,
-                      ),
-                    ),
-                  ),
-                ),
-                // ── Body ─────────────────────────────────────────────────
-                Expanded(
-                  child: _isLoading
-                      ? Center(
-                          child: SizedBox(
-                            width: 20.w,
-                            height: 20.w,
-                            child: CircularProgressIndicator(
-                              color: context.primaryStart,
-                              strokeWidth: 2,
-                            ),
-                          ),
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) async {
+            if (didPop) return;
+            await _navigateBack();
+          },
+          child: Scaffold(
+            backgroundColor: context.backgroundColor,
+            resizeToAvoidBottomInset: false,
+            body: Navigator(
+              observers: [_stageHeroController],
+              onPopPage: (route, result) => false,
+              pages: [
+                _EqualizerStagePage(
+                  key: ValueKey(_viewportStage),
+                  child: _viewportStage == _EqualizerViewportStage.portraitShell
+                      ? EqualizerPortraitTransitionShell(
+                          onBack: _navigateBack,
+                          showAddButton: eq != null,
+                          showActionBar: showActionBar,
+                          actionPrimaryLabel: actionPrimaryLabel,
                         )
-                      : _buildBody(eq, eqState),
+                      : _buildLandscapeStage(
+                          eq,
+                          eqState,
+                          showActionBar: showActionBar,
+                          hasPendingSave: _hasPendingSave(eqState),
+                          isCustomPreset: isCustomPreset,
+                        ),
                 ),
               ],
             ),
@@ -305,16 +477,66 @@ class _EqualizerScreenState extends State<EqualizerScreen>
     );
   }
 
+  Widget _buildLandscapeStage(
+    AndroidEqualizer? eq,
+    EqualizerState eqState, {
+    required bool showActionBar,
+    required bool hasPendingSave,
+    required bool isCustomPreset,
+  }) {
+    return SafeArea(
+      bottom: false,
+      child: Column(
+        children: [
+          EqualizerTopBar(
+            eq: eq,
+            onBack: _navigateBack,
+            onAddPreset: eq != null ? () => _showAddPresetDialog(eq) : null,
+            showActionBar: showActionBar,
+            hasPendingSave: hasPendingSave,
+            currentPresetModified: _currentPresetModified,
+            isCustomPreset: isCustomPreset,
+            onConfirmSelection: () {
+              if (eq == null) return;
+              _onConfirmSelection(eq, context.read<EqualizerBloc>().state);
+            },
+            onUndo: () {
+              if (eq == null) return;
+              _onUndo(eq, context.read<EqualizerBloc>().state);
+            },
+            onUpdate: () {
+              if (eq == null) return;
+              final latestState = context.read<EqualizerBloc>().state;
+              _onUpdate(eq, latestState, _isSelectedPresetCustom(latestState));
+            },
+          ),
+          Expanded(
+            child: _isLoading
+                ? Center(
+                    child: SizedBox(
+                      width: 20.r,
+                      height: 20.r,
+                      child: CircularProgressIndicator(
+                        color: context.primaryStart,
+                        strokeWidth: 2.r,
+                      ),
+                    ),
+                  )
+                : _buildBody(eq),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildIosPlaceholder() {
     return Scaffold(
       backgroundColor: context.backgroundColor,
       resizeToAvoidBottomInset: false,
-      appBar: EqualizerAppBar(
-        onBack: () => Navigator.pop(context),
-      ),
+      appBar: EqualizerAppBar(onBack: () => Navigator.pop(context)),
       body: Center(
         child: Padding(
-          padding: EdgeInsets.all(32.w),
+          padding: EdgeInsets.all(32.r),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -323,7 +545,7 @@ class _EqualizerScreenState extends State<EqualizerScreen>
                 size: 30.sp,
                 color: context.onSurfaceVariantColor.withValues(alpha: 0.5),
               ),
-              SizedBox(height: 16.h),
+              SizedBox(height: 16.r),
               Text(
                 'Equalizer',
                 style: TextStyle(
@@ -333,7 +555,7 @@ class _EqualizerScreenState extends State<EqualizerScreen>
                   fontFamily: 'Poppins',
                 ),
               ),
-              SizedBox(height: 8.h),
+              SizedBox(height: 8.r),
               Text(
                 'Available on Android. iOS support coming soon.',
                 textAlign: TextAlign.center,
@@ -352,7 +574,7 @@ class _EqualizerScreenState extends State<EqualizerScreen>
 
   // ─── Main body ───────────────────────────────────────────────────────────────
 
-  Widget _buildBody(AndroidEqualizer? eq, EqualizerState eqState) {
+  Widget _buildBody(AndroidEqualizer? eq) {
     if (eq == null || _errorMessage != null) {
       return Center(
         child: Text(
@@ -371,8 +593,6 @@ class _EqualizerScreenState extends State<EqualizerScreen>
           p.equalizerCustomPresets != c.equalizerCustomPresets ||
           p.equalizerBandGains != c.equalizerBandGains ||
           p.equalizerSavedPresetId != c.equalizerSavedPresetId ||
-          p.reverbEnabled != c.reverbEnabled ||
-          p.reverbPreset != c.reverbPreset ||
           p.echoEnabled != c.echoEnabled ||
           p.echoStrength != c.echoStrength ||
           p.virtualizerEnabled != c.virtualizerEnabled ||
@@ -385,92 +605,156 @@ class _EqualizerScreenState extends State<EqualizerScreen>
         return LayoutBuilder(
           builder: (context, constraints) {
             final availableHeight = constraints.maxHeight;
-            final slidersMaxHeight = availableHeight * 0.42;
-            final reservedForHeaderSpacersButton = availableHeight * 0.15;
-            final spaceForBottomRow =
-                (availableHeight -
-                        reservedForHeaderSpacersButton -
-                        slidersMaxHeight)
-                    .clamp(0.0, double.infinity);
-            final bottomRowHeight = [
-              availableHeight * 0.44,
-              165.h,
-              spaceForBottomRow,
-            ].reduce((a, b) => a < b ? a : b).clamp(70.h, 165.h);
+            final tight = availableHeight < 300.r;
+            final minSlidersHeight = tight ? 56.r : 72.r;
+            final bottomRowMin = tight ? 44.r : 52.r;
+            final bottomRowMax = tight ? 88.r : 104.r;
+            final headerPlusSpacers = tight ? 32.r : 40.r;
+            final verticalSpacersTotal = tight ? 8.r : 12.r;
+
+            final remaining =
+                availableHeight - headerPlusSpacers - verticalSpacersTotal;
+            final bottomRowHeight = (remaining - minSlidersHeight).clamp(
+              bottomRowMin,
+              bottomRowMax,
+            );
+            final naturalSlidersHeight = (remaining - bottomRowHeight).clamp(
+              minSlidersHeight,
+              double.infinity,
+            );
+            // Give sliders 90 % of natural height — the extra space freed by
+            // the shorter app bar flows back into the frequency-bands container.
+            final slidersMaxHeight = (naturalSlidersHeight * 0.90).clamp(
+              minSlidersHeight,
+              naturalSlidersHeight,
+            );
+
             return Column(
               children: [
-                EqualizerSectionHeaderRow(
-                  onDefaultPressed: _onDefaultPressed,
+                Hero(
+                  tag: EqualizerHeroTags.sectionHeader,
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: EqualizerSectionHeaderRow(
+                      onDefaultPressed: _onDefaultPressed,
+                    ),
+                  ),
                 ),
-                SizedBox(height: 4.h),
+                SizedBox(height: 4.r),
+                // Align is required so ConstrainedBox(maxHeight) is respected
+                // even when the surrounding Expanded would otherwise give
+                // tight constraints that override it.
                 Expanded(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxHeight: slidersMaxHeight),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8.w),
-                      child: EqualizerSlidersContainer(
-                        eq: eq,
-                        appState: state,
-                        onGainChanged: () {
-                          if (mounted) {
-                            setState(() => _currentPresetModified = true);
-                          }
-                        },
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxHeight: slidersMaxHeight),
+                      child: Hero(
+                        tag: EqualizerHeroTags.slidersCard,
+                        child: Material(
+                          type: MaterialType.transparency,
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 24.r),
+                            child: EqualizerSlidersContainer(
+                              eq: eq,
+                              appState: state,
+                              onGainChanged: () {
+                                if (mounted) {
+                                  setState(
+                                    () => _currentPresetModified = true,
+                                  );
+                                }
+                              },
+                              targetBandGains: _targetBandGains,
+                              onBandGainChanged: (bandIndex, gain) {
+                                if (mounted &&
+                                    _targetBandGains != null &&
+                                    bandIndex < _targetBandGains!.length) {
+                                  setState(
+                                    () => _targetBandGains![bandIndex] = gain,
+                                  );
+                                }
+                              },
+                              onEffectChanged:
+                                  ({
+                                    echo,
+                                    virtualizer,
+                                    loudness,
+                                    bassBoost,
+                                  }) {
+                                    if (mounted) {
+                                      setState(() {
+                                        if (echo != null) _previewEcho = echo;
+                                        if (virtualizer != null) {
+                                          _previewVirtualizer = virtualizer;
+                                        }
+                                        if (loudness != null) {
+                                          _previewLoudness = loudness;
+                                        }
+                                        if (bassBoost != null) {
+                                          _previewBassBoost = bassBoost;
+                                        }
+                                        _currentPresetModified = true;
+                                      });
+                                    }
+                                  },
+                              previewEcho: _previewEcho,
+                              previewVirtualizer: _previewVirtualizer,
+                              previewLoudness: _previewLoudness,
+                              previewBassBoost: _previewBassBoost,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
-                SizedBox(height: 4.h),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8.w),
-                  child: EqualizerBottomKnobRow(
-                    eq: eq,
-                    state: state,
-                    height: bottomRowHeight,
-                    volumeLeft: _volumeLeft,
-                    volumeRight: _volumeRight,
-                    onVolumeLeftChanged: (v) async {
-                      setState(() => _volumeLeft = v);
-                      final r = await _effectsService.setChannelVolumes(
-                        left: _volumeLeft,
-                        right: _volumeRight,
-                      );
-                      if (r != null) {
-                        unawaited(_audioService.setVolume(r.globalVolume));
-                      }
-                    },
-                    onVolumeRightChanged: (v) async {
-                      setState(() => _volumeRight = v);
-                      final r = await _effectsService.setChannelVolumes(
-                        left: _volumeLeft,
-                        right: _volumeRight,
-                      );
-                      if (r != null) {
-                        unawaited(_audioService.setVolume(r.globalVolume));
-                      }
-                    },
-                    selectedPresetId: _selectedPresetId,
-                    presetRemoving: _presetRemoving,
-                    onPresetSelected: (id, name, gains) =>
-                        _applyPreset(eq, state, id, name, gains),
-                    onPresetDeleteRequested: (id, name, gains) =>
-                        _showDeleteConfirmDialog(eq, state, id, name, gains),
-                    onReverbSelected: _onReverbSelected,
-                  ),
-                ),
-                SizedBox(height: 4.h),
-                EqualizerBottomSaveUpdateButton(
-                  hasPendingSave: _hasPendingSave(state),
-                  currentPresetModified: _currentPresetModified,
-                  isCustomPreset: (state.equalizerCustomPresets ?? {})
-                      .containsKey(_selectedPresetId),
-                  onConfirmSelection: () => _onConfirmSelection(eq, state),
-                  onUndo: () => _onUndo(eq, state),
-                  onUpdate: () => _onUpdate(
-                    eq,
-                    state,
-                    (state.equalizerCustomPresets ?? {})
-                        .containsKey(_selectedPresetId),
+                SizedBox(height: 8.r),
+                Hero(
+                  tag: EqualizerHeroTags.bottomRow,
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(24.r, 0, 24.r, 16.r),
+                      child: EqualizerBottomKnobRow(
+                        state: state,
+                        height: bottomRowHeight,
+                        volumeLeft: _volumeLeft,
+                        volumeRight: _volumeRight,
+                        onVolumeLeftChanged: (v) async {
+                          setState(() {
+                            _volumeLeft = v;
+                            _currentPresetModified = true;
+                          });
+                          final r = await _effectsService.setChannelVolumes(
+                            left: _volumeLeft,
+                            right: _volumeRight,
+                          );
+                          if (r != null) {
+                            unawaited(_audioService.setVolume(r.globalVolume));
+                          }
+                        },
+                        onVolumeRightChanged: (v) async {
+                          setState(() {
+                            _volumeRight = v;
+                            _currentPresetModified = true;
+                          });
+                          final r = await _effectsService.setChannelVolumes(
+                            left: _volumeLeft,
+                            right: _volumeRight,
+                          );
+                          if (r != null) {
+                            unawaited(_audioService.setVolume(r.globalVolume));
+                          }
+                        },
+                        selectedPresetId: _selectedPresetId,
+                        presetRemoving: _presetRemoving,
+                        onPresetSelected: (id, name, gains) =>
+                            _applyPreset(eq, state, id, name, gains),
+                        onPresetDeleteRequested: (id, name, gains) =>
+                            _deleteCustomPreset(eq, state, id, name, gains),
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -484,53 +768,70 @@ class _EqualizerScreenState extends State<EqualizerScreen>
   Future<void> _onDefaultPressed() async {
     final eq = _audioService.equalizer;
     if (eq == null) return;
-    final params = await eq.parameters;
     final bloc = context.read<EqualizerBloc>();
+    AndroidEqualizerParameters params;
+    try {
+      params = await eq.parameters.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => throw TimeoutException('eq.parameters'),
+      );
+    } on TimeoutException {
+      _logger.w('Default: eq.parameters timed out');
+      return;
+    }
+    if (!mounted) return;
 
-    // ── Instantly apply 0 to hardware bands and effects ───────────────────
-    for (var i = 0; i < params.bands.length; i++) {
-        await params.bands[i].setGain(0.0);
+    final eqState = bloc.state;
+    final bandCount = params.bands.length;
+    final zeroGains = List<double>.filled(bandCount, 0.0);
+
+    // Already Flat everywhere: only nudge UI animation (no native spam / toast).
+    if (_isAlreadyFullyFlat(eqState, params)) {
+      setState(() {
+        _targetBandGains = List<double>.from(zeroGains);
+        _clearPendingUiAfterCommit();
+      });
+      return;
     }
 
-    await _effectsService.setEnvironmentalReverbEnabled(false);
-    await _effectsService.setReverbPreset(EqualizerReverbPresets.none);
-    await _effectsService.setReverbEnabled(false);
-    await _effectsService.setVirtualizerStrength(0);
-    await _effectsService.setVirtualizerEnabled(false);
-    await _effectsService.setBassBoostStrength(0);
-    await _effectsService.setBassBoostEnabled(false);
-    await _audioService.setLoudnessGain(0);
-    await _audioService.setLoudnessEnabled(false);
+    for (var i = 0; i < bandCount; i++) {
+      final g = params.bands[i].gain;
+      if (g.abs() > _flatGainEpsilonDb) {
+        await params.bands[i].setGain(0.0);
+      }
+    }
+
+    // Always push effect chain to zero on a real reset — bloc can read 0 while
+    // native effects are still active after a preview preset.
+    await _applyEffectValues(0, 0, 0, 0);
+
+    // L/R master knobs → 100 % (normalized 1.0), same as knob_widget top scale.
+    await _setChannelVolumesToFull();
 
     if (!mounted) return;
 
-    // ── Instantly update state so sliders animate to 0 ────────────────────
+    final bandGains = <String, double>{
+      for (var i = 0; i < bandCount; i++) '$i': 0.0,
+    };
     bloc.add(
-      EqualizerEvent.persistEqualizerState(
-        isEnabled: bloc.state.isEqualizerEnabled, // Keep current on/off state
-        bandGains: {for (var i = 0; i < params.bands.length; i++) '$i': 0.0},
+      EqualizerEvent.commitSelection(
+        isEnabled: eqState.isEqualizerEnabled,
+        bandGains: bandGains,
         presetId: 'flat',
         presetName: 'Flat',
-      ),
-    );
-    bloc.add(
-      const EqualizerEvent.persistAudioEffectsState(
-        reverbEnabled: false,
-        reverbPreset: EqualizerReverbPresets.none,
-        echoEnabled: false,
         echoStrength: 0,
-        virtualizerEnabled: false,
         virtualizerStrength: 0,
-        loudnessEnabled: false,
         loudnessGainMb: 0,
-        bassBoostEnabled: false,
         bassBoostStrength: 0,
       ),
     );
     setState(() {
       _selectedPresetId = 'flat';
       _selectedPresetName = 'Flat';
-      _currentPresetModified = false;
+      _targetBandGains = List<double>.from(zeroGains);
+      _volumeLeft = 1.0;
+      _volumeRight = 1.0;
+      _clearPendingUiAfterCommit();
     });
     AppCustom.showSettingsSavedToast(context);
   }
@@ -542,121 +843,19 @@ class _EqualizerScreenState extends State<EqualizerScreen>
     String presetName,
     List<double> gains,
   ) async {
+    // Update chip selection immediately so UI reflects tap before async work.
+    if (mounted) {
+      setState(() {
+        _selectedPresetId = presetId;
+        _selectedPresetName = presetName;
+        _currentPresetModified = false;
+      });
+    }
     final params = await eq.parameters;
     final bandCount = params.bands.length;
-    final adjustedGains = _presetForBandCount(gains, bandCount);
-    final bloc = context.read<EqualizerBloc>();
+    final adjustedGains = EqualizerBandPresets.forBandCount(gains, bandCount);
 
     // ── Apply band gains to hardware immediately ──────────────────────────
-    final newBandGains = <String, double>{};
-    for (var i = 0; i < bandCount; i++) {
-        final gain = adjustedGains[i].clamp(
-            params.minDecibels,
-            params.maxDecibels,
-        );
-        await params.bands[i].setGain(gain);
-        newBandGains['$i'] = gain;
-    }
-    // Always enable EQ hardware when applying a preset so audio is affected.
-    await eq.setEnabled(true);
-
-    final isBuiltIn = !presetId.startsWith('custom_');
-
-    // ── Apply effect values to hardware instantly (if built-in) ───────────
-    if (isBuiltIn) {
-        final fx = EqualizerPresetEffects.get(presetId);
-        await _applyEffectValues(
-            fx.echo,
-            fx.virtualizer,
-            fx.loudness,
-            fx.bassBoost,
-        );
-        if (mounted) {
-            bloc.add(
-                EqualizerEvent.persistAudioEffectsState(
-                    reverbEnabled: false,
-                    reverbPreset: EqualizerReverbPresets.none,
-                    echoEnabled: fx.echo > 0,
-                    echoStrength: fx.echo,
-                    virtualizerEnabled: fx.virtualizer > 0,
-                    virtualizerStrength: fx.virtualizer,
-                    loudnessEnabled: fx.loudness > 0,
-                    loudnessGainMb: fx.loudness,
-                    bassBoostEnabled: fx.bassBoost > 0,
-                    bassBoostStrength: fx.bassBoost,
-                ),
-            );
-        }
-    }
-
-    if (mounted) {
-        // ── Apply band gains to state instantly so UI sliders animate ───────────
-        bloc.add(
-            EqualizerEvent.persistEqualizerState(
-                isEnabled: true, // Preset inherently enables the EQ
-                bandGains: newBandGains,
-                presetId: presetId,
-                presetName: presetName,
-            ),
-        );
-
-        setState(() {
-            _selectedPresetId = presetId;
-            _selectedPresetName = presetName;
-            _currentPresetModified = false;
-        });
-    }
-  }
-
-  Future<void> _onReverbSelected(int presetId) async {
-    await _effectsService.setReverbPreset(presetId);
-    await _effectsService.setReverbEnabled(
-      presetId != EqualizerReverbPresets.none,
-    );
-    if (mounted) {
-      context.read<EqualizerBloc>().add(
-        EqualizerEvent.persistAudioEffectsState(
-          reverbEnabled: presetId != EqualizerReverbPresets.none,
-          reverbPreset: presetId,
-          echoEnabled: false,
-        ),
-      );
-    }
-  }
-
-  // ─── Actions ─────────────────────────────────────────────────────────────────
-
-  // ─── Actions ─────────────────────────────────────────────────────────────────
-
-  Future<void> _onConfirmSelection(
-    AndroidEqualizer eq,
-    EqualizerState appState,
-  ) async {
-    final params = await eq.parameters;
-    final bandGains = <String, double>{};
-    for (var i = 0; i < params.bands.length; i++) {
-      bandGains['$i'] = params.bands[i].gain;
-    }
-    if (!mounted) return;
-    // Confirming a preset always enables the EQ — user is locking in an active sound.
-    await eq.setEnabled(true);
-    context.read<EqualizerBloc>().add(
-      EqualizerEvent.persistEqualizerState(
-        isEnabled: true,
-        bandGains: bandGains,
-        presetId: _selectedPresetId,
-        presetName: _selectedPresetName,
-      ),
-    );
-    setState(() {});
-    AppCustom.showSettingsSavedToast(context);
-  }
-
-  Future<void> _onUndo(AndroidEqualizer eq, EqualizerState appState) async {
-    final gains = _getPresetGains(_selectedPresetId, appState);
-    final params = await eq.parameters;
-    final bandCount = params.bands.length;
-    final adjustedGains = _presetForBandCount(gains, bandCount);
     for (var i = 0; i < bandCount; i++) {
       final gain = adjustedGains[i].clamp(
         params.minDecibels,
@@ -664,91 +863,262 @@ class _EqualizerScreenState extends State<EqualizerScreen>
       );
       await params.bands[i].setGain(gain);
     }
+    // So band sliders animate to preset values even if gainStream doesn't emit.
+    if (mounted) {
+      setState(() => _targetBandGains = List<double>.from(adjustedGains));
+    }
+    // Always enable EQ hardware when applying a preset so audio is affected.
+    await eq.setEnabled(true);
+
+    // ── Apply preset effects to hardware for preview only ─────────────────
+    // For built-in presets only. Do NOT persist to Bloc here.
+    // Everything is saved permanently when user taps "Save".
+    if (!presetId.startsWith('custom_')) {
+      final fx = EqualizerPresetEffects.get(presetId);
+      await _applyEffectValues(
+        fx.echo,
+        fx.virtualizer,
+        fx.loudness,
+        fx.bassBoost,
+      );
+      // Mirror effect values into local preview state so the effect sliders
+      // immediately show the preset's values even before Bloc is updated.
+      if (mounted) {
+        setState(() {
+          _previewEcho = fx.echo;
+          _previewVirtualizer = fx.virtualizer;
+          _previewLoudness = fx.loudness;
+          _previewBassBoost = fx.bassBoost;
+        });
+      }
+    } else {
+      // Custom preset: no default effects — clear preview so sliders fall back
+      // to the last persisted Bloc values.
+      if (mounted) {
+        setState(() {
+          _previewEcho = null;
+          _previewVirtualizer = null;
+          _previewLoudness = null;
+          _previewBassBoost = null;
+        });
+      }
+    }
+  }
+
+  // ─── Actions ─────────────────────────────────────────────────────────────────
+
+  bool _isNavigating = false;
+
+  Future<void> _navigateBack() async {
+    if (_isNavigating) return;
+    _isNavigating = true;
+
+    final eqState = context.read<EqualizerBloc>().state;
+    final shouldRevert = _hasPendingSave(eqState) || _currentPresetModified;
+
+    if (Platform.isAndroid) {
+      if (_viewportStage != _EqualizerViewportStage.portraitShell) {
+        setState(() => _viewportStage = _EqualizerViewportStage.portraitShell);
+        await Future<void>.delayed(_stageTransitionDuration);
+      }
+    }
+
     if (!mounted) return;
-    setState(() => _currentPresetModified = false);
-    if (!_hasPendingSave(appState)) {
-      final bandGains = <String, double>{};
-      for (var i = 0; i < bandCount; i++) {
-        bandGains['$i'] = adjustedGains[i].clamp(
+
+    if (shouldRevert) {
+      await _revertHardware();
+    }
+
+    if (!mounted) return;
+
+    if (Platform.isAndroid) {
+      await _setPortraitOrientation();
+      await Future<void>.delayed(_orientationSettleDuration);
+    }
+
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  /// Reverts hardware (band gains + effects) back to what is stored
+  /// in Bloc — called when the user leaves without pressing "Save".
+  Future<void> _revertHardware() async {
+    final eq = _audioService.equalizer;
+    if (eq == null) return;
+    final saved = context.read<EqualizerBloc>().state;
+    try {
+      // Revert band gains to saved values.
+      final params = await eq.parameters.timeout(
+        const Duration(seconds: 3),
+        onTimeout: () => throw TimeoutException('params timeout'),
+      );
+      final savedBandGainsMap = saved.equalizerBandGains;
+      final targetGains =
+          savedBandGainsMap != null && savedBandGainsMap.isNotEmpty
+          ? List<double>.generate(
+              params.bands.length,
+              (i) => savedBandGainsMap['$i'] ?? 0.0,
+            )
+          : EqualizerBandPresets.forBandCount(
+              _getPresetGains(saved.equalizerSavedPresetId ?? 'flat', saved),
+              params.bands.length,
+            );
+      for (var i = 0; i < params.bands.length; i++) {
+        final gain = targetGains[i].clamp(
           params.minDecibels,
           params.maxDecibels,
         );
+        await params.bands[i].setGain(gain);
       }
-      context.read<EqualizerBloc>().add(
-        EqualizerEvent.persistEqualizerState(
-          isEnabled: appState.isEqualizerEnabled,
-          bandGains: bandGains,
-          presetId: _selectedPresetId,
-          presetName: _selectedPresetName,
-        ),
+      // Revert preset effects to saved values.
+      await _applyEffectValues(
+        saved.echoStrength,
+        saved.virtualizerStrength,
+        saved.loudnessGainMb,
+        saved.bassBoostStrength,
       );
+      final volumeResult = await _effectsService.setChannelVolumes(
+        left: _committedVolumeLeft,
+        right: _committedVolumeRight,
+      );
+      if (volumeResult != null) {
+        unawaited(_audioService.setVolume(volumeResult.globalVolume));
+      }
+      if (mounted) {
+        setState(() {
+          _volumeLeft = _committedVolumeLeft;
+          _volumeRight = _committedVolumeRight;
+        });
+      }
+    } catch (_) {
+      // Ignore errors during revert — we're leaving the screen anyway.
     }
+  }
+
+  Future<void> _onConfirmSelection(
+    AndroidEqualizer eq,
+    EqualizerState appState,
+  ) async {
+    // Always read hardware as ground truth (hardware was kept in sync during preview).
+    final params = await eq.parameters;
+    final bandGains = <String, double>{};
+    for (var i = 0; i < params.bands.length; i++) {
+      bandGains['$i'] = params.bands[i].gain;
+    }
+    if (!mounted) return;
+    await eq.setEnabled(true);
+    _commitSelectionToBloc(appState: appState, bandGains: bandGains);
+
+    if (mounted) {
+      setState(_clearPendingUiAfterCommit);
+      AppCustom.showSettingsSavedToast(context);
+    }
+  }
+
+  /// Undo always reverts ALL unsaved changes and returns to the last saved preset.
+  Future<void> _onUndo(AndroidEqualizer eq, EqualizerState appState) async {
+    final savedId = appState.equalizerSavedPresetId ?? 'flat';
+    final savedName = appState.equalizerSavedPresetName ?? 'Flat';
+
+    // Apply saved (persisted) band gains to hardware.
+    final params = await eq.parameters;
+    final bandCount = params.bands.length;
+    final savedBandGainsMap = appState.equalizerBandGains;
+    final adjustedGains =
+        savedBandGainsMap != null && savedBandGainsMap.isNotEmpty
+        ? List<double>.generate(
+            bandCount,
+            (i) => savedBandGainsMap['$i'] ?? 0.0,
+          )
+        : EqualizerBandPresets.forBandCount(_getPresetGains(savedId, appState), bandCount);
+    for (var i = 0; i < bandCount; i++) {
+      final gain = adjustedGains[i].clamp(
+        params.minDecibels,
+        params.maxDecibels,
+      );
+      await params.bands[i].setGain(gain);
+    }
+
+    // Revert effects (echo/virtualizer/loudness/bassBoost) to saved state.
+    await _applyEffectValues(
+      appState.echoStrength,
+      appState.virtualizerStrength,
+      appState.loudnessGainMb,
+      appState.bassBoostStrength,
+    );
+    final volumeResult = await _effectsService.setChannelVolumes(
+      left: _committedVolumeLeft,
+      right: _committedVolumeRight,
+    );
+    if (volumeResult != null) {
+      unawaited(_audioService.setVolume(volumeResult.globalVolume));
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _selectedPresetId = savedId;
+      _selectedPresetName = savedName;
+      _volumeLeft = _committedVolumeLeft;
+      _volumeRight = _committedVolumeRight;
+      _clearPendingUiAfterCommit();
+      // Clear previews — hardware was reverted to saved Bloc values.
+      // Target gains ensure the UI sliders animate smoothly back to saved positions
+      _targetBandGains = List<double>.from(adjustedGains);
+    });
   }
 
   Future<void> _onUpdate(
     AndroidEqualizer eq,
     EqualizerState appState,
-    bool isCustom,
+    bool isSelectedCustom,
   ) async {
-    if (!isCustom) {
-      await _showSaveAsNewPresetDialog(eq, appState);
-      return;
-    }
+    final bloc = context.read<EqualizerBloc>();
     final params = await eq.parameters;
-    final gains = <double>[];
-    for (var i = 0; i < params.bands.length; i++) {
-      gains.add(params.bands[i].gain);
-    }
+    final gains = <double>[for (var b in params.bands) b.gain];
     final bandGains = <String, double>{
-      for (var i = 0; i < params.bands.length; i++) '$i': gains[i],
+      for (var i = 0; i < gains.length; i++) '$i': gains[i],
     };
-    // Updating a preset always enables EQ — user is saving an active preset.
-    await eq.setEnabled(true);
-    context.read<EqualizerBloc>().add(
-      EqualizerEvent.persistEqualizerState(
-        isEnabled: true,
-        bandGains: bandGains,
-        presetId: _selectedPresetId,
-        presetName: _selectedPresetName,
-      ),
-    );
-    context.read<EqualizerBloc>().add(
-      EqualizerEvent.updateEqualizerPresetGains(
-        id: _selectedPresetId,
-        name: _selectedPresetName,
-        gains: gains,
-      ),
-    );
-    if (mounted) {
-      setState(() => _currentPresetModified = false);
-      AppCustom.showSettingsSavedToast(context);
-    }
-  }
 
-  /// When a built-in preset is selected and user has modified values, save
-  /// current values as a new custom preset (built-in presets are never modified).
-  Future<void> _showSaveAsNewPresetDialog(
-    AndroidEqualizer eq,
-    EqualizerState appState,
-  ) async {
-    final saved = await _showPresetNameDialog(
-      context: context,
-      title: 'Save as new preset',
-      initialName: '',
-      getGains: () async {
-        final params = await eq.parameters;
-        return [for (var b in params.bands) b.gain];
-      },
-      applyToHardware: false,
-      eq: eq,
-      appState: appState,
-    );
-    if (saved != null && mounted) {
+    if (!isSelectedCustom) {
+      // Built-in preset modified → prompt for a new name, save as custom.
+      final saved = await _showPresetNameDialog(
+        context: context,
+        title: 'Save as new preset',
+        initialName: '',
+        getGains: () async => gains,
+        applyToHardware: false,
+        persistSelection: false,
+        eq: eq,
+      );
+      if (saved == null) return;
+      await eq.setEnabled(true);
+      _commitSelectionToBloc(
+        appState: appState,
+        bandGains: bandGains,
+        presetId: saved.id,
+        presetName: saved.name,
+      );
+      if (!mounted) return;
       setState(() {
         _selectedPresetId = saved.id;
         _selectedPresetName = saved.name;
-        _currentPresetModified = false;
+        _clearPendingUiAfterCommit();
       });
+      AppCustom.showSettingsSavedToast(context);
+      return;
+    }
+
+    // Custom preset modified → update gains in-place.
+    await eq.setEnabled(true);
+    bloc.add(EqualizerEvent.updateEqualizerPresetGains(
+      id: _selectedPresetId,
+      name: _selectedPresetName,
+      gains: gains,
+    ));
+    _commitSelectionToBloc(appState: appState, bandGains: bandGains);
+    if (mounted) {
+      setState(_clearPendingUiAfterCommit);
       AppCustom.showSettingsSavedToast(context);
     }
   }
@@ -756,8 +1126,7 @@ class _EqualizerScreenState extends State<EqualizerScreen>
   // ─── Dialogs ─────────────────────────────────────────────────────────────────
 
   Future<void> _showAddPresetDialog(
-    AndroidEqualizer eq,
-    EqualizerState appState, {
+    AndroidEqualizer eq, {
     String? initialName,
   }) async {
     final saved = await _showPresetNameDialog(
@@ -766,19 +1135,22 @@ class _EqualizerScreenState extends State<EqualizerScreen>
       initialName: initialName ?? '',
       getGains: () async {
         final params = await eq.parameters;
-        return _presetForBandCount(
+        return EqualizerBandPresets.forBandCount(
           List<double>.from(EqualizerBandPresets.flat),
           params.bands.length,
         );
       },
       applyToHardware: true,
       eq: eq,
-      appState: appState,
     );
     if (saved != null && mounted) {
+      // Clear modified flag so the action bar doesn't linger after
+      // a successful add — the new preset is already persisted by
+      // _submitPresetName (persistSelection: true).
       setState(() {
         _selectedPresetId = saved.id;
         _selectedPresetName = saved.name;
+        _currentPresetModified = false;
       });
     }
   }
@@ -790,8 +1162,8 @@ class _EqualizerScreenState extends State<EqualizerScreen>
     required String initialName,
     required Future<List<double>> Function() getGains,
     required bool applyToHardware,
+    bool persistSelection = true,
     required AndroidEqualizer eq,
-    required EqualizerState appState,
   }) async {
     final controller = TextEditingController(text: initialName);
     final formKey = GlobalKey<FormState>();
@@ -810,8 +1182,8 @@ class _EqualizerScreenState extends State<EqualizerScreen>
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10.r),
                 ),
-                titlePadding: EdgeInsets.fromLTRB(16.w, 10.h, 16.w, 4.h),
-                contentPadding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
+                titlePadding: EdgeInsets.fromLTRB(16.r, 10.r, 16.r, 4.r),
+                contentPadding: EdgeInsets.fromLTRB(16.r, 0, 16.r, 8.r),
                 title: Text(
                   title,
                   style: TextStyle(
@@ -839,8 +1211,8 @@ class _EqualizerScreenState extends State<EqualizerScreen>
                         fontFamily: 'Poppins',
                       ),
                       contentPadding: EdgeInsets.symmetric(
-                        horizontal: 10.w,
-                        vertical: 6.h,
+                        horizontal: 10.r,
+                        vertical: 6.r,
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8.r),
@@ -858,8 +1230,8 @@ class _EqualizerScreenState extends State<EqualizerScreen>
                       controller,
                       getGains,
                       applyToHardware,
+                      persistSelection,
                       eq,
-                      appState,
                     ),
                   ),
                 ),
@@ -882,8 +1254,8 @@ class _EqualizerScreenState extends State<EqualizerScreen>
                       controller,
                       getGains,
                       applyToHardware,
+                      persistSelection,
                       eq,
-                      appState,
                     ),
                     child: Text(
                       'Save',
@@ -910,21 +1282,19 @@ class _EqualizerScreenState extends State<EqualizerScreen>
     TextEditingController controller,
     Future<List<double>> Function() getGains,
     bool applyToHardware,
+    bool persistSelection,
     AndroidEqualizer eq,
-    EqualizerState appState,
   ) async {
     if (formKey.currentState?.validate() != true) return;
     final name = controller.text.trim();
+    final bloc = ctx.read<EqualizerBloc>();
     final gains = await getGains();
     final params = await eq.parameters;
     final bandCount = params.bands.length;
     if (gains.length != bandCount) return;
     if (applyToHardware) {
       for (var i = 0; i < bandCount; i++) {
-        final gain = gains[i].clamp(
-          params.minDecibels,
-          params.maxDecibels,
-        );
+        final gain = gains[i].clamp(params.minDecibels, params.maxDecibels);
         await params.bands[i].setGain(gain);
       }
     }
@@ -932,179 +1302,142 @@ class _EqualizerScreenState extends State<EqualizerScreen>
       for (var i = 0; i < bandCount; i++) '$i': gains[i],
     };
     final id = 'custom_${DateTime.now().millisecondsSinceEpoch}';
-    final bloc = ctx.read<EqualizerBloc>();
     bloc.add(
-      EqualizerEvent.createEqualizerPreset(
-        id: id,
-        name: name,
-        gains: gains,
-      ),
+      EqualizerEvent.createEqualizerPreset(id: id, name: name, gains: gains),
     );
-    bloc.add(
-      EqualizerEvent.persistEqualizerState(
-        isEnabled: bloc.state.isEqualizerEnabled,
-        bandGains: bandGains,
-        presetId: id,
-        presetName: name,
-      ),
-    );
+    if (persistSelection) {
+      bloc.add(
+        EqualizerEvent.persistEqualizerState(
+          isEnabled: bloc.state.isEqualizerEnabled,
+          bandGains: bandGains,
+          presetId: id,
+          presetName: name,
+        ),
+      );
+    }
     if (ctx.mounted) {
       Navigator.pop(ctx, (id: id, name: name));
     }
   }
 
-  Future<void> _showDeleteConfirmDialog(
+  Future<void> _deleteCustomPreset(
     AndroidEqualizer eq,
     EqualizerState appState,
     String presetId,
     String presetName,
     List<double> gains,
   ) async {
-    final confirm = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        margin: EdgeInsets.fromLTRB(
-          12.w,
-          0,
-          12.w,
-          12.h + MediaQuery.of(ctx).padding.bottom,
-        ),
-        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
-        decoration: BoxDecoration(
-          color: context.surfaceColor,
-          borderRadius: BorderRadius.circular(10.r),
-          border: Border.all(
-            color: context.primaryStart.withValues(alpha: 0.3),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 8.r,
-              offset: Offset(0, 2.h),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Delete Preset',
-              style: TextStyle(
-                color: context.onSurfaceColor,
-                fontSize: 11.sp,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'Poppins',
-              ),
-            ),
-            SizedBox(height: 4.h),
-            Text(
-              "Are you sure you want to delete '$presetName'?",
-              style: TextStyle(
-                color: context.onSurfaceVariantColor,
-                fontSize: 9.sp,
-                fontFamily: 'Poppins',
-              ),
-            ),
-            SizedBox(height: 8.h),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 8.w,
-                      vertical: 4.h,
-                    ),
-                    minimumSize: Size(0, 0),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Text(
-                    'Cancel',
-                    style: TextStyle(
-                      color: context.onSurfaceVariantColor,
-                      fontSize: 9.sp,
-                      fontFamily: 'Poppins',
-                    ),
-                  ),
-                ),
-                SizedBox(width: 4.w),
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 8.w,
-                      vertical: 4.h,
-                    ),
-                    minimumSize: Size(0, 0),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Text(
-                    'OK',
-                    style: TextStyle(
-                      color: context.primaryStart,
-                      fontSize: 9.sp,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: 'Poppins',
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-    if (confirm == true && mounted) {
-      final wasSelected = _selectedPresetId == presetId;
-      context.read<EqualizerBloc>().add(
-        EqualizerEvent.deleteEqualizerPreset(id: presetId),
+    if (!mounted) return;
+    final wasSelected = _selectedPresetId == presetId;
+
+    setState(() {
+      _presetRemoving = (
+        id: presetId,
+        name: presetName,
+        gains: List<double>.from(gains),
       );
       if (wasSelected) {
-        final params = await eq.parameters;
-        final bandCount = params.bands.length;
-        final flatGains = _presetForBandCount(EqualizerBandPresets.flat, bandCount);
-        final bandGains = <String, double>{};
-        for (var i = 0; i < bandCount; i++) {
-          final gain = flatGains[i].clamp(
-            params.minDecibels,
-            params.maxDecibels,
-          );
-          await params.bands[i].setGain(gain);
-          bandGains['$i'] = gain;
-        }
-        if (mounted) {
-          context.read<EqualizerBloc>().add(
-            EqualizerEvent.persistEqualizerState(
-              isEnabled: appState.isEqualizerEnabled,
-              bandGains: bandGains,
-              presetId: 'flat',
-              presetName: 'Flat',
-            ),
-          );
-        }
+        _selectedPresetId = 'flat';
+        _selectedPresetName = 'Flat';
       }
+    });
+
+    context.read<EqualizerBloc>().add(
+      EqualizerEvent.deleteEqualizerPreset(id: presetId),
+    );
+
+    if (wasSelected) {
+      final params = await eq.parameters;
+      final bandCount = params.bands.length;
+      final flatGains = EqualizerBandPresets.forBandCount(EqualizerBandPresets.flat, bandCount);
+      final bandGains = <String, double>{};
+      for (var i = 0; i < bandCount; i++) {
+        final gain = flatGains[i].clamp(params.minDecibels, params.maxDecibels);
+        await params.bands[i].setGain(gain);
+        bandGains['$i'] = gain;
+      }
+
+      // Reset hardware effects to 0 so they match the fallback Flat preset.
+      // Without this, audio keeps the old effect values while the UI shows 0.
+      await _applyEffectValues(0, 0, 0, 0);
+
       if (mounted) {
+        // Use commitSelection (not persistEqualizerState) so that effect
+        // fields in the bloc are also updated to 0 atomically.
+        context.read<EqualizerBloc>().add(
+          EqualizerEvent.commitSelection(
+            isEnabled: appState.isEqualizerEnabled,
+            bandGains: bandGains,
+            presetId: 'flat',
+            presetName: 'Flat',
+            echoStrength: 0,
+            virtualizerStrength: 0,
+            loudnessGainMb: 0,
+            bassBoostStrength: 0,
+          ),
+        );
         setState(() {
-          if (wasSelected) {
-            _selectedPresetId = 'flat';
-            _selectedPresetName = 'Flat';
-          }
-          _presetRemoving = (
-            id: presetId,
-            name: presetName,
-            gains: List<double>.from(gains),
-          );
-        });
-        AppCustom.showSettingsSavedToast(context);
-        Future.delayed(const Duration(milliseconds: 300), () {
-          if (mounted) setState(() => _presetRemoving = null);
+          _targetBandGains = List<double>.from(flatGains);
+          _previewEcho = 0;
+          _previewVirtualizer = 0;
+          _previewLoudness = 0;
+          _previewBassBoost = 0;
+          _currentPresetModified = false;
         });
       }
     }
+
+    AppCustom.showSettingsSavedToast(context);
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) setState(() => _presetRemoving = null);
+    });
+  }
+}
+
+enum _EqualizerViewportStage { portraitShell, landscapeContent }
+
+class _EqualizerStagePage extends Page<void> {
+  final Widget child;
+
+  const _EqualizerStagePage({required this.child, required super.key});
+
+  @override
+  Route<void> createRoute(BuildContext context) {
+    // The Navigator reuses this route for the same ValueKey across parent
+    // setState calls, so the `pageBuilder` closure must NOT capture `child`
+    // directly (it would become stale).  Instead we capture a `late` reference
+    // to the route itself and read `route.settings.child` at call time.
+    //
+    // Flutter's Route._updateSettings already calls changedInternalState()
+    // whenever the page object changes, which causes _ModalScope to rebuild
+    // and invoke pageBuilder again — at which point route.settings has already
+    // been updated to the latest _EqualizerStagePage with the fresh child.
+    late final PageRouteBuilder<void> route;
+    return route = PageRouteBuilder<void>(
+      settings: this,
+      transitionDuration: _EqualizerScreenState._stageTransitionDuration,
+      reverseTransitionDuration: const Duration(milliseconds: 260),
+      pageBuilder:
+          (context, animation, secondaryAnimation) =>
+              (route.settings as _EqualizerStagePage).child,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        final fade = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+        );
+        final slide = Tween<Offset>(
+          begin: const Offset(0, 0.015),
+          end: Offset.zero,
+        ).animate(fade);
+        final scale = Tween<double>(begin: 0.985, end: 1.0).animate(fade);
+        return FadeTransition(
+          opacity: fade,
+          child: SlideTransition(
+            position: slide,
+            child: ScaleTransition(scale: scale, child: child),
+          ),
+        );
+      },
+    );
   }
 }

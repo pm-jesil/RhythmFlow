@@ -29,11 +29,14 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
     on<_TrackShuffleUsage>(_onTrackShuffleUsage);
     on<_UpdateDailyQuote>(_onUpdateDailyQuote);
     on<_UpdateNotificationPermissionRejectedCount>(
-        _onUpdateNotificationPermissionRejectedCount);
+      _onUpdateNotificationPermissionRejectedCount,
+    );
+    on<_SyncAppIntroVisibilityWithBuild>(_onSyncAppIntroVisibilityWithBuild);
+    on<_DismissAppIntro>(_onDismissAppIntro);
 
     // Initialize theme sync
     _initializeThemeSync();
-    
+
     // Initialize quote if needed (when quoteUpdateDateTime is null)
     if (state.quoteUpdateDateTime == null) {
       add(const AppSettingsEvent.updateDailyQuote());
@@ -197,6 +200,9 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
       quoteUpdateDateTime: state.quoteUpdateDateTime,
       currentQuoteIndex: state.currentQuoteIndex,
       notificationPermissionRejectedCount: 0,
+      showAppIntroOnForYou: false,
+      lastSeenIntroBuildNumber: state.lastSeenIntroBuildNumber,
+      hasSeenAppIntroOnce: state.hasSeenAppIntroOnce,
     );
 
     emit(resetState);
@@ -305,28 +311,27 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
     Emitter<AppSettingsState> emit,
   ) {
     emit(state.copyWith(isAiShuffleEnabled: event.isEnabled));
-    
+
     // Track shuffle usage when enabling
     if (event.isEnabled) {
       add(AppSettingsEvent.trackShuffleUsage(shuffleType: 'ai_shuffle'));
     }
   }
 
-
   void _onTrackShuffleUsage(
     _TrackShuffleUsage event,
     Emitter<AppSettingsState> emit,
   ) {
     final currentHistory = List<String>.from(state.shuffleHistory);
-    
+
     // Add new shuffle type to the beginning of the list
     currentHistory.insert(0, event.shuffleType);
-    
+
     // Keep only the last 3 items
     if (currentHistory.length > 3) {
       currentHistory.removeRange(3, currentHistory.length);
     }
-    
+
     emit(state.copyWith(shuffleHistory: currentHistory));
   }
 
@@ -336,7 +341,7 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
   ) {
     final now = DateTime.now();
     final quoteUpdateDateTime = state.quoteUpdateDateTime;
-    
+
     // Check if quote needs to be updated (more than a day has passed) or force update
     bool shouldUpdate = event.forceUpdate;
     if (!shouldUpdate) {
@@ -349,25 +354,29 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
         shouldUpdate = difference.inDays >= 1;
       }
     }
-    
+
     if (shouldUpdate) {
       int newQuoteIndex;
-      
+
       if (event.forceUpdate) {
         // When forced (tap), move to next quote in sequence
-        newQuoteIndex = (state.currentQuoteIndex + 1) % AppConstants.musicQuotes.length;
+        newQuoteIndex =
+            (state.currentQuoteIndex + 1) % AppConstants.musicQuotes.length;
       } else {
         // Calculate new quote index based on current date and user name for consistency
         final userName = state.userName ?? 'User';
         final dateBasedSeed = now.year * 10000 + now.month * 100 + now.day;
         final userBasedSeed = userName.hashCode.abs();
-        newQuoteIndex = (dateBasedSeed + userBasedSeed) % AppConstants.musicQuotes.length;
+        newQuoteIndex =
+            (dateBasedSeed + userBasedSeed) % AppConstants.musicQuotes.length;
       }
-      
-      emit(state.copyWith(
-        quoteUpdateDateTime: now,
-        currentQuoteIndex: newQuoteIndex,
-      ));
+
+      emit(
+        state.copyWith(
+          quoteUpdateDateTime: now,
+          currentQuoteIndex: newQuoteIndex,
+        ),
+      );
     }
   }
 
@@ -375,9 +384,44 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
     _UpdateNotificationPermissionRejectedCount event,
     Emitter<AppSettingsState> emit,
   ) {
-    emit(state.copyWith(
-      notificationPermissionRejectedCount: event.value.clamp(0, 2),
-    ));
+    emit(
+      state.copyWith(
+        notificationPermissionRejectedCount: event.value.clamp(0, 2),
+      ),
+    );
+  }
+
+  void _onSyncAppIntroVisibilityWithBuild(
+    _SyncAppIntroVisibilityWithBuild event,
+    Emitter<AppSettingsState> emit,
+  ) {
+    // Show intro only once for this app install/profile.
+    final shouldShowIntro = !state.hasSeenAppIntroOnce;
+    if (state.showAppIntroOnForYou == shouldShowIntro) {
+      return;
+    }
+
+    emit(
+      state.copyWith(
+        showAppIntroOnForYou: shouldShowIntro,
+        lastSeenIntroBuildNumber: shouldShowIntro
+            ? state.lastSeenIntroBuildNumber
+            : event.currentBuildNumber,
+      ),
+    );
+  }
+
+  void _onDismissAppIntro(
+    _DismissAppIntro event,
+    Emitter<AppSettingsState> emit,
+  ) {
+    emit(
+      state.copyWith(
+        showAppIntroOnForYou: false,
+        hasSeenAppIntroOnce: true,
+        lastSeenIntroBuildNumber: event.currentBuildNumber,
+      ),
+    );
   }
 
   @override
@@ -404,6 +448,10 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
         'currentQuoteIndex': state.currentQuoteIndex,
         'notificationPermissionRejectedCount':
             state.notificationPermissionRejectedCount,
+        'isAiShuffleEnabled': state.isAiShuffleEnabled,
+        'showAppIntroOnForYou': state.showAppIntroOnForYou,
+        'lastSeenIntroBuildNumber': state.lastSeenIntroBuildNumber,
+        'hasSeenAppIntroOnce': state.hasSeenAppIntroOnce,
       };
     } catch (_) {
       return null; // skip persisting on serialization errors
@@ -472,11 +520,12 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
         currentQuoteIndex: json['currentQuoteIndex'] ?? 0,
         notificationPermissionRejectedCount:
             json['notificationPermissionRejectedCount'] ?? 0,
+        showAppIntroOnForYou: json['showAppIntroOnForYou'] ?? false,
+        lastSeenIntroBuildNumber: json['lastSeenIntroBuildNumber'] as String?,
+        hasSeenAppIntroOnce: json['hasSeenAppIntroOnce'] ?? false,
       );
     } catch (e) {
       return null;
     }
   }
-
-
 }

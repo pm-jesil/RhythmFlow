@@ -9,8 +9,6 @@ abstract class EqualizerState with _$EqualizerState {
     @Default(null) String? equalizerSavedPresetId,
     @Default(null) String? equalizerSavedPresetName,
     // Audio effects (Android)
-    @Default(false) bool reverbEnabled,
-    @Default(0) int reverbPreset,
     @Default(false) bool echoEnabled,
     @Default(0) int echoStrength,
     @Default(false) bool virtualizerEnabled,
@@ -27,8 +25,6 @@ abstract class EqualizerState with _$EqualizerState {
         equalizerCustomPresets: null,
         equalizerSavedPresetId: 'flat',
         equalizerSavedPresetName: 'Flat',
-        reverbEnabled: false,
-        reverbPreset: 0,
         echoEnabled: false,
         echoStrength: 0,
         virtualizerEnabled: false,

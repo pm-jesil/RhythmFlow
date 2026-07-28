@@ -69,4 +69,12 @@ class AppSettingsEvent with _$AppSettingsEvent {
   const factory AppSettingsEvent.updateNotificationPermissionRejectedCount({
     required int value,
   }) = _UpdateNotificationPermissionRejectedCount;
+
+  const factory AppSettingsEvent.syncAppIntroVisibilityWithBuild({
+    required String currentBuildNumber,
+  }) = _SyncAppIntroVisibilityWithBuild;
+
+  const factory AppSettingsEvent.dismissAppIntro({
+    required String currentBuildNumber,
+  }) = _DismissAppIntro;
 }

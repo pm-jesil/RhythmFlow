@@ -6,7 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:rhythmflow/core/router/app_router.dart';
 import '../../core/theme/theme_extension.dart';
 import '../bottom_tab/bloc/music_bloc.dart';
-import '../app_settings/bloc/app_settings_bloc.dart';
+// import '../app_settings/bloc/app_settings_bloc.dart';
 
 class CustomMusicFloatingButton extends StatefulWidget {
   const CustomMusicFloatingButton({super.key});
@@ -121,43 +121,43 @@ class _CustomMusicFloatingButtonState extends State<CustomMusicFloatingButton>
     }
   }
 
-  void _onShuffleAction({
-    required String currentSongId,
-    required List<String> currentPlayList,
-  }) {
-    // Check if widget is still mounted before proceeding
-    if (!mounted) return;
+  // void _onShuffleAction({
+  //   required String currentSongId,
+  //   required List<String> currentPlayList,
+  // }) {
+  //   // Check if widget is still mounted before proceeding
+  //   if (!mounted) return;
 
-    // Trigger tap zoom animation
-    _tapController.forward().then((_) {
-      if (mounted) {
-        _tapController.reverse();
-      }
-    });
+  //   // Trigger tap zoom animation
+  //   _tapController.forward().then((_) {
+  //     if (mounted) {
+  //       _tapController.reverse();
+  //     }
+  //   });
 
-    // Enforce AI shuffle only: enable AI, pick a random song, and play it with AI shuffle
-    final appSettingsBloc = context.read<AppSettingsBloc>();
-    final musicBloc = context.read<MusicBloc>();
-    final allSongs = musicBloc.state.allSongs;
-    if (allSongs.isEmpty) return;
+  //   // Enforce AI shuffle only: enable AI, pick a random song, and play it with AI shuffle
+  //   final appSettingsBloc = context.read<AppSettingsBloc>();
+  //   final musicBloc = context.read<MusicBloc>();
+  //   final allSongs = musicBloc.state.allSongs;
+  //   if (allSongs.isEmpty) return;
 
-    // Pick a random song from the full library
-    final randomSong = allSongs[(allSongs.length * (math.Random().nextDouble())).floor()];
-    final allSongIds = allSongs.map((s) => s.id).toList();
+  //   // Pick a random song from the full library
+  //   final randomSong = allSongs[(allSongs.length * (math.Random().nextDouble())).floor()];
+  //   final allSongIds = allSongs.map((s) => s.id).toList();
 
-    // Ensure AI shuffle is enabled
-    if (!appSettingsBloc.state.isAiShuffleEnabled) {
-      appSettingsBloc.add(AppSettingsEvent.updateAiShuffle(isEnabled: true));
-    }
+  //   // Ensure AI shuffle is enabled
+  //   if (!appSettingsBloc.state.isAiShuffleEnabled) {
+  //     appSettingsBloc.add(AppSettingsEvent.updateAiShuffle(isEnabled: true));
+  //   }
 
-    // Start playing the random song with full library as playlist
-    musicBloc.add(
-      MusicEvent.playOrPauseSong(
-        songId: randomSong.id,
-        currentPlayList: allSongIds,
-      ),
-    );
-  }
+  //   // Start playing the random song with full library as playlist
+  //   musicBloc.add(
+  //     MusicEvent.playOrPauseSong(
+  //       songId: randomSong.id,
+  //       currentPlayList: allSongIds,
+  //     ),
+  //   );
+  // }
 
   Widget _buildIcon({
     required bool isPlaying,
@@ -285,10 +285,7 @@ class _CustomMusicFloatingButtonState extends State<CustomMusicFloatingButton>
                                       width: 60.w,
                                       height: 60.h,
                                       fit: BoxFit.cover,
-                                      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                                        if (frame == null) return _buildDefaultBackground(context);
-                                        return child;
-                                      },
+                                      gaplessPlayback: true,
                                       errorBuilder: (context, error, stackTrace) =>
                                           _buildDefaultBackground(context),
                                     ),

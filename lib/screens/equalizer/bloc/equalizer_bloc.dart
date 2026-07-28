@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:injectable/injectable.dart';
+import 'package:rhythmflow/core/constants/app_constants.dart';
 
 import 'equalizer_preset_entry.dart';
 
@@ -11,28 +12,61 @@ part 'equalizer_bloc.freezed.dart';
 @singleton
 class EqualizerBloc extends HydratedBloc<EqualizerEvent, EqualizerState> {
   EqualizerBloc() : super(EqualizerState.initial()) {
+    on<_InitializeSession>(_onInitializeSession);
     on<_PersistEqualizerState>(_onPersistEqualizerState);
     on<_CreateEqualizerPreset>(_onCreateEqualizerPreset);
     on<_UpdateEqualizerPresetGains>(_onUpdateEqualizerPresetGains);
     on<_DeleteEqualizerPreset>(_onDeleteEqualizerPreset);
-    on<_PersistAudioEffectsState>(_onPersistAudioEffectsState);
+    on<_CommitSelection>(_onCommitSelection);
     on<_ResetToDefaults>(_onResetToDefaults);
   }
 
   @override
   String get storagePrefix => 'EqualizerBloc';
 
+  void _onInitializeSession(
+    _InitializeSession event,
+    Emitter<EqualizerState> emit,
+  ) {
+    final savedPresetId = state.equalizerSavedPresetId ?? 'flat';
+    final savedPresetName = state.equalizerSavedPresetName ?? 'Flat';
+    final hasBands =
+        state.equalizerBandGains != null &&
+        state.equalizerBandGains!.isNotEmpty;
+
+    Map<String, double>? normalizedBandGains = state.equalizerBandGains;
+    if (!hasBands) {
+      final customPresets = state.equalizerCustomPresets ?? {};
+      final presetGains =
+          customPresets[savedPresetId]?.gains ??
+          EqualizerBandPresets.getGains(savedPresetId);
+      normalizedBandGains = {
+        for (var i = 0; i < presetGains.length; i++) '$i': presetGains[i],
+      };
+    }
+
+    emit(
+      state.copyWith(
+        equalizerSavedPresetId: savedPresetId,
+        equalizerSavedPresetName: savedPresetName,
+        equalizerBandGains: normalizedBandGains,
+      ),
+    );
+  }
+
   void _onPersistEqualizerState(
     _PersistEqualizerState event,
     Emitter<EqualizerState> emit,
   ) {
-    emit(state.copyWith(
-      isEqualizerEnabled: event.isEnabled,
-      equalizerBandGains: event.bandGains ?? state.equalizerBandGains,
-      equalizerSavedPresetId: event.presetId ?? state.equalizerSavedPresetId,
-      equalizerSavedPresetName:
-          event.presetName ?? state.equalizerSavedPresetName,
-    ));
+    emit(
+      state.copyWith(
+        isEqualizerEnabled: event.isEnabled,
+        equalizerBandGains: event.bandGains ?? state.equalizerBandGains,
+        equalizerSavedPresetId: event.presetId ?? state.equalizerSavedPresetId,
+        equalizerSavedPresetName:
+            event.presetName ?? state.equalizerSavedPresetName,
+      ),
+    );
   }
 
   void _onCreateEqualizerPreset(
@@ -75,28 +109,31 @@ class EqualizerBloc extends HydratedBloc<EqualizerEvent, EqualizerState> {
       state.equalizerCustomPresets ?? {},
     );
     current.remove(event.id);
-    emit(state.copyWith(
-      equalizerCustomPresets: current.isEmpty ? null : current,
-    ));
+    emit(
+      state.copyWith(equalizerCustomPresets: current.isEmpty ? null : current),
+    );
   }
 
-  void _onPersistAudioEffectsState(
-    _PersistAudioEffectsState event,
+  void _onCommitSelection(
+    _CommitSelection event,
     Emitter<EqualizerState> emit,
   ) {
-    emit(state.copyWith(
-      reverbEnabled: event.reverbEnabled ?? state.reverbEnabled,
-      reverbPreset: event.reverbPreset ?? state.reverbPreset,
-      echoEnabled: event.echoEnabled ?? state.echoEnabled,
-      echoStrength: event.echoStrength ?? state.echoStrength,
-      virtualizerEnabled: event.virtualizerEnabled ?? state.virtualizerEnabled,
-      virtualizerStrength:
-          event.virtualizerStrength ?? state.virtualizerStrength,
-      loudnessEnabled: event.loudnessEnabled ?? state.loudnessEnabled,
-      loudnessGainMb: event.loudnessGainMb ?? state.loudnessGainMb,
-      bassBoostEnabled: event.bassBoostEnabled ?? state.bassBoostEnabled,
-      bassBoostStrength: event.bassBoostStrength ?? state.bassBoostStrength,
-    ));
+    emit(
+      state.copyWith(
+        isEqualizerEnabled: event.isEnabled,
+        equalizerBandGains: event.bandGains,
+        equalizerSavedPresetId: event.presetId,
+        equalizerSavedPresetName: event.presetName,
+        echoEnabled: event.echoStrength > 0,
+        echoStrength: event.echoStrength,
+        virtualizerEnabled: event.virtualizerStrength > 0,
+        virtualizerStrength: event.virtualizerStrength,
+        loudnessEnabled: event.loudnessGainMb > 0,
+        loudnessGainMb: event.loudnessGainMb,
+        bassBoostEnabled: event.bassBoostStrength > 0,
+        bassBoostStrength: event.bassBoostStrength,
+      ),
+    );
   }
 
   void _onResetToDefaults(
@@ -115,9 +152,7 @@ class EqualizerBloc extends HydratedBloc<EqualizerEvent, EqualizerState> {
       final k = entry.key.toString();
       final v = entry.value;
       if (v is Map) {
-        result[k] = EqualizerPresetEntry.fromJson(
-          Map<String, dynamic>.from(v),
-        );
+        result[k] = EqualizerPresetEntry.fromJson(Map<String, dynamic>.from(v));
       } else if (v is List) {
         final name = k;
         final id = 'custom_${name.hashCode.abs()}_$i';
@@ -140,13 +175,9 @@ class EqualizerBloc extends HydratedBloc<EqualizerEvent, EqualizerState> {
         'equalizerBandGains': state.equalizerBandGains,
         'equalizerSavedPresetId': state.equalizerSavedPresetId,
         'equalizerSavedPresetName': state.equalizerSavedPresetName,
-        'equalizerCustomPresets': state.equalizerCustomPresets != null
-            ? state.equalizerCustomPresets!.map(
-                (k, v) => MapEntry(k, v.toJson()),
-              )
-            : null,
-        'reverbEnabled': state.reverbEnabled,
-        'reverbPreset': state.reverbPreset,
+        'equalizerCustomPresets': state.equalizerCustomPresets?.map(
+          (k, v) => MapEntry(k, v.toJson()),
+        ),
         'echoEnabled': state.echoEnabled,
         'echoStrength': state.echoStrength,
         'virtualizerEnabled': state.virtualizerEnabled,
@@ -180,8 +211,6 @@ class EqualizerBloc extends HydratedBloc<EqualizerEvent, EqualizerState> {
                 json['equalizerCustomPresets'] as Map<String, dynamic>,
               )
             : null,
-        reverbEnabled: json['reverbEnabled'] ?? false,
-        reverbPreset: json['reverbPreset'] ?? 0,
         echoEnabled: json['echoEnabled'] ?? false,
         echoStrength: json['echoStrength'] ?? 0,
         virtualizerEnabled: json['virtualizerEnabled'] ?? false,

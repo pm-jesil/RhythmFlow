@@ -1,12 +1,13 @@
-import 'dart:math' show Random;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:rhythmflow/screens/bottom_tab/widgets/album_artist_my_playlist_helper.dart';
+import 'package:rhythmflow/screens/bottom_tab/widgets/for_you_app_intro_widget.dart';
+import 'package:rhythmflow/screens/bottom_tab/widgets/for_you_wave_card.dart';
 import '../../../core/theme/theme_extension.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../widgets/custom_3d_card.dart';
@@ -34,6 +35,10 @@ class ForYouScreen extends StatefulWidget {
 
 class _ForYouScreenState extends State<ForYouScreen> {
   final AppLogger _logger = AppLogger('ForYouScreen');
+  List<Song> _cachedSuggestionSongs = <Song>[];
+  List<String> _lastCompletedSongs = <String>[];
+  int _lastAllSongsCount = -1;
+  bool _isIntroPopupVisible = false;
 
   // Constants
   static const double _cardPadding = 12.0;
@@ -72,7 +77,64 @@ class _ForYouScreenState extends State<ForYouScreen> {
       context.read<AppSettingsBloc>().add(
         const AppSettingsEvent.updateDailyQuote(),
       );
+      _syncAppIntroForCurrentBuild();
     });
+  }
+
+  Future<void> _syncAppIntroForCurrentBuild() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      context.read<AppSettingsBloc>().add(
+        AppSettingsEvent.syncAppIntroVisibilityWithBuild(
+          currentBuildNumber: packageInfo.buildNumber,
+        ),
+      );
+    } catch (e) {
+      _logger.w('Unable to sync app intro visibility: $e');
+    }
+  }
+
+  Future<void> _dismissAppIntro() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      context.read<AppSettingsBloc>().add(
+        AppSettingsEvent.dismissAppIntro(
+          currentBuildNumber: packageInfo.buildNumber,
+        ),
+      );
+    } catch (e) {
+      _logger.w('Unable to dismiss app intro: $e');
+    }
+  }
+
+  Future<void> _showAppIntroPopup() async {
+    if (!mounted || _isIntroPopupVisible) return;
+    _isIntroPopupVisible = true;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return PopScope(
+          canPop: false,
+          child: Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: EdgeInsets.symmetric(
+              horizontal: 16.w,
+              vertical: 20.h,
+            ),
+            child: ForYouAppIntroWidget(
+              onComplete: () async {
+                Navigator.of(dialogContext).pop();
+                await _dismissAppIntro();
+              },
+            ),
+          ),
+        );
+      },
+    );
+    _isIntroPopupVisible = false;
   }
 
   List<Artist> _getTopArtists(List<Artist> artists) {
@@ -250,7 +312,17 @@ class _ForYouScreenState extends State<ForYouScreen> {
                 !identical(previous.albumList, current.albumList);
           },
           builder: (context, musicState) {
-            return BlocBuilder<AppSettingsBloc, AppSettingsState>(
+            return BlocConsumer<AppSettingsBloc, AppSettingsState>(
+              listenWhen: (previous, current) =>
+                  previous.showAppIntroOnForYou != current.showAppIntroOnForYou,
+              listener: (context, appSettingsState) {
+                if (appSettingsState.showAppIntroOnForYou &&
+                    !_isIntroPopupVisible) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _showAppIntroPopup();
+                  });
+                }
+              },
               buildWhen: (previous, current) {
                 return previous.nickName != current.nickName ||
                     previous.currentQuoteIndex != current.currentQuoteIndex ||
@@ -476,8 +548,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
     return Custom3DCard(
       enableAnimation: true,
       animationDelay: 3,
-      padding:
-          EdgeInsets.zero, // Remove default padding so image expands to edge
+      padding: EdgeInsets.zero,
       onTap: () {
         HapticFeedback.lightImpact();
         context.read<EqualizerBloc>().add(
@@ -485,112 +556,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
         );
         context.navigateToEqualizer();
       },
-      child: Container(
-        height: 70.h, // Explicit slightly reduced height
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(_borderRadius.r),
-          image: const DecorationImage(
-            image: AssetImage('assets/images/equalizer_bg.png'),
-            fit: BoxFit.cover,
-            colorFilter: ColorFilter.mode(
-              Colors.black54, // Darken the image so text pops
-              BlendMode.darken,
-            ),
-          ),
-          border: Border.all(
-            color: context.primaryStart.withValues(alpha: 0.3),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: context.primaryStart.withValues(alpha: 0.1),
-              blurRadius: 8.r,
-              offset: Offset(0, 2.h),
-            ),
-          ],
-        ),
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(_borderRadius.r),
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [
-                context.primaryStart.withValues(alpha: 0.4),
-                Colors.transparent,
-              ],
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(10.r),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10.r),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    width: 1,
-                  ),
-                ),
-                child: Icon(
-                  CupertinoIcons.waveform,
-                  color: Colors.white,
-                  size: 24.sp,
-                ),
-              ),
-              SizedBox(width: 14.w),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Customize Equalizer',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 15.sp,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Poppins',
-                        letterSpacing: 0.3,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black45,
-                            blurRadius: 4.r,
-                            offset: Offset(0, 1.h),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 2.h),
-                    Text(
-                      'Tune your sound',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 11.sp,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: EdgeInsets.all(6.r),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  CupertinoIcons.chevron_right,
-                  color: Colors.white,
-                  size: 16.sp,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      child: const WaveCard(),
     );
   }
 
@@ -706,7 +672,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
   }
 
   /// Suggestions: first up to 10 most played songs, then fill remaining slots
-  /// with random songs from all songs (not already in the list).
+  /// with stable songs from all songs (not already in the list).
   List<Song> _getSuggestionSongsFromAllSongs(List<Song> allSongs) {
     const int targetCount = 10;
     if (allSongs.isEmpty) return [];
@@ -719,11 +685,17 @@ class _ForYouScreenState extends State<ForYouScreen> {
     final result = sortedMostPlayed.take(targetCount).toList();
     final resultIds = result.map((s) => s.id).toSet();
 
-    // 2. If fewer than 10, fill remaining slots with random songs from all songs
+    // 2. If fewer than 10, fill remaining slots with a stable order from all songs.
     if (result.length < targetCount) {
       final remainingSongs =
           allSongs.where((s) => !resultIds.contains(s.id)).toList()
-            ..shuffle(Random());
+            ..sort((a, b) {
+              final titleCompare = a.title.toLowerCase().compareTo(
+                b.title.toLowerCase(),
+              );
+              if (titleCompare != 0) return titleCompare;
+              return a.id.compareTo(b.id);
+            });
       final needed = targetCount - result.length;
       for (int i = 0; i < needed && i < remainingSongs.length; i++) {
         result.add(remainingSongs[i]);
@@ -733,12 +705,43 @@ class _ForYouScreenState extends State<ForYouScreen> {
     return result;
   }
 
+  /// Keep suggestion list stable across rebuilds and only refresh it when
+  /// completed songs change (song finished) or the library size changes.
+  List<Song> _getStableSuggestionSongs(MusicState state) {
+    final completedSongs = state.myPlayerState.completedSongs;
+    final didCompletedSongsChange = !_areStringListsEqual(
+      _lastCompletedSongs,
+      completedSongs,
+    );
+    final didSongLibraryChange = _lastAllSongsCount != state.allSongs.length;
+
+    if (_cachedSuggestionSongs.isEmpty ||
+        didCompletedSongsChange ||
+        didSongLibraryChange) {
+      _cachedSuggestionSongs = _getSuggestionSongsFromAllSongs(state.allSongs);
+      _lastCompletedSongs = List<String>.from(completedSongs);
+      _lastAllSongsCount = state.allSongs.length;
+    }
+
+    return _cachedSuggestionSongs;
+  }
+
+  bool _areStringListsEqual(List<String> a, List<String> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
   Widget _buildQuiltedGrid(
     MusicState state,
     AppSettingsState appSettingsState,
   ) {
-    final suggestionSongs = _getSuggestionSongsFromAllSongs(state.allSongs);
+    final suggestionSongs = _getStableSuggestionSongs(state);
     final displaySongs = suggestionSongs.take(10).toList();
+    final suggestionQueueSongIds = suggestionSongs.map((s) => s.id).toList();
 
     if (displaySongs.isEmpty) {
       return _buildEmptyStateCard(
@@ -794,20 +797,29 @@ class _ForYouScreenState extends State<ForYouScreen> {
                   if (index >= 1 && index <= 4) {
                     final songIndex = index - 1;
                     if (songIndex < displaySongs.length) {
-                      return _buildAlbumArtCard(displaySongs[songIndex]);
+                      return _buildAlbumArtCard(
+                        displaySongs[songIndex],
+                        queueSongIds: suggestionQueueSongIds,
+                      );
                     }
                     return _buildEmptyAlbumCard();
                   }
                   if (index >= 5 && index <= 8) {
                     final songIndex = index - 1;
                     if (songIndex < displaySongs.length) {
-                      return _buildAlbumArtCard(displaySongs[songIndex]);
+                      return _buildAlbumArtCard(
+                        displaySongs[songIndex],
+                        queueSongIds: suggestionQueueSongIds,
+                      );
                     }
                     return _buildEmptyAlbumCard();
                   }
                   final songIndex = index - 1;
                   if (songIndex < displaySongs.length) {
-                    return _buildAlbumArtCard(displaySongs[songIndex]);
+                    return _buildAlbumArtCard(
+                      displaySongs[songIndex],
+                      queueSongIds: suggestionQueueSongIds,
+                    );
                   }
                   return _buildEmptyAlbumCard();
                 }, childCount: 11),
@@ -910,9 +922,13 @@ class _ForYouScreenState extends State<ForYouScreen> {
     );
   }
 
-  Widget _buildAlbumArtCard(Song song, {double? borderRadius}) {
+  Widget _buildAlbumArtCard(
+    Song song, {
+    double? borderRadius,
+    List<String>? queueSongIds,
+  }) {
     return GestureDetector(
-      onTap: () => _playSong(song),
+      onTap: () => _playSong(song, queueSongIds: queueSongIds),
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(borderRadius ?? 8.r),
@@ -1119,9 +1135,16 @@ class _ForYouScreenState extends State<ForYouScreen> {
     );
   }
 
-  void _playSong(Song song) {
+  void _playSong(Song song, {List<String>? queueSongIds}) {
+    final queue = (queueSongIds != null && queueSongIds.isNotEmpty)
+        ? queueSongIds
+        : [song.id];
     context.read<MusicBloc>().add(
-      MusicEvent.playOrPauseSong(songId: song.id, currentPlayList: [song.id]),
+      MusicEvent.playOrPauseSong(
+        songId: song.id,
+        currentPlayList: queue,
+        playlistSource: PlaylistSource.allSongs(),
+      ),
     );
   }
 

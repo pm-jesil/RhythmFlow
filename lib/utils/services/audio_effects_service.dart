@@ -145,6 +145,25 @@ class AudioEffectsService {
     await _channel.invokeMethod('setBassBoostEnabled', {'enabled': enabled});
   }
 
+  /// Retrieve the last-set L/R channel volumes from the native plugin.
+  /// Returns null on non-Android or if the call fails.
+  Future<({double left, double right})?> getChannelVolumes() async {
+    if (!Platform.isAndroid) return null;
+    try {
+      final raw = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+        'getChannelVolumes',
+      );
+      if (raw == null) return null;
+      return (
+        left:  (raw['left']  as num).toDouble(),
+        right: (raw['right'] as num).toDouble(),
+      );
+    } catch (e) {
+      _logger.w('getChannelVolumes failed: $e');
+      return null;
+    }
+  }
+
   /// Set independent left/right channel volumes (0.0–1.0 each).
   ///
   /// Since just_audio/ExoPlayer exposes only a single [AudioPlayer.setVolume],
