@@ -15,6 +15,18 @@ abstract class MusicEvent with _$MusicEvent {
 
   const factory MusicEvent.loadMyPlaylists() = _LoadMyPlaylists;
 
+  // Remove songs from the library (e.g. after the file was deleted) and
+  // clean every reference (albums, artists, playlists, queue).
+  const factory MusicEvent.removeSongs({required List<String> songIds}) =
+      _RemoveSongs;
+
+  // Store the real duration of a song whose duration could not be read from
+  // its tags (learned from the player when the song is first played).
+  const factory MusicEvent.updateSongDuration({
+    required String songId,
+    required Duration duration,
+  }) = _UpdateSongDuration;
+
   // Playlist management events
   const factory MusicEvent.addOrUpdateMyPlayList({
     required MyPlaylistOperation operation,

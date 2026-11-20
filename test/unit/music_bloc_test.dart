@@ -89,7 +89,16 @@ void main() {
 
     group('Initial State', () {
       test('should have correct initial state', () {
-        expect(musicBloc.state, equals(MusicState.initial()));
+        // Favorites' createdAt is a timestamp, so compare without playlists
+        // and check the playlist separately.
+        expect(
+          musicBloc.state.copyWith(myPlaylist: const []),
+          equals(MusicState.initial().copyWith(myPlaylist: const [])),
+        );
+        expect(
+          musicBloc.state.myPlaylist.map((p) => p.id),
+          equals(['my_playlist_favorites']),
+        );
       });
 
       test('should have correct storage prefix', () {
@@ -350,7 +359,13 @@ void main() {
         expect(state.allSongs.length, equals(1));
         expect(state.albumList.length, equals(1));
         expect(state.artistList.length, equals(1));
-        expect(state.myPlaylist.length, equals(1));
+        // The stored playlist plus the always-present Favorites playlist.
+        expect(state.myPlaylist.length, equals(2));
+        expect(state.myPlaylist.map((p) => p.id), contains('playlist1'));
+        expect(
+          state.myPlaylist.map((p) => p.id),
+          contains('my_playlist_favorites'),
+        );
         expect(state.myPlayerState.currentSongId, equals('1'));
         expect(state.myPlayerState.isShuffle, isTrue);
         expect(state.isSongListLoading, isFalse);

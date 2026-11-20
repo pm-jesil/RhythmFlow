@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../logger/logger.dart';
+import 'library_storage.dart';
 import '../../screens/bottom_tab/bloc/music_bloc.dart';
 import '../../screens/app_settings/bloc/app_settings_bloc.dart';
 import '../../screens/widgets/sync_app_settings_helper.dart';
@@ -107,7 +108,16 @@ class AppLifecycleHandler {
   /// Handle app resumed - CONSOLIDATED LIFECYCLE HANDLING
   static void _handleAppResumed(AppLifecycleState previousState) {
     _logger.i('📱 App resumed from ${previousState.name}');
+    // Flutter reports paused -> hidden -> inactive -> resumed, so use the
+    // background flag rather than previousState to detect a real return.
+    final wasInBackground = _isInBackground;
     _isInBackground = false;
+
+    // 0. AUTO-REFRESH THE LIBRARY: songs downloaded / deleted while the app
+    // was in the background show up (or disappear) without a restart.
+    if (wasInBackground) {
+      _musicBloc?.requestAutoRefresh(reason: 'app resumed');
+    }
     
     // Cancel background timer
     _backgroundTimer?.cancel();
@@ -131,6 +141,9 @@ class AppLifecycleHandler {
   static void _handleAppBackgrounded(AppLifecycleState previousState) {
     _logger.i('📱 App backgrounded from ${previousState.name}');
     _isInBackground = true;
+
+    // Persist any pending library changes before the OS may kill the app.
+    unawaited(LibraryStorage.flush());
     
     // WorkManager handles background state automatically
     
@@ -144,6 +157,8 @@ class AppLifecycleHandler {
     
     // WorkManager handles task cleanup automatically
     
+    unawaited(LibraryStorage.flush());
+
     // Cancel all timers
     _backgroundTimer?.cancel();
     _backgroundTimer = null;

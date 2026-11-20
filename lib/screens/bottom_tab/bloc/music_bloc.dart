@@ -23,6 +23,8 @@ import '../../../utils/services/play_count_tracking_service.dart';
 import '../../../utils/services/my_playlist_service.dart';
 import '../../../utils/services/app_lifecycle_handler.dart';
 import '../../../utils/services/ai_shuffle/ai_shuffle_service.dart';
+import '../../../utils/services/album_art_cleanup.dart';
+import '../../../utils/services/library_storage.dart';
 import '../../widgets/sync_app_settings_helper.dart';
 import '../../app_settings/bloc/app_settings_bloc.dart';
 import '../../widgets/sorting_helper.dart';
@@ -44,6 +46,20 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
   // Stream subscriptions for proper disposal
   StreamSubscription<PlayerState>? _playerStateSubscription;
   StreamSubscription<AppSettingsState>? _appSettingsSubscription;
+  StreamSubscription<AppSettingsState>? _aiShuffleSettingsSubscription;
+
+  // Signature of the library-related settings (folders + formats).
+  String _librarySettingsSignature = '';
+
+  /// Folders + formats that define what the library scan looks at.
+  static String librarySettingsSignature(AppSettingsState settings) {
+    final folders = settings.whiteListFolder.entries
+        .map((e) => '${e.key}=${(List<String>.from(e.value)..sort()).join(',')}')
+        .toList()
+      ..sort();
+    final formats = List<String>.from(settings.supportedAudioFormats)..sort();
+    return '${folders.join(';')}|${formats.join(',')}';
+  }
 
   // Sleep timer
   Timer? _sleepTimer;
@@ -82,6 +98,8 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     on<_FetchAndUpdateSongs>(_onFetchAndUpdateSongs);
     on<_FetchAndUpdateMetadata>(_onFetchAndUpdateMetadata);
     on<_LoadMyPlaylists>(_onLoadMyPlaylists);
+    on<_RemoveSongs>(_onRemoveSongs);
+    on<_UpdateSongDuration>(_onUpdateSongDuration);
     on<_AddOrUpdateMyPlayList>(_onAddOrUpdateMyPlayList);
     on<_PlayOrPauseSong>(_onPlayOrPauseSong);
     on<_PlayNext>(_onPlayNext);
@@ -98,6 +116,15 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     on<_AiShuffle>(_onAiShuffle);
 
     _audioService.onSongChanged = _onAudioServiceSongChanged;
+    _audioService.onDurationResolved = (song, duration) {
+      if (song.duration <= Duration.zero && duration > Duration.zero) {
+        add(
+          MusicEvent.updateSongDuration(songId: song.id, duration: duration),
+        );
+      }
+    };
+    // Persist the scanner's skip cache together with the library.
+    FetchSongsService.onSkippedFilesChanged = () => _scheduleLibrarySave(state);
     _audioService.setPositionChangedCallback(_onPositionChanged);
     _audioService.setInvalidSongCallback(_onInvalidSong);
     _audioService.setSkipCallbacks(
@@ -188,7 +215,9 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     _logger.i('📱 Initial shuffle/repeat state synced to notification');
 
     // Listen to app settings changes for mutual exclusivity
-    _appSettingsBloc.stream.listen((appSettingsState) {
+    _aiShuffleSettingsSubscription = _appSettingsBloc.stream.listen((
+      appSettingsState,
+    ) {
       // When AI shuffle is enabled, disable regular shuffle
       if (appSettingsState.isAiShuffleEnabled && state.myPlayerState.isShuffle) {
         _logger.i('🤖 AI Shuffle enabled - disabling regular shuffle');
@@ -215,9 +244,22 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
       appSettingsBloc: _appSettingsBloc,
     );
 
+    _librarySettingsSignature = librarySettingsSignature(
+      _appSettingsBloc.state,
+    );
     _appSettingsSubscription = _appSettingsBloc.stream.listen((
       appSettingsState,
     ) {
+      // Folders or formats changed (added/removed folder, format toggled,
+      // settings reset): rescan so removed folders' songs disappear and new
+      // folders' songs appear right away.
+      final signature = librarySettingsSignature(appSettingsState);
+      if (signature != _librarySettingsSignature) {
+        _librarySettingsSignature = signature;
+        _logger.i('📁 Music folders/formats changed - rescanning library');
+        add(const MusicEvent.fetchAndUpdateSongs(isForce: true));
+      }
+
       SyncAppSettingsHelper.syncAllSettings(
         appSettingsBloc: _appSettingsBloc,
         audioService: _audioService,
@@ -289,11 +331,8 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
   @override
   Map<String, dynamic>? toJson(MusicState state) {
     try {
-      return {
+      final json = <String, dynamic>{
         'sortingIndex': state.sortingIndex,
-        'allSongs': state.allSongs.map((s) => s.toJson()).toList(),
-        'albumList': state.albumList.map((a) => a.toJson()).toList(),
-        'artistList': state.artistList.map((a) => a.toJson()).toList(),
         'myPlaylist': state.myPlaylist.map((p) => p.toJson()).toList(),
         'myPlayerState': {
           'completedSongs': state.myPlayerState.completedSongs,
@@ -307,6 +346,17 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           'lastPosition': state.myPlayerState.lastPosition?.inMilliseconds,
         },
       };
+      if (LibraryStorage.isReady) {
+        // The (large) library lives in LibraryStorage and is saved only when
+        // it changes - see onChange().
+        json['libraryInStorage'] = true;
+      } else {
+        // Fallback when the library box could not be opened.
+        json['allSongs'] = state.allSongs.map((s) => s.toJson()).toList();
+        json['albumList'] = state.albumList.map((a) => a.toJson()).toList();
+        json['artistList'] = state.artistList.map((a) => a.toJson()).toList();
+      }
+      return json;
     } catch (_) {
       return null; // skip persisting on serialization errors
     }
@@ -315,17 +365,37 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
   @override
   MusicState? fromJson(Map<String, dynamic> json) {
     try {
-      final songs = (json['allSongs'] as List<dynamic>? ?? [])
-          .map((e) => Song.fromJson(e as Map<String, dynamic>))
-          .toList();
-      final albums = (json['albumList'] as List<dynamic>? ?? [])
-          .map((e) => Album.fromJson(e as Map<String, dynamic>))
-          .toList();
-      final artists = (json['artistList'] as List<dynamic>? ?? [])
-          .map((e) => Artist.fromJson(e as Map<String, dynamic>))
-          .toList();
+      final stored = LibraryStorage.isReady ? LibraryStorage.load() : null;
+
+      List<Song> songs;
+      List<Album> albums;
+      List<Artist> artists;
+      if (stored != null) {
+        songs = stored.songs;
+        albums = stored.albums;
+        artists = stored.artists;
+        FetchSongsService.restoreSkippedFiles(stored.skippedFiles);
+      } else {
+        // Legacy format (library inside the hydrated JSON) or fallback.
+        songs = (json['allSongs'] as List<dynamic>? ?? [])
+            .map((e) => Song.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList();
+        albums = (json['albumList'] as List<dynamic>? ?? [])
+            .map((e) => Album.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList();
+        artists = (json['artistList'] as List<dynamic>? ?? [])
+            .map((e) => Artist.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList();
+        if (LibraryStorage.isReady && songs.isNotEmpty) {
+          // One-time migration of the legacy library into LibraryStorage.
+          LibraryStorage.scheduleSave(
+            LibrarySnapshot(songs: songs, albums: albums, artists: artists),
+          );
+        }
+      }
+
       final myPlaylists = (json['myPlaylist'] as List<dynamic>? ?? [])
-          .map((e) => MyPlaylist.fromJson(e as Map<String, dynamic>))
+          .map((e) => MyPlaylist.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList();
 
       // Ensure favorites playlist exists when loading from storage
@@ -333,9 +403,11 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         myPlaylists,
       );
 
-      final mp = (json['myPlayerState'] as Map<String, dynamic>? ?? {});
+      final mp = Map<String, dynamic>.from(
+        (json['myPlayerState'] as Map?) ?? const {},
+      );
       final myPlayerState = MyPlayerStateModel(
-        playlistId: mp['playlistId'] as String?,
+        playlistId: migrateLegacyPlaylistId(mp['playlistId'] as String?),
         currentPlayList: List<String>.from(mp['currentPlayList'] ?? const []),
         currentSongId: mp['currentSongId'] as String?,
         previousSongId: mp['previousSongId'] as String?,
@@ -381,7 +453,103 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     }
   }
 
+  static final RegExp _legacyEntityPlaylistId = RegExp(
+    r'^(album|artist)_(album|artist)_-?\d{1,10}$',
+  );
+
+  /// Album/artist IDs used to be derived from `String.hashCode`; they are now
+  /// stable hashes. A saved queue that still points at an old album/artist
+  /// ID is mapped to "all songs" so features such as shuffle-revert keep
+  /// working after the upgrade (the queue itself is preserved).
+  static String? migrateLegacyPlaylistId(String? playlistId) {
+    if (playlistId == null) return null;
+    return _legacyEntityPlaylistId.hasMatch(playlistId)
+        ? 'all_songs'
+        : playlistId;
+  }
+
+  @override
+  void onChange(Change<MusicState> change) {
+    super.onChange(change);
+    final previous = change.currentState;
+    final next = change.nextState;
+    if (!sameItems(previous.allSongs, next.allSongs) ||
+        !sameItems(previous.albumList, next.albumList) ||
+        !sameItems(previous.artistList, next.artistList)) {
+      _scheduleLibrarySave(next);
+    }
+  }
+
+  /// True when both lists hold the very same objects in the same order.
+  ///
+  /// `identical(list1, list2)` is not enough: freezed wraps lists in a new
+  /// unmodifiable view, so an unchanged library can come back as a different
+  /// list object. Comparing element identity is O(n) pointer checks, far
+  /// cheaper than re-serialising the library.
+  @visibleForTesting
+  static bool sameItems<T>(List<T> a, List<T> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (!identical(a[i], b[i])) return false;
+    }
+    return true;
+  }
+
+  void _scheduleLibrarySave(MusicState s) {
+    LibraryStorage.scheduleSave(
+      LibrarySnapshot(
+        songs: s.allSongs,
+        albums: s.albumList,
+        artists: s.artistList,
+        skippedFiles: FetchSongsService.skippedFiles,
+      ),
+    );
+  }
+
   // ==================== LOADING EVENT HANDLERS ====================
+
+  // Scan coordination: bloc handlers run concurrently by default, so a second
+  // scan request while one is running is coalesced into one follow-up scan.
+  bool _isScanning = false;
+  bool _rescanRequested = false;
+
+  bool _isExtractingFeatures = false;
+  bool _featureExtractionRequested = false;
+  bool _featureExtractionForceRequested = false;
+
+  /// True while a library scan is running.
+  bool get isScanning => _isScanning;
+
+  // Automatic refresh (app resume, MediaStore changes, settings changes).
+  static Duration autoRefreshMinInterval = const Duration(seconds: 10);
+  DateTime? _lastAutoRefresh;
+  Timer? _autoRefreshTimer;
+
+  /// Requests a library refresh that bypasses the "background refresh" time
+  /// gap. Calls closer together than [autoRefreshMinInterval] are merged
+  /// into a single trailing refresh, so nothing is lost and the device is not
+  /// scanned in a tight loop.
+  void requestAutoRefresh({String reason = 'auto'}) {
+    if (isClosed) return;
+    final now = DateTime.now();
+    final last = _lastAutoRefresh;
+    if (last == null || now.difference(last) >= autoRefreshMinInterval) {
+      _autoRefreshTimer?.cancel();
+      _autoRefreshTimer = null;
+      _lastAutoRefresh = now;
+      _logger.i('🔄 Auto refresh ($reason)');
+      add(const MusicEvent.fetchAndUpdateSongs(isForce: true));
+      return;
+    }
+    if (_autoRefreshTimer != null) return; // a trailing refresh is queued
+    final wait = autoRefreshMinInterval - now.difference(last);
+    _logger.d('⏳ Auto refresh ($reason) deferred by ${wait.inSeconds}s');
+    _autoRefreshTimer = Timer(wait, () {
+      _autoRefreshTimer = null;
+      requestAutoRefresh(reason: reason);
+    });
+  }
 
   /// Check if we should skip fetching based on last update time (configurable rule)
   bool _shouldSkipFetch() {
@@ -402,12 +570,8 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         '⏰ Last fetch was ${timeDifference.inMinutes} minutes ago (< ${_appSettingsBloc.state.appBackgroundRefreshTimeGap} hours) - skipping fetch',
       );
       return true;
-    } else {
-      _logger.i(
-        '⏰ Last fetch was ${timeDifference.inHours} hours ago (>= ${_appSettingsBloc.state.appBackgroundRefreshTimeGap} hours) - proceeding with fetch',
-      );
-      return false;
     }
+    return false;
   }
 
   /// Update the last music library fetch timestamp
@@ -418,208 +582,65 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     _logger.i('⏰ Updated last music library fetch time');
   }
 
-  /// Fetch and update songs - shows songs as they're fetched
+  /// Scan the device and update songs, albums and artists.
+  ///
+  /// * `isForce == false`: skipped when the library is not empty and the last
+  ///   scan happened less than `appBackgroundRefreshTimeGap` hours ago.
+  /// * Empty library: full progressive scan (songs appear batch by batch).
+  /// * Otherwise: incremental scan (new files added, removed/out-of-folder/
+  ///   disabled-format files removed, modified files re-read).
   Future<void> _onFetchAndUpdateSongs(
     _FetchAndUpdateSongs event,
     Emitter<MusicState> emit,
   ) async {
-    _logger.i(
-      '🚀 Starting progressive song loading... (isForce: ${event.isForce ?? false})',
-    );
+    final isForce = event.isForce ?? false;
 
-    // Check if we should skip fetching based on 5-hour rule (unless force refresh)
-    if (!(event.isForce ?? false) &&
-        _shouldSkipFetch() &&
-        state.allSongs.isNotEmpty) {
+    if (_isScanning) {
+      if (isForce) _rescanRequested = true;
       _logger.i(
-        '⏰ Skipping progressive song fetch - using cached data (${state.allSongs.length} songs)',
+        '⏳ Scan already running - ${isForce ? 'queued one follow-up scan' : 'request ignored'}',
       );
       return;
     }
 
-    try {
-      // Set app settings fetch flag to true
-      emit(state.copyWith(appSettingsFetchSong: true));
-
-      // Check if we already have songs in cache (HydratedBloc)
-      final hasExistingSongs = state.allSongs.isNotEmpty;
-
-      if (hasExistingSongs) {
-        _logger.i(
-          '📀 Found ${state.allSongs.length} cached songs - fetching only new songs',
-        );
-
-        // Set loading state but keep existing songs visible
-        emit(
-          state.copyWith(
-            isSongListLoading: true,
-            isSongListError: false,
-            // Keep existing songs - don't clear them
-          ),
-        );
-
-        // Fetch only new songs (not in existing list)
-        final fetchResult = await FetchSongsService.fetchNewSongs(
-          state.allSongs,
-          supportedFormats: _appSettingsBloc.state.supportedAudioFormats,
-          whitelistedFolders: _appSettingsBloc.state.whiteListFolder,
-        );
-
-        final newSongs = fetchResult['newSongs'] as List<Song>;
-        final invalidSongIds = fetchResult['invalidSongIds'] as List<String>;
-
-        // Handle invalid songs cleanup first
-        if (invalidSongIds.isNotEmpty) {
-          _logger.i('🧹 Cleaning up ${invalidSongIds.length} invalid songs');
-          final cleanupResult = SongCleanupService.performEnhancedCleanup(
-            allSongs: state.allSongs,
-            albums: state.albumList,
-            artists: state.artistList,
-            playlists: state.myPlaylist,
-            playerState: state.myPlayerState,
-            invalidSongIds: invalidSongIds,
-          );
-
-          // Apply comprehensive cleanup to state
-          emit(
-            state.copyWith(
-              allSongs: cleanupResult['allSongs'] as List<Song>,
-              albumList: cleanupResult['albums'] as List<Album>,
-              artistList: cleanupResult['artists'] as List<Artist>,
-              myPlaylist: cleanupResult['playlists'] as List<MyPlaylist>,
-              myPlayerState: cleanupResult['playerState'] as MyPlayerStateModel,
-            ),
-          );
-        }
-
-        if (newSongs.isNotEmpty) {
-          _logger.i('🆕 Found ${newSongs.length} new songs to add');
-
-          // Add new songs to existing list
-          final updatedSongs = [...state.allSongs, ...newSongs];
-
-          // Validate uniqueness
-          final uniqueSongs = SongCleanupService.removeDuplicatesById(
-            updatedSongs,
-          );
-
-          emit(
-            state.copyWith(
-              allSongs: uniqueSongs,
-              isSongListLoading: false,
-              appSettingsFetchSong: false,
-            ),
-          );
-
-          _logger.i(
-            '✅ Added ${uniqueSongs.length - state.allSongs.length} new songs',
-          );
-        } else {
-          _logger.i(
-            '✅ No new songs found - keeping existing ${state.allSongs.length} songs',
-          );
-          emit(
-            state.copyWith(
-              isSongListLoading: false,
-              appSettingsFetchSong: false,
-            ),
-          );
-        }
-      } else {
-        _logger.i(
-          '📀 No cached songs found - performing full progressive scan',
-        );
-
-        // No existing songs - do progressive loading for first time
-        emit(
-          state.copyWith(
-            isSongListLoading: true,
-            isSongListError: false,
-            allSongs: [], // Clear for fresh start
-          ),
-        );
-
-        // Start progressive loading in background
-        await FetchSongsService.fetchAllSongsProgressive(
-          supportedFormats: _appSettingsBloc.state.supportedAudioFormats,
-          whitelistedFolders: _appSettingsBloc.state.whiteListFolder,
-          onProgress: (newSongs, isComplete, totalFound) {
-            _logger.d(
-              '📀 Progress update: ${newSongs.length} new songs, total: $totalFound, complete: $isComplete',
-            );
-
-            // Add new songs to existing list
-            final updatedSongs = [...state.allSongs, ...newSongs];
-
-            // Validate uniqueness for new batch
-            final uniqueSongs = SongCleanupService.removeDuplicatesById(
-              updatedSongs,
-            );
-
-            emit(
-              state.copyWith(
-                allSongs: uniqueSongs,
-                isSongListLoading: !isComplete,
-                songLoadingProgress: totalFound,
-                appSettingsFetchSong: !isComplete,
-              ),
-            );
-
-            // If this is the first batch (10+ songs), hide loading and show songs
-            if (uniqueSongs.length >= 10 && state.isSongListLoading) {
-              _logger.i(
-                '🎵 First batch loaded (${uniqueSongs.length} songs) - showing UI',
-              );
-            }
-
-            // Update albums and artists when we have a significant number of songs
-            if (uniqueSongs.length >= 10 && uniqueSongs.length % 20 == 0) {
-              _logger.i(
-                '🔄 Updating albums and artists with ${uniqueSongs.length} songs...',
-              );
-              refreshAlbumsAndArtists();
-            }
-          },
-        );
-
-        _logger.i('✅ Progressive song loading completed');
-
-        // Clean up removed songs from all references
-        final removedSongIds = SongCleanupService.findRemovedSongIds(
-          state.allSongs,
-          state.allSongs,
-        );
-        final cleanedState = _applySongCleanup(state, removedSongIds);
-        if (cleanedState != state) {
-          emit(cleanedState);
-        }
-
-        // Final refresh of albums and artists after all songs are loaded
-        _logger.i(
-          '🔄 Final refresh of albums and artists after progressive loading...',
-        );
-        refreshAlbumsAndArtists();
-      }
-
-      // Update last fetch time after successful progressive loading
-      _updateLastFetchTime();
-
-      // Always update albums and artists when songs are refreshed
+    if (!isForce && _shouldSkipFetch() && state.allSongs.isNotEmpty) {
       _logger.i(
-        '🔄 Updating albums and artists after progressive song refresh...',
+        '⏰ Skipping scan - using cached data (${state.allSongs.length} songs)',
       );
-      add(
-        const MusicEvent.fetchAndUpdateMetadata(
-          includeAlbums: true,
-          includeArtists: true,
-          isProgressive: true,
+      return;
+    }
+
+    _isScanning = true;
+    _lastAutoRefresh = DateTime.now();
+    try {
+      emit(
+        state.copyWith(
+          appSettingsFetchSong: true,
+          isSongListLoading: true,
+          isSongListError: false,
         ),
       );
 
-      // Set app settings fetch flag to false after completion
-      emit(state.copyWith(appSettingsFetchSong: false));
+      final bool scanSucceeded;
+      if (state.allSongs.isNotEmpty) {
+        scanSucceeded = await _runIncrementalScan(emit);
+      } else {
+        scanSucceeded = await _runFullScan(emit);
+      }
+
+      _rebuildAlbumsAndArtists(emit);
+      emit(
+        state.copyWith(
+          isSongListLoading: false,
+          appSettingsFetchSong: false,
+          songLoadingProgress: state.allSongs.length,
+        ),
+      );
+
+      if (scanSucceeded) _updateLastFetchTime();
+      _requestFeatureExtraction();
     } catch (e) {
-      _logger.e('❌ Error in progressive song loading: $e');
+      _logger.e('❌ Error while scanning the library: $e');
       emit(
         state.copyWith(
           isSongListLoading: false,
@@ -627,7 +648,144 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           appSettingsFetchSong: false,
         ),
       );
+    } finally {
+      _isScanning = false;
+      if (_rescanRequested && !isClosed) {
+        _rescanRequested = false;
+        add(const MusicEvent.fetchAndUpdateSongs(isForce: true));
+      }
     }
+  }
+
+  /// First scan: songs are shown batch by batch while they are discovered.
+  Future<bool> _runFullScan(Emitter<MusicState> emit) async {
+    _logger.i('📀 Library empty - performing full progressive scan');
+    var batchCount = 0;
+    var scanned = false;
+
+    await FetchSongsService.fetchAllSongsProgressive(
+      supportedFormats: _appSettingsBloc.state.supportedAudioFormats,
+      whitelistedFolders: _appSettingsBloc.state.whiteListFolder,
+      onProgress: (batch, isComplete, totalFound) {
+        scanned = true;
+        batchCount++;
+        final songs = batch.isEmpty
+            ? state.allSongs
+            : SongCleanupService.removeDuplicatesById([
+                ...state.allSongs,
+                ...batch,
+              ]);
+        emit(
+          state.copyWith(
+            allSongs: songs,
+            isSongListLoading: !isComplete,
+            songLoadingProgress: totalFound,
+            appSettingsFetchSong: !isComplete,
+          ),
+        );
+        // Keep the Albums / Artists tabs in step while scanning.
+        if (!isComplete && batchCount % 5 == 0) {
+          _rebuildAlbumsAndArtists(emit);
+        }
+      },
+    );
+    return scanned && state.allSongs.isNotEmpty;
+  }
+
+  /// Incremental scan against the current library.
+  Future<bool> _runIncrementalScan(Emitter<MusicState> emit) async {
+    _logger.i(
+      '📀 Incremental scan of ${state.allSongs.length} cached songs',
+    );
+    final result = await FetchSongsService.scanLibrary(
+      state.allSongs,
+      supportedFormats: _appSettingsBloc.state.supportedAudioFormats,
+      whitelistedFolders: _appSettingsBloc.state.whiteListFolder,
+    );
+    if (!result.scanSucceeded) {
+      _logger.w('⚠️ Scan not possible (permission / folders) - library kept');
+      return false;
+    }
+    emit(applyScanResult(state, result));
+    return true;
+  }
+
+  /// Applies an incremental [result] to [current] (pure; used by the bloc and
+  /// unit tests). The state may have changed while the scan was running
+  /// (play counts, favourites, extracted features), so user data of the
+  /// current state always wins over the scan snapshot.
+  static MusicState applyScanResult(
+    MusicState current,
+    LibraryScanResult result,
+  ) {
+    var songs = current.allSongs;
+
+    if (result.updatedSongs.isNotEmpty) {
+      final updatedById = {for (final s in result.updatedSongs) s.id: s};
+      songs = songs.map((song) {
+        final updated = updatedById[song.id];
+        if (updated == null) return song;
+        return updated.copyWith(
+          playCount: song.playCount,
+          lastPlayed: song.lastPlayed,
+          isFavorite: song.isFavorite,
+          myPlaylistIds: song.myPlaylistIds,
+          features: song.features ?? updated.features,
+        );
+      }).toList();
+    }
+
+    var next = current.copyWith(allSongs: songs);
+
+    if (result.invalidSongIds.isNotEmpty) {
+      final cleanup = SongCleanupService.performEnhancedCleanup(
+        allSongs: next.allSongs,
+        albums: next.albumList,
+        artists: next.artistList,
+        playlists: next.myPlaylist,
+        playerState: next.myPlayerState,
+        invalidSongIds: result.invalidSongIds,
+      );
+      next = next.copyWith(
+        allSongs: cleanup['allSongs'] as List<Song>,
+        albumList: cleanup['albums'] as List<Album>,
+        artistList: cleanup['artists'] as List<Artist>,
+        myPlaylist: cleanup['playlists'] as List<MyPlaylist>,
+        myPlayerState: cleanup['playerState'] as MyPlayerStateModel,
+      );
+    }
+
+    if (result.newSongs.isNotEmpty) {
+      next = next.copyWith(
+        allSongs: SongCleanupService.removeDuplicatesById([
+          ...next.allSongs,
+          ...result.newSongs,
+        ]),
+      );
+    }
+    return next;
+  }
+
+  /// Rebuild albums & artists so they always match `allSongs` exactly.
+  void _rebuildAlbumsAndArtists(
+    Emitter<MusicState> emit, {
+    bool albums = true,
+    bool artists = true,
+  }) {
+    emit(
+      state.copyWith(
+        albumList: albums
+            ? MusicService.fetchAlbumList(state.allSongs, state.albumList)
+            : state.albumList,
+        artistList: artists
+            ? MusicService.fetchArtistList(state.allSongs, state.artistList)
+            : state.artistList,
+        isAlbumListLoading: false,
+        isArtistListLoading: false,
+        isAlbumListError: false,
+        isArtistListError: false,
+      ),
+    );
   }
 
   /// Unified metadata update - handles both albums and artists
@@ -637,103 +795,84 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
   ) async {
     final includeAlbums = event.includeAlbums ?? true;
     final includeArtists = event.includeArtists ?? true;
-    final isProgressive = event.isProgressive ?? false;
-
-    _logger.i(
-      '🚀 Starting metadata update - Albums: $includeAlbums, Artists: $includeArtists, Progressive: $isProgressive',
-    );
-
     try {
-      if (includeAlbums) {
-        await _updateAlbums(emit, isProgressive);
-      }
-
-      if (includeArtists) {
-        await _updateArtists(emit, isProgressive);
-      }
-
-      _logger.i('✅ Metadata update completed');
-
-      // Trigger comprehensive features extraction after both albums and artists are complete
-      if (includeAlbums && includeArtists) {
-        _logger.i(
-          '🎵 Metadata complete - Triggering comprehensive features extraction',
-        );
-        add(const MusicEvent.extractComprehensiveFeatures());
-      }
+      _rebuildAlbumsAndArtists(
+        emit,
+        albums: includeAlbums,
+        artists: includeArtists,
+      );
+      _logger.i(
+        '✅ Metadata updated: ${state.albumList.length} albums, ${state.artistList.length} artists',
+      );
+      if (includeAlbums && includeArtists) _requestFeatureExtraction();
     } catch (e) {
       _logger.e('❌ Error in metadata update: $e');
     }
   }
 
-  /// Update albums from current songs
-  Future<void> _updateAlbums(
-    Emitter<MusicState> emit,
-    bool isProgressive,
-  ) async {
-    _logger.i(
-      '💿 Updating albums from current songs (${state.allSongs.length} songs)',
-    );
-
-    try {
-      // Extract albums from current songs
-      final albums = MusicService.fetchAlbumList(state.allSongs);
-      final uniqueAlbums = albums.toSet().toList();
-
-      emit(state.copyWith(albumList: uniqueAlbums));
-      _logger.i('✅ Updated albums: ${uniqueAlbums.length} total');
-
-      // Progressive loading only if needed and requested
-      if (isProgressive &&
-          state.albumList.isEmpty &&
-          state.allSongs.length < 50) {
-        _logger.i('💿 Performing progressive album extraction');
-        await _extractAlbumsProgressive(
-          onProgress: (newAlbums, isComplete) {
-            final updatedAlbums = [...state.albumList, ...newAlbums];
-            final uniqueAlbums = updatedAlbums.toSet().toList();
-            emit(state.copyWith(albumList: uniqueAlbums));
-          },
-        );
-      }
-    } catch (e) {
-      _logger.e('❌ Error updating albums: $e');
-    }
+  void _requestFeatureExtraction({bool isForce = false}) {
+    if (isClosed) return;
+    add(MusicEvent.extractComprehensiveFeatures(isForce: isForce));
   }
 
-  /// Update artists from current songs
-  Future<void> _updateArtists(
+  /// Remove songs from the library and every reference to them.
+  Future<void> _onRemoveSongs(
+    _RemoveSongs event,
     Emitter<MusicState> emit,
-    bool isProgressive,
   ) async {
-    _logger.i(
-      '👤 Updating artists from current songs (${state.allSongs.length} songs)',
+    if (event.songIds.isEmpty) return;
+    final removedIds = event.songIds.toSet();
+    final removedSongs = state.allSongs
+        .where((s) => removedIds.contains(s.id))
+        .toList();
+    final wasCurrent =
+        state.myPlayerState.currentSongId != null &&
+        removedIds.contains(state.myPlayerState.currentSongId);
+
+    emit(
+      applyScanResult(
+        state,
+        LibraryScanResult(invalidSongIds: event.songIds),
+      ),
     );
+    _rebuildAlbumsAndArtists(emit);
 
-    try {
-      // Extract artists from current songs
-      final artists = MusicService.fetchArtistList(state.allSongs);
-      final uniqueArtists = artists.toSet().toList();
-
-      emit(state.copyWith(artistList: uniqueArtists));
-      _logger.i('✅ Updated artists: ${uniqueArtists.length} total');
-
-      // Progressive loading only if needed and requested
-      if (isProgressive &&
-          state.artistList.isEmpty &&
-          state.allSongs.length < 50) {
-        _logger.i('👤 Performing progressive artist extraction');
-        await _extractArtistsProgressive(
-          onProgress: (newArtists, isComplete) {
-            final updatedArtists = [...state.artistList, ...newArtists];
-            final uniqueArtists = updatedArtists.toSet().toList();
-            emit(state.copyWith(artistList: uniqueArtists));
-          },
-        );
+    if (wasCurrent) {
+      try {
+        await _audioService.stop();
+      } catch (e) {
+        _logger.w('⚠️ Could not stop playback of removed song: $e');
       }
-    } catch (e) {
-      _logger.e('❌ Error updating artists: $e');
+      emit(
+        state.copyWith(
+          myPlayerState: state.myPlayerState.copyWith(isPlaying: false),
+        ),
+      );
     }
+
+    unawaited(
+      AlbumArtCleanup.deleteOrphanedArt(
+        removedSongs: removedSongs,
+        remainingSongs: state.allSongs,
+      ),
+    );
+    _logger.i('🗑️ Removed ${removedSongs.length} songs from the library');
+  }
+
+  /// Store the duration learned from the player for songs whose duration
+  /// could not be read from their tags.
+  Future<void> _onUpdateSongDuration(
+    _UpdateSongDuration event,
+    Emitter<MusicState> emit,
+  ) async {
+    if (event.duration <= Duration.zero) return;
+    final index = state.allSongs.indexWhere((s) => s.id == event.songId);
+    if (index < 0) return;
+    final song = state.allSongs[index];
+    if (song.duration > Duration.zero) return;
+    final songs = List<Song>.from(state.allSongs);
+    songs[index] = song.copyWith(duration: event.duration);
+    emit(state.copyWith(allSongs: songs));
   }
 
   Future<void> _onLoadMyPlaylists(
@@ -1448,8 +1587,34 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
       // Revert shuffle - restore original order based on playlistId
       _logger.i('🔄 Reverting shuffle to original order...');
 
+      final List<String> originalOrder = _resolveRevertOrder(
+        state.myPlayerState.playlistId,
+      );
+
+      final revertedQueue = state.myPlayerState.revertShuffle(originalOrder);
+
+      emit(
+        state.copyWith(myPlayerState: revertedQueue.copyWith(isShuffle: false)),
+      );
+
+      // Update notification shuffle state
+      _audioService.updateShuffleRepeatState(
+        isShuffle: false,
+        isAiShuffle: false,
+      );
+
+      _logger.i(
+        '✅ Shuffle disabled | Queue: ${revertedQueue.remainingSongs} songs',
+      );
+    }
+  }
+
+  /// Original (un-shuffled) order of the queue's source playlist. Falls back
+  /// to the all-songs order when the source album/artist/playlist no longer
+  /// exists (e.g. all its songs were removed by a library scan).
+  List<String> _resolveRevertOrder(String? playlistId) {
+    try {
       List<String> originalOrder;
-      final playlistId = state.myPlayerState.playlistId;
 
       if (playlistId == null || playlistId == 'all_songs') {
         originalOrder = getSongIds(state.allSongs);
@@ -1526,21 +1691,12 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         );
       }
 
-      final revertedQueue = state.myPlayerState.revertShuffle(originalOrder);
-
-      emit(
-        state.copyWith(myPlayerState: revertedQueue.copyWith(isShuffle: false)),
+      return originalOrder;
+    } catch (e) {
+      _logger.w(
+        '⚠️ Shuffle revert source not found ($e) - reverting to all songs order',
       );
-
-      // Update notification shuffle state
-      _audioService.updateShuffleRepeatState(
-        isShuffle: false,
-        isAiShuffle: false,
-      );
-
-      _logger.i(
-        '✅ Shuffle disabled | Queue: ${revertedQueue.remainingSongs} songs',
-      );
+      return getSongIds(state.allSongs);
     }
   }
 
@@ -2354,66 +2510,15 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
   /// Force refresh albums and artists from current songs
   /// This ensures albums and artists are always in sync with songs
   void refreshAlbumsAndArtists() {
-    _logger.i('🔄 Force refreshing albums and artists from current songs...');
-
-    if (state.allSongs.isNotEmpty) {
-      // Use the new unified metadata update event
-      add(
-        const MusicEvent.fetchAndUpdateMetadata(
-          includeAlbums: true,
-          includeArtists: true,
-          isProgressive: false,
-        ),
-      );
-    } else {
-      _logger.w('⚠️ No songs available to refresh albums and artists');
-    }
-  }
-
-  // ==================== SONG CLEANUP METHODS ====================
-
-  /// Apply song cleanup to the current state
-  MusicState _applySongCleanup(
-    MusicState currentState,
-    List<String> removedSongIds,
-  ) {
-    if (removedSongIds.isEmpty) {
-      return currentState;
-    }
-
-    _logger.i('🧹 Applying cleanup for ${removedSongIds.length} removed songs');
-
-    // Clean up current player state
-    final cleanedPlayerState = SongCleanupService.cleanupPlayerState(
-      currentState.myPlayerState,
-      removedSongIds,
-    );
-
-    // Clean up albums
-    final cleanedAlbums = SongCleanupService.cleanupAlbums(
-      currentState.albumList,
-      removedSongIds,
-    );
-
-    // Clean up artists
-    final cleanedArtists = SongCleanupService.cleanupArtists(
-      currentState.artistList,
-      removedSongIds,
-    );
-
-    // Clean up my playlists
-    final cleanedPlaylists = SongCleanupService.cleanupMyPlaylists(
-      currentState.myPlaylist,
-      removedSongIds,
-    );
-
-    return currentState.copyWith(
-      myPlayerState: cleanedPlayerState,
-      albumList: cleanedAlbums,
-      artistList: cleanedArtists,
-      myPlaylist: cleanedPlaylists,
+    add(
+      const MusicEvent.fetchAndUpdateMetadata(
+        includeAlbums: true,
+        includeArtists: true,
+        isProgressive: false,
+      ),
     );
   }
+
 
   // ==================== UTILITY METHODS ====================
   List<Song> _applySorting(List<Song> songs, int sortingIndex) {
@@ -2509,84 +2614,6 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     );
 
     _logger.i('✅ Navigation filter updated');
-  }
-
-  // ==================== PROGRESSIVE EXTRACTION METHODS ====================
-
-  /// Extract albums progressively from current songs
-  Future<void> _extractAlbumsProgressive({
-    required Function(List<Album>, bool) onProgress,
-  }) async {
-    try {
-      final songs = state.allSongs;
-      final List<Album> albums = [];
-      const int batchSize = 10;
-
-      for (int i = 0; i < songs.length; i += batchSize) {
-        final batch = songs.skip(i).take(batchSize).toList();
-        final batchAlbums = MusicService.fetchAlbumList(batch);
-
-        // Add new albums to the list
-        for (final album in batchAlbums) {
-          if (!albums.any((existing) => existing.name == album.name)) {
-            albums.add(album);
-          }
-        }
-
-        // Report progress
-        final isComplete = (i + batchSize) >= songs.length;
-        onProgress(batchAlbums, isComplete);
-
-        // Small delay to prevent UI blocking
-        if (!isComplete) {
-          await Future.delayed(const Duration(milliseconds: 50));
-        }
-      }
-
-      _logger.i(
-        '✅ Progressive album extraction completed: ${albums.length} albums',
-      );
-    } catch (e) {
-      _logger.e('❌ Error in progressive album extraction: $e');
-    }
-  }
-
-  /// Extract artists progressively from current songs
-  Future<void> _extractArtistsProgressive({
-    required Function(List<Artist>, bool) onProgress,
-  }) async {
-    try {
-      final songs = state.allSongs;
-      final List<Artist> artists = [];
-      const int batchSize = 10;
-
-      for (int i = 0; i < songs.length; i += batchSize) {
-        final batch = songs.skip(i).take(batchSize).toList();
-        final batchArtists = MusicService.fetchArtistList(batch);
-
-        // Add new artists to the list
-        for (final artist in batchArtists) {
-          if (!artists.any((existing) => existing.name == artist.name)) {
-            artists.add(artist);
-          }
-        }
-
-        // Report progress
-        final isComplete = (i + batchSize) >= songs.length;
-        onProgress(batchArtists, isComplete);
-
-        // Small delay to prevent UI blocking
-        if (!isComplete) {
-          await Future.delayed(const Duration(milliseconds: 50));
-        }
-      }
-
-      _logger.i(
-        '✅ Progressive artist extraction completed: ${artists.length} artists',
-      );
-    } catch (e) {
-      _logger.e('❌ Error in progressive artist extraction: $e');
-    }
   }
 
   // ==================== PLAY COUNT TRACKING METHODS ====================
@@ -2730,6 +2757,33 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     _ExtractComprehensiveFeatures event,
     Emitter<MusicState> emit,
   ) async {
+    final isForce = event.isForce == true;
+    if (_isExtractingFeatures) {
+      // Coalesce: run once more after the current extraction finishes so
+      // songs added meanwhile are analysed too.
+      _featureExtractionRequested = true;
+      _featureExtractionForceRequested |= isForce;
+      _logger.d('⏳ Feature extraction already running - queued follow-up');
+      return;
+    }
+    _isExtractingFeatures = true;
+    try {
+      await _runComprehensiveFeatureExtraction(isForce, emit);
+    } finally {
+      _isExtractingFeatures = false;
+      if (_featureExtractionRequested && !isClosed) {
+        final force = _featureExtractionForceRequested;
+        _featureExtractionRequested = false;
+        _featureExtractionForceRequested = false;
+        add(MusicEvent.extractComprehensiveFeatures(isForce: force));
+      }
+    }
+  }
+
+  Future<void> _runComprehensiveFeatureExtraction(
+    bool isForce,
+    Emitter<MusicState> emit,
+  ) async {
     _logger.i(
       '🔬 Starting comprehensive features extraction (hybrid background mode)',
     );
@@ -2767,7 +2821,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
       // Determine which songs to process
       List<Song> targetSongs;
-      if (event.isForce == true) {
+      if (isForce) {
         // Force re-extraction for all songs
         targetSongs = List<Song>.from(state.allSongs);
         _logger.i(
@@ -2896,6 +2950,12 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     // Dispose stream subscriptions to prevent memory leaks
     _playerStateSubscription?.cancel();
     _appSettingsSubscription?.cancel();
+    _aiShuffleSettingsSubscription?.cancel();
+    _autoRefreshTimer?.cancel();
+    if (FetchSongsService.onSkippedFilesChanged != null) {
+      FetchSongsService.onSkippedFilesChanged = null;
+    }
+    unawaited(LibraryStorage.flush());
     return super.close();
   }
 

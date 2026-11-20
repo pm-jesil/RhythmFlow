@@ -5,10 +5,18 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- Storage Permissions -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <!-- Storage Permissions
+         Android 13+ uses READ_MEDIA_AUDIO (below). The legacy permissions are
+         limited to the versions that need them. MANAGE_EXTERNAL_STORAGE was
+         removed: it is not used by the app and Google Play rejects music
+         players that request it. Deleting songs on Android 10+ goes through
+         MediaStore (see MainActivity.kt). -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
 
     <!-- Audio Permissions -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -20,10 +28,6 @@
 
     <!-- Vibration Permission (for haptic feedback) -->
     <uses-permission android:name="android.permission.VIBRATE" />
-
-    <!-- Write Settings Permission -->
-    <uses-permission android:name="android.permission.WRITE_SETTINGS"
-        tools:ignore="ProtectedPermissions" />
 
     <application
         android:label="RhythmFlow"
@@ -53,9 +57,10 @@
             </intent-filter>
         </receiver>
 
-        <!-- Main Activity - UPDATED android:name for AudioService compatibility -->
+        <!-- Main Activity: MainActivity extends AudioServiceActivity (required by
+             audio_service) and adds the MediaStore delete/observe bridge. -->
         <activity
-            android:name="com.ryanheise.audioservice.AudioServiceActivity"
+            android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""

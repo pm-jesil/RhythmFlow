@@ -66,6 +66,12 @@ void main() {
       when(() => mockAudioService.stop()).thenAnswer((_) async {});
       when(() => mockAudioService.seekTo(any())).thenAnswer((_) async {});
       
+      // AppSettingsBloc is read by MusicBloc's constructor.
+      when(() => mockAppSettingsBloc.state)
+          .thenReturn(AppSettingsState.initial());
+      when(() => mockAppSettingsBloc.stream)
+          .thenAnswer((_) => const Stream<AppSettingsState>.empty());
+
       musicBloc = MusicBloc(mockAudioService, mockRemoteControlService, mockAppSettingsBloc);
     });
 
@@ -287,7 +293,16 @@ void main() {
         expect(deserializedState.allSongs.length, equals(complexState.allSongs.length));
         expect(deserializedState.albumList.length, equals(complexState.albumList.length));
         expect(deserializedState.artistList.length, equals(complexState.artistList.length));
-        expect(deserializedState.myPlaylist.length, equals(complexState.myPlaylist.length));
+        // fromJson always guarantees the Favorites playlist exists.
+        bool isNotFavorites(p) => p.id != 'my_playlist_favorites';
+        expect(
+          deserializedState.myPlaylist.where(isNotFavorites).length,
+          equals(complexState.myPlaylist.where(isNotFavorites).length),
+        );
+        expect(
+          deserializedState.myPlaylist.any((p) => p.id == 'my_playlist_favorites'),
+          isTrue,
+        );
         expect(deserializedState.myPlayerState.currentSongId, equals(complexState.myPlayerState.currentSongId));
         expect(deserializedState.myPlayerState.isPlaying, isFalse); 
         expect(deserializedState.myPlayerState.isShuffle, equals(complexState.myPlayerState.isShuffle));

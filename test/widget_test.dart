@@ -7,6 +7,7 @@ import 'package:rhythmflow/core/theme/app_theme.dart';
 import 'package:rhythmflow/core/theme/theme_bloc.dart';
 import 'package:rhythmflow/core/constants/app_constants.dart';
 import 'package:rhythmflow/screens/bottom_tab/bloc/music_bloc.dart';
+import 'package:rhythmflow/screens/app_settings/bloc/app_settings_bloc.dart';
 import 'package:rhythmflow/screens/bottom_tab/screens/for_you_screen.dart';
 import 'package:rhythmflow/utils/models/my_player_state_model.dart';
 import 'package:mocktail/mocktail.dart';
@@ -19,12 +20,30 @@ class MockMusicBloc extends Mock implements MusicBloc {
 
 class FakeMusicEvent extends Fake implements MusicEvent {}
 
+class MockAppSettingsBloc extends Mock implements AppSettingsBloc {
+  @override
+  Future<void> close() async {}
+}
+
+/// ForYouScreen reads AppSettingsBloc, so the tests must provide one.
+AppSettingsBloc _mockAppSettingsBloc() {
+  final bloc = MockAppSettingsBloc();
+  when(() => bloc.state).thenReturn(AppSettingsState.initial());
+  when(() => bloc.stream).thenAnswer((_) => const Stream.empty());
+  return bloc;
+}
+
 void main() {
   setUpAll(() {
     registerFallbackValue(FakeMusicEvent());
   });
 
   testWidgets('App loads without crashing', (WidgetTester tester) async {
+    // RhythmFlow is a portrait phone app; use a phone-sized surface instead
+    // of the 800x600 test default.
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
     // Create mock bloc
     final mockMusicBloc = MockMusicBloc();
     
@@ -67,6 +86,9 @@ void main() {
           ),
           BlocProvider<MusicBloc>(
             create: (context) => mockMusicBloc,
+          ),
+          BlocProvider<AppSettingsBloc>(
+            create: (context) => _mockAppSettingsBloc(),
           ),
         ],
         child: BlocBuilder<ThemeBloc, ThemeState>(
@@ -107,6 +129,11 @@ void main() {
   });
 
   testWidgets('App theme switching works', (WidgetTester tester) async {
+    // RhythmFlow is a portrait phone app; use a phone-sized surface instead
+    // of the 800x600 test default.
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
     // Create mock bloc
     final mockMusicBloc = MockMusicBloc();
     
@@ -149,6 +176,9 @@ void main() {
           ),
           BlocProvider<MusicBloc>(
             create: (context) => mockMusicBloc,
+          ),
+          BlocProvider<AppSettingsBloc>(
+            create: (context) => _mockAppSettingsBloc(),
           ),
         ],
         child: BlocBuilder<ThemeBloc, ThemeState>(

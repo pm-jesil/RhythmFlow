@@ -152,8 +152,13 @@ void main() {
           duration: const Duration(minutes: 3),
         );
         
-        // Should throw an exception for non-existent file, but not crash the service
-        expect(() => audioService.playSong(testSong), throwsA(isA<Exception>()));
+        // A missing file is reported through the invalid-song callback
+        // (so the bloc can skip to the next song); playSong itself completes
+        // normally instead of throwing.
+        Song? reported;
+        audioService.setInvalidSongCallback((song, _, __) => reported = song);
+        await expectLater(audioService.playSong(testSong), completes);
+        expect(reported?.id, equals('test-id'));
       });
 
       test('should handle seek errors gracefully', () async {

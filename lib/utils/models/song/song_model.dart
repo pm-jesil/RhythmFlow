@@ -36,6 +36,9 @@ class Song with _$Song {
     int? fileSize, // changed from String? → int? (bytes)
     DateTime? dateAdded,
     DateTime? updatedAt,
+    // Last-modified time of the file when its metadata was read. Used by the
+    // scanner to detect edited/replaced files and re-read their tags.
+    DateTime? fileModifiedAt,
     DateTime? lastPlayed,
     int? playCount,
     bool? isFavorite,

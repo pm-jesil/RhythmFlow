@@ -124,11 +124,23 @@ class SongCleanupService {
       
       _logger.i('🔄 Player state cleanup: ${playerState.currentPlayList.length} → ${cleanedCurrentPlaylist.length} current, ${playerState.completedSongs.length} → ${cleanedCompletedSongs.length} completed');
       
-      return playerState.copyWith(
-        currentSongId: removedSongIds.contains(playerState.currentSongId) ? null : playerState.currentSongId,
-        previousSongId: removedSongIds.contains(playerState.previousSongId) ? null : playerState.previousSongId,
+      // Build the model explicitly: MyPlayerStateModel.copyWith uses `??`,
+      // so it can never reset currentSongId / previousSongId to null and a
+      // deleted current song would otherwise stay "current".
+      final currentRemoved = removedSongIds.contains(playerState.currentSongId);
+      return MyPlayerStateModel(
+        playlistId: playerState.playlistId,
         currentPlayList: cleanedCurrentPlaylist,
+        currentSongId: currentRemoved ? null : playerState.currentSongId,
+        previousSongId: removedSongIds.contains(playerState.previousSongId)
+            ? null
+            : playerState.previousSongId,
         completedSongs: cleanedCompletedSongs,
+        repeatModeIndex: playerState.repeatModeIndex,
+        filterKeyword: playerState.filterKeyword,
+        isShuffle: playerState.isShuffle,
+        isPlaying: currentRemoved ? false : playerState.isPlaying,
+        lastPosition: currentRemoved ? null : playerState.lastPosition,
       );
     }
     
@@ -233,80 +245,118 @@ class SongCleanupService {
   }
 
   // ==================== DUPLICATE SONG METHODS ====================
+  //
+  // Two files are only treated as duplicates when they are the *same
+  // recording*: same normalized title, same normalized primary artist and
+  // durations within [duplicateDurationTolerance]. Songs that merely share a
+  // title ("Hello" by two different artists), versions such as "(Live)" or
+  // "(Remix)", and songs whose duration is unknown are never merged.
+  //
+  // Normalization is Unicode aware, so Malayalam, Tamil, Hindi, Arabic,
+  // Japanese ... titles are compared correctly instead of collapsing to an
+  // empty string.
 
-  /// Remove duplicate songs by title, keeping the best version
-  static List<Song> removeDuplicateSongsByTitle(List<Song> songs) {
-    _logger.d('Removing duplicate songs by title from ${songs.length} songs');
+  /// Maximum duration difference for two files to count as the same song.
+  static const Duration duplicateDurationTolerance = Duration(seconds: 2);
 
-    final Map<String, Song> uniqueSongs = {};
-    int duplicatesRemoved = 0;
+  static final RegExp _nonWordChars = RegExp(
+    r'[^\p{L}\p{M}\p{N}\s]',
+    unicode: true,
+  );
+  static final RegExp _whitespace = RegExp(r'\s+', unicode: true);
 
-    for (final song in songs) {
-      final normalizedTitle = normalizeTitle(song.title);
-
-      if (uniqueSongs.containsKey(normalizedTitle)) {
-        // Found a duplicate - keep the better version
-        final existingSong = uniqueSongs[normalizedTitle]!;
-        final betterSong = selectBetterSong(existingSong, song);
-
-        if (betterSong != existingSong) {
-          _logger.d(
-            'Replacing duplicate: "${existingSong.title}" with better version: "${song.title}"',
-          );
-          uniqueSongs[normalizedTitle] = betterSong;
-        } else {
-          _logger.d(
-            'Keeping existing song: "${existingSong.title}", removing duplicate: "${song.title}"',
-          );
-        }
-
-        duplicatesRemoved++;
-      } else {
-        // First occurrence of this title
-        uniqueSongs[normalizedTitle] = song;
-      }
-    }
-
-    _logger.i(
-      'Removed $duplicatesRemoved duplicate songs, kept ${uniqueSongs.length} unique songs',
-    );
-    return uniqueSongs.values.toList();
-  }
-
-  /// Enhanced normalization that handles multiple languages
+  /// Lower-cases, removes punctuation/symbols and collapses whitespace.
+  /// Letters, combining marks (Indic vowel signs etc.) and digits of every
+  /// script are preserved. No words are removed.
   static String normalizeTitle(String title) {
     if (title.isEmpty) return '';
+    return title
+        .toLowerCase()
+        .replaceAll(_nonWordChars, ' ')
+        .replaceAll(_whitespace, ' ')
+        .trim();
+  }
 
-    // Convert to lowercase and remove extra whitespace
-    String normalized = title.toLowerCase().trim();
+  /// Key used to group potential duplicates, or `null` when the song must
+  /// never be merged with another one (e.g. an empty normalized title).
+  static String? duplicateKey(Song song) {
+    final title = normalizeTitle(song.title);
+    if (title.isEmpty) return null;
+    final artist = normalizeTitle(
+      song.artists.isNotEmpty ? song.artists.first : '',
+    );
+    return '$title|$artist';
+  }
 
-    // Remove common punctuation and special characters
-    normalized = normalized
-        .replaceAll(RegExp(r'[^\w\s]'), '')
-        .replaceAll(RegExp(r'\s+'), ' ');
+  /// True when [a] and [b] are the same recording stored in two files.
+  static bool isSameRecording(Song a, Song b) {
+    if (a.path == b.path) return true;
+    final keyA = duplicateKey(a);
+    if (keyA == null || keyA != duplicateKey(b)) return false;
+    // Unknown durations are never considered equal.
+    if (a.duration <= Duration.zero || b.duration <= Duration.zero) {
+      return false;
+    }
+    final diff = (a.duration - b.duration).abs();
+    return diff <= duplicateDurationTolerance;
+  }
 
-    // Remove common words that don't add uniqueness
-    final commonWords = {
-      'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
-      'of', 'with', 'by', 'from', 'up', 'about', 'into', 'through', 'during',
-      'before', 'after', 'above', 'below', 'between', 'among', 'under',
-      'over', 'around', 'near', 'far', 'here', 'there', 'where', 'when',
-      'why', 'how', 'what', 'who', 'which', 'that', 'this', 'these',
-      'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him',
-      'her', 'us', 'them', 'my', 'your', 'his', 'its', 'our',
-      'their', 'mine', 'yours', 'hers', 'ours', 'theirs', 'am', 'is',
-      'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had',
-      'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may',
-      'might', 'must', 'can', 'shall', 'feat', 'ft', 'featuring',
-      'vs', 'versus', 'remix', 'edit', 'version', 'extended', 'radio',
-      'single', 'album', 'ep', 'lp', 'cd', 'vinyl', 'digital', 'live',
-      'acoustic', 'instrumental', 'karaoke', 'cover', 'original'
-    };
+  /// Splits [candidates] into songs to accept and duplicates to drop.
+  ///
+  /// [existing] songs always win (they may already be in playlists, have play
+  /// counts, etc.). Among candidates, the first one (in list order) wins.
+  /// The same rule is used by the first full scan and by incremental scans,
+  /// so the resulting song count does not depend on which path ran.
+  static DuplicateFilterResult filterDuplicatesAgainst(
+    List<Song> existing,
+    List<Song> candidates,
+  ) {
+    final Map<String, List<Song>> keptByKey = {};
+    final Set<String> keptIds = {};
+    final Set<String> keptPaths = {};
 
-    final words = normalized.split(' ');
-    final filteredWords = words.where((word) => !commonWords.contains(word)).toList();
+    void remember(Song song) {
+      keptIds.add(song.id);
+      keptPaths.add(song.path);
+      final key = duplicateKey(song);
+      if (key != null) keptByKey.putIfAbsent(key, () => []).add(song);
+    }
 
-    return filteredWords.join(' ');
+    for (final song in existing) {
+      remember(song);
+    }
+
+    final accepted = <Song>[];
+    final dropped = <Song>[];
+    for (final song in candidates) {
+      if (keptIds.contains(song.id) || keptPaths.contains(song.path)) {
+        dropped.add(song);
+        continue;
+      }
+      final key = duplicateKey(song);
+      final sameKey = key == null ? const <Song>[] : keptByKey[key] ?? const [];
+      if (sameKey.any((kept) => isSameRecording(kept, song))) {
+        dropped.add(song);
+        continue;
+      }
+      accepted.add(song);
+      remember(song);
+    }
+
+    if (dropped.isNotEmpty) {
+      _logger.i(
+        'Duplicate filter: kept ${accepted.length}, dropped ${dropped.length}',
+      );
+    }
+    return DuplicateFilterResult(accepted: accepted, dropped: dropped);
+  }
+
+  /// Removes duplicate recordings from [songs] (first occurrence wins).
+  ///
+  /// Kept under its historical name for backward compatibility; it no longer
+  /// matches on title alone (see the section comment above).
+  static List<Song> removeDuplicateSongsByTitle(List<Song> songs) {
+    return filterDuplicatesAgainst(const [], songs).accepted;
   }
 
   /// Select the better song between two duplicates
@@ -348,81 +398,49 @@ class SongCleanupService {
     return count;
   }
 
-  /// Alternative: More aggressive duplicate detection using fuzzy matching
+  /// Fuzzy duplicate detection (optional, not used by the scanner).
+  /// Uses the same safety rules as [isSameRecording] but tolerates small
+  /// spelling differences in the title.
   static List<Song> removeDuplicatesSongsFuzzy(List<Song> songs) {
-    _logger.d('Removing duplicate songs using fuzzy matching from ${songs.length} songs');
-
     final List<Song> uniqueSongs = [];
-    int duplicatesRemoved = 0;
-
     for (final song in songs) {
-      bool isDuplicate = false;
-
-      for (int i = 0; i < uniqueSongs.length; i++) {
-        if (areSongsSimilar(uniqueSongs[i], song)) {
-          // Found a potential duplicate
-          final betterSong = selectBetterSong(uniqueSongs[i], song);
-          
-          if (betterSong != uniqueSongs[i]) {
-            _logger.d('Replacing fuzzy duplicate: "${uniqueSongs[i].title}" with "${song.title}"');
-            uniqueSongs[i] = betterSong;
-          } else {
-            _logger.d('Keeping existing song, removing fuzzy duplicate: "${song.title}"');
-          }
-          
-          isDuplicate = true;
-          duplicatesRemoved++;
-          break;
-        }
-      }
-
-      if (!isDuplicate) {
+      if (!uniqueSongs.any((kept) => areSongsSimilar(kept, song))) {
         uniqueSongs.add(song);
       }
     }
-
-    _logger.i('Fuzzy matching removed $duplicatesRemoved duplicates, kept ${uniqueSongs.length} unique songs');
     return uniqueSongs;
   }
 
-  /// Check if two songs are similar enough to be considered duplicates
+  /// Check if two songs are similar enough to be considered duplicates:
+  /// near-identical title, same artist and same duration.
   static bool areSongsSimilar(Song song1, Song song2) {
-    // Check title similarity
+    if (isSameRecording(song1, song2)) return true;
+
     final title1 = normalizeTitle(song1.title);
     final title2 = normalizeTitle(song2.title);
-    
     if (title1.isEmpty || title2.isEmpty) return false;
-    
-    // Exact match after normalization
-    if (title1 == title2) return true;
-    
-    // Check for high similarity (80%+ match)
-    final similarity = _calculateSimilarity(title1, title2);
-    if (similarity >= 0.8) return true;
-    
-    // Check artist similarity if titles are somewhat similar
-    if (similarity >= 0.6) {
-      final artist1 = normalizeTitle(song1.artists.isNotEmpty ? song1.artists.first : '');
-      final artist2 = normalizeTitle(song2.artists.isNotEmpty ? song2.artists.first : '');
-      if (artist1.isNotEmpty && artist2.isNotEmpty) {
-        final artistSimilarity = _calculateSimilarity(artist1, artist2);
-        if (artistSimilarity >= 0.7) return true;
-      }
+
+    final artist1 = normalizeTitle(song1.artists.isNotEmpty ? song1.artists.first : '');
+    final artist2 = normalizeTitle(song2.artists.isNotEmpty ? song2.artists.first : '');
+    if (artist1 != artist2) return false;
+
+    if (song1.duration <= Duration.zero || song2.duration <= Duration.zero) {
+      return false;
     }
-    
-    return false;
+    if ((song1.duration - song2.duration).abs() > duplicateDurationTolerance) {
+      return false;
+    }
+    return _calculateSimilarity(title1, title2) >= 0.9;
   }
 
   /// Calculate similarity between two strings (0.0 to 1.0)
   static double _calculateSimilarity(String s1, String s2) {
     if (s1 == s2) return 1.0;
     if (s1.isEmpty || s2.isEmpty) return 0.0;
-    
+
     final longer = s1.length > s2.length ? s1 : s2;
     final shorter = s1.length > s2.length ? s2 : s1;
-    
-    if (longer.isEmpty) return 1.0;
-    
+
     final editDistance = _levenshteinDistance(longer, shorter);
     return (longer.length - editDistance) / longer.length;
   }
@@ -433,30 +451,22 @@ class SongCleanupService {
     if (s1.isEmpty) return s2.length;
     if (s2.isEmpty) return s1.length;
 
-    List<List<int>> matrix = List.generate(
-      s1.length + 1,
-      (i) => List.generate(s2.length + 1, (j) => 0),
-    );
-
-    for (int i = 0; i <= s1.length; i++) {
-      matrix[i][0] = i;
-    }
-    for (int j = 0; j <= s2.length; j++) {
-      matrix[0][j] = j;
-    }
-
+    var previous = List<int>.generate(s2.length + 1, (j) => j);
     for (int i = 1; i <= s1.length; i++) {
+      final current = List<int>.filled(s2.length + 1, 0);
+      current[0] = i;
       for (int j = 1; j <= s2.length; j++) {
-        int cost = s1[i - 1] == s2[j - 1] ? 0 : 1;
-        matrix[i][j] = [
-          matrix[i - 1][j] + 1,      // deletion
-          matrix[i][j - 1] + 1,      // insertion
-          matrix[i - 1][j - 1] + cost // substitution
-        ].reduce((a, b) => a < b ? a : b);
+        final cost = s1[i - 1] == s2[j - 1] ? 0 : 1;
+        final deletion = previous[j] + 1;
+        final insertion = current[j - 1] + 1;
+        final substitution = previous[j - 1] + cost;
+        var best = deletion < insertion ? deletion : insertion;
+        if (substitution < best) best = substitution;
+        current[j] = best;
       }
+      previous = current;
     }
-
-    return matrix[s1.length][s2.length];
+    return previous[s2.length];
   }
 
   // ==================== UNIQUENESS VALIDATION ====================
@@ -654,4 +664,12 @@ class SongCleanupService {
     
     return cleanupResult;
   }
+}
+
+/// Result of [SongCleanupService.filterDuplicatesAgainst].
+class DuplicateFilterResult {
+  final List<Song> accepted;
+  final List<Song> dropped;
+
+  const DuplicateFilterResult({required this.accepted, required this.dropped});
 }

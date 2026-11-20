@@ -33,6 +33,10 @@ class AudioService {
 
   // Callback to notify when song changes
   Function(Song song)? onSongChanged;
+
+  /// Called with the real duration reported by the player after a song is
+  /// loaded (used to fill in songs whose tags had no readable duration).
+  void Function(Song song, Duration duration)? onDurationResolved;
   
   // Callback to notify when song is invalid
   Function(Song song, String? playlistId, PlaylistSource? playlistSource)? onInvalidSong;
@@ -287,7 +291,12 @@ class AudioService {
       // Set audio source (no tag needed - we'll update through audio_service)
       final audioSource = AudioSource.file(song.path);
 
-      await _audioPlayer.setAudioSource(audioSource);
+      final resolvedDuration = await _audioPlayer.setAudioSource(audioSource);
+      if (resolvedDuration != null &&
+          resolvedDuration > Duration.zero &&
+          song.duration <= Duration.zero) {
+        onDurationResolved?.call(song, resolvedDuration);
+      }
       
       // Update media item in audio_service for notification
       _audioHandler?.updateMediaItem(mediaItem);

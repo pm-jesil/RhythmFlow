@@ -202,19 +202,7 @@ class MetadataUtils {
   /// Validate if file is a valid audio file
   static Future<bool> isValidAudioFile(String filePath) async {
     if (!isAudioFile(filePath)) return false;
-
-    try {
-      final file = File(filePath);
-      if (!await file.exists()) return false;
-
-      final stat = await file.stat();
-      if (stat.size < 1024) return false;
-
-      final bytes = await file.openRead(0, 12).first;
-      return validateAudioHeader(bytes, filePath.split('.').last.toLowerCase());
-    } catch (e) {
-      return false;
-    }
+    return AudioHeaderValidator.isValidFile(filePath);
   }
 
   /// Check if file extension is supported audio format
@@ -224,33 +212,6 @@ class MetadataUtils {
   }
 
   /// Validate audio file header
-  static bool validateAudioHeader(List<int> header, String extension) {
-    if (header.length < 4) return false;
-
-    switch (extension) {
-      case 'mp3':
-        // ID3v2 tag
-        if (header[0] == 0x49 && header[1] == 0x44 && header[2] == 0x33) return true;
-        // MP3 frame header - more strict validation
-        if (header[0] == 0xFF && (header[1] & 0xE0) == 0xE0) {
-          // Additional validation: check that it's not all 0xFF bytes
-          if (header[1] == 0xFF && header[2] == 0xFF && header[3] == 0xFF) return false;
-          return true;
-        }
-        return false;
-      case 'flac':
-        return header[0] == 0x66 && header[1] == 0x4C && header[2] == 0x61 && header[3] == 0x43;
-      case 'ogg':
-        return header[0] == 0x4F && header[1] == 0x67 && header[2] == 0x67 && header[3] == 0x53;
-      case 'wav':
-        return header[0] == 0x52 && header[1] == 0x49 && header[2] == 0x46 && header[3] == 0x46;
-      case 'm4a':
-      case 'm4p':
-      case 'mp4':
-        return header.length >= 8 && header[4] == 0x66 && header[5] == 0x74 && 
-               header[6] == 0x79 && header[7] == 0x70;
-      default:
-        return true;
-    }
-  }
+  static bool validateAudioHeader(List<int> header, String extension) =>
+      AudioHeaderValidator.isValidHeader(header, extension);
 }

@@ -8,6 +8,7 @@ import 'package:image/image.dart' as img;
 import 'package:rhythmflow/utils/logger/logger.dart';
 import 'package:rhythmflow/utils/models/song/song_model.dart';
 import '../permission_service.dart';
+import '../audio_header_validator.dart';
 
 part 'metadata_extractor_helper.dart';
 part 'fetch_artist_names_from_file.dart';

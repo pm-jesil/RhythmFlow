@@ -158,63 +158,69 @@ class _ForYouScreenState extends State<ForYouScreen> {
       enableAnimation: true,
       animationDelay: animationDelay,
       onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: EdgeInsets.all(_cardPadding.r),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  color.withValues(alpha: 0.2),
-                  color.withValues(alpha: 0.1),
+      // Scale down (never up) so large system font sizes cannot overflow the
+      // fixed-height card; looks identical when the content fits.
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: EdgeInsets.all(_cardPadding.r),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    color.withValues(alpha: 0.2),
+                    color.withValues(alpha: 0.1),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(_borderRadius.r),
+                border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.2),
+                    offset: Offset(0, 2.h),
+                    blurRadius: 4.r,
+                    spreadRadius: 0,
+                  ),
                 ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(_borderRadius.r),
-              border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
-              boxShadow: [
-                BoxShadow(
-                  color: color.withValues(alpha: 0.2),
-                  offset: Offset(0, 2.h),
-                  blurRadius: 4.r,
-                  spreadRadius: 0,
-                ),
-              ],
+              child: Icon(icon, color: color, size: (iconSize ?? 24).sp),
             ),
-            child: Icon(icon, color: color, size: (iconSize ?? 24).sp),
-          ),
-          SizedBox(height: _itemSpacing.h),
-          Text(
-            count.toString(),
-            style: TextStyle(
-              color: context.onSurfaceColor,
-              fontSize: (fontSize ?? 18).sp,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'Poppins',
-              shadows: [
-                Shadow(
-                  color: context.onSurfaceColor.withValues(alpha: 0.3),
-                  offset: Offset(0, 1.h),
-                  blurRadius: 2.r,
-                ),
-              ],
+            SizedBox(height: _itemSpacing.h),
+            Text(
+              count.toString(),
+              style: TextStyle(
+                color: context.onSurfaceColor,
+                fontSize: (fontSize ?? 18).sp,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Poppins',
+                shadows: [
+                  Shadow(
+                    color: context.onSurfaceColor.withValues(alpha: 0.3),
+                    offset: Offset(0, 1.h),
+                    blurRadius: 2.r,
+                  ),
+                ],
+              ),
             ),
-          ),
-          SizedBox(height: 2.h),
-          Text(
-            title,
-            style: TextStyle(
-              color: context.onSurfaceVariantColor,
-              fontSize: 11.sp,
-              fontWeight: FontWeight.w600,
-              fontFamily: 'Poppins',
-              letterSpacing: 0.5,
+            SizedBox(height: 2.h),
+            Text(
+              title,
+              style: TextStyle(
+                color: context.onSurfaceVariantColor,
+                fontSize: 11.sp,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'Poppins',
+                letterSpacing: 0.5,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

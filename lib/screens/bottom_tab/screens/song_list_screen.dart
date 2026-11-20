@@ -138,7 +138,7 @@ class _SongListScreenState extends State<SongListScreen> {
 
       if (hasPermissions) {
         _logger.i('✅ Permissions granted, proceeding with fetch');
-        context.read<MusicBloc>().add(const MusicEvent.fetchAndUpdateSongs());
+        context.read<MusicBloc>().add(const MusicEvent.fetchAndUpdateSongs(isForce: true));
       } else {
         _logger.w('❌ Permissions not granted, requesting permissions');
 
@@ -151,7 +151,7 @@ class _SongListScreenState extends State<SongListScreen> {
           _logger.i(
             '✅ Permissions granted after request, proceeding with fetch',
           );
-          context.read<MusicBloc>().add(const MusicEvent.fetchAndUpdateSongs());
+          context.read<MusicBloc>().add(const MusicEvent.fetchAndUpdateSongs(isForce: true));
         } else {
           _logger.w('❌ Permissions denied, showing permission required dialog');
           await PermissionService.showPermissionRequiredDialog(context);

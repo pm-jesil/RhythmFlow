@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../../../utils/services/media_store_bridge.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -118,24 +119,23 @@ class SongContextMenuActions {
     }
 
     try {
-      // Delete the file
-      final file = File(song.path);
-      if (await file.exists()) {
-        await file.delete();
+      // Android 11+ shows the system "allow delete" dialog here.
+      final deleted = await MediaStoreBridge.deleteAudioFile(song.path);
+      if (deleted) {
         _logger.i('✅ File deleted successfully from device storage');
 
-        // Refresh song list
-        _logger.i('🔄 Refreshing song list to remove deleted song');
-        musicBloc.add(const MusicEvent.fetchAndUpdateSongs(isForce: true));
+        // Remove the song (and every reference to it) directly instead of
+        // rescanning the whole device.
+        musicBloc.add(MusicEvent.removeSongs(songIds: [song.id]));
 
-        // Show success toast
-        AppCustom.showSongDeletedToast(currentContext, songTitle);
+        if (currentContext.mounted) {
+          AppCustom.showSongDeletedToast(currentContext, songTitle);
+        }
       } else {
-        _logger.w('⚠️ File does not exist at path: ${song.path}');
-        AppCustom.error(
-          currentContext,
-          'Cannot delete: File not found on device',
-        );
+        _logger.w('⚠️ Delete cancelled or file not removed: ${song.path}');
+        if (currentContext.mounted) {
+          AppCustom.error(currentContext, 'Song was not deleted');
+        }
       }
     } catch (e) {
       _logger.e('❌ Delete failed: $e');

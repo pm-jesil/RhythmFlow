@@ -435,7 +435,7 @@ class _MusicLibrarySettingsScreenState extends State<MusicLibrarySettingsScreen>
           ),
         );
         
-        AppCustom.success(context, 'Folder added successfully');
+        AppCustom.success(context, 'Folder added - updating your library');
       } else {
         _logger.i('📁 No folder selected');
       }
@@ -457,7 +457,7 @@ class _MusicLibrarySettingsScreenState extends State<MusicLibrarySettingsScreen>
       ),
     );
     
-    AppCustom.success(context, 'Folder removed successfully');
+    AppCustom.success(context, 'Folder removed - updating your library');
   }
 
   Future<void> _refreshAllSongs() async {
@@ -474,13 +474,6 @@ class _MusicLibrarySettingsScreenState extends State<MusicLibrarySettingsScreen>
         // Trigger music bloc to refresh all songs with force flag
         context.read<MusicBloc>().add(const MusicEvent.fetchAndUpdateSongs(isForce: true));
         
-        // Update last refresh time
-        context.read<AppSettingsBloc>().add(
-          AppSettingsEvent.updateLastMusicLibraryUpdate(
-            timestamp: DateTime.now(),
-          ),
-        );
-        
         _logger.i('✅ Force song refresh initiated successfully');
         AppCustom.success(context, 'Force song refresh initiated');
       } else {
@@ -495,13 +488,6 @@ class _MusicLibrarySettingsScreenState extends State<MusicLibrarySettingsScreen>
           
           // Trigger music bloc to refresh all songs with force flag
           context.read<MusicBloc>().add(const MusicEvent.fetchAndUpdateSongs(isForce: true));
-          
-          // Update last refresh time
-          context.read<AppSettingsBloc>().add(
-            AppSettingsEvent.updateLastMusicLibraryUpdate(
-              timestamp: DateTime.now(),
-            ),
-          );
           
           _logger.i('✅ Force song refresh initiated successfully');
           AppCustom.success(context, 'Force song refresh initiated');

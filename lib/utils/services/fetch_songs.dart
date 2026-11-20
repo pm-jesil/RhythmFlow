@@ -1,15 +1,70 @@
+import 'dart:convert';
 import 'dart:io';
+
+import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
+
 import '../models/song/song_model.dart';
 import '../logger/logger.dart';
+import 'audio_header_validator.dart';
 import 'metadata_extractor/metadata_extractor.dart';
 import 'format_utils.dart';
 import 'song_cleanup_service.dart';
 import 'permission_service.dart';
 
+/// Extracts a [Song] from an audio file. Replaceable in tests.
+typedef SongExtractor = Future<Song?> Function(String filePath);
+
+/// Returns whether storage permission is granted. Replaceable in tests.
+typedef PermissionChecker = Future<bool> Function();
+
+/// Why a file was skipped during a scan (stored in the skip cache).
+class SkipReason {
+  SkipReason._();
+  static const String duplicate = 'duplicate';
+  static const String filtered = 'filtered';
+  static const String unreadable = 'unreadable';
+}
+
+/// Result of an incremental library scan.
+class LibraryScanResult {
+  /// Newly discovered songs (already filtered and de-duplicated).
+  final List<Song> newSongs;
+
+  /// IDs of library songs that are no longer present in the scanned folders
+  /// (deleted, moved, folder removed from the whitelist, format disabled).
+  final List<String> invalidSongIds;
+
+  /// Existing songs whose file changed and whose metadata was re-read (or
+  /// whose file signature was back-filled). Same IDs as before.
+  final List<Song> updatedSongs;
+
+  /// False when the device could not be scanned (no permission, no folders);
+  /// callers must then keep the library untouched.
+  final bool scanSucceeded;
+
+  const LibraryScanResult({
+    this.newSongs = const [],
+    this.invalidSongIds = const [],
+    this.updatedSongs = const [],
+    this.scanSucceeded = true,
+  });
+
+  static const LibraryScanResult failed = LibraryScanResult(
+    scanSucceeded: false,
+  );
+
+  /// Backward compatible map form used by older callers/tests.
+  Map<String, dynamic> toMap() => {
+    'newSongs': newSongs,
+    'invalidSongIds': invalidSongIds,
+    'updatedSongs': updatedSongs,
+    'scanSucceeded': scanSucceeded,
+  };
+}
+
 class FetchSongsService {
   static final AppLogger _logger = AppLogger('FetchSongsService');
-
-  // Supported audio formats are now managed by FormatUtils
 
   // Video file extensions to exclude
   static const List<String> videoFormats = [
@@ -29,539 +84,543 @@ class FetchSongsService {
     '.ogv',
   ];
 
-  // Minimum and maximum song duration filters
+  /// Songs with a *known* duration shorter than this are ignored (UI sounds,
+  /// notification tones). Songs whose duration could not be read (zero) are
+  /// kept; the real duration is filled in when they are first played.
   static const Duration minDuration = Duration(seconds: 2);
-  static const Duration maxDuration = Duration(hours: 1);
 
+  /// Files smaller than this are not real songs.
+  static const int minFileSizeBytes = 10 * 1024;
 
+  /// Number of files processed between progress callbacks.
+  static const int batchSize = 10;
 
-  /// OPTIMIZED: Fetch songs progressively with new flow and batch updates
+  // ==================== INJECTABLE DEPENDENCIES ====================
+
+  static SongExtractor extractor = MetadataExtractor.extractMetadata;
+  static PermissionChecker permissionChecker =
+      PermissionService.hasAllRequiredPermissions;
+
+  /// Key of the whitelist map used on this platform.
+  static String platformKey = Platform.isAndroid ? 'android' : 'ios';
+
+  /// Delay between batches so the UI isolate stays responsive.
+  static Duration batchDelay = const Duration(milliseconds: 30);
+
+  // ==================== SKIP CACHE ====================
+
+  /// path -> "size:mtimeMs|reason" for files that were processed but not added
+  /// to the library (duplicates, too short, unreadable). They are not
+  /// re-processed on every scan unless the file changes. Persisted by
+  /// LibraryStorage.
+  static final Map<String, String> _skippedFiles = {};
+
+  static Map<String, String> get skippedFiles =>
+      Map.unmodifiable(_skippedFiles);
+
+  static void restoreSkippedFiles(Map<String, String> entries) {
+    _skippedFiles
+      ..clear()
+      ..addAll(entries);
+  }
+
+  static void clearSkippedFiles() => _skippedFiles.clear();
+
+  /// Optional listener invoked whenever the skip cache changes.
+  static VoidCallback? onSkippedFilesChanged;
+
+  @visibleForTesting
+  static void resetForTesting() {
+    extractor = MetadataExtractor.extractMetadata;
+    permissionChecker = PermissionService.hasAllRequiredPermissions;
+    platformKey = Platform.isAndroid ? 'android' : 'ios';
+    batchDelay = const Duration(milliseconds: 30);
+    onSkippedFilesChanged = null;
+    _skippedFiles.clear();
+  }
+
+  static String fileSignature(FileStat stat) =>
+      '${stat.size}:${stat.modified.millisecondsSinceEpoch}';
+
+  /// Same formula as `MetadataUtils.generateSongId`, computed from an
+  /// already available [FileStat].
+  static String songIdFor(String filePath, FileStat stat) {
+    final combined =
+        '$filePath${stat.size}${stat.modified.millisecondsSinceEpoch}';
+    return sha256.convert(utf8.encode(combined)).toString().substring(0, 16);
+  }
+
+  // ==================== PUBLIC SCAN API ====================
+
+  /// First (full) scan. Reports accepted songs batch by batch.
+  ///
+  /// `onProgress(batchSongs, isComplete, totalAccepted)`.
   static Future<void> fetchAllSongsProgressive({
-    required Function(List<Song>, bool, int) onProgress,
+    required void Function(List<Song>, bool, int) onProgress,
     List<String>? supportedFormats,
     Map<String, List<String>>? whitelistedFolders,
   }) async {
-    _logger.i('🚀 Starting optimized progressive song fetching...');
-
+    _logger.i('🚀 Starting progressive song scan...');
     try {
-      // Step 1: Get all song file paths first
-      final songPaths = await fetchSongsPath(
+      final paths = await scanSongPaths(
         whitelistedFolders: whitelistedFolders,
         supportedFormats: supportedFormats,
       );
-
-      if (songPaths.isEmpty) {
-        _logger.w('⚠️ No song paths found');
+      if (paths == null || paths.isEmpty) {
         onProgress([], true, 0);
         return;
       }
+      _pruneSkipCache(paths.toSet());
 
-      _logger.i('📋 Found ${songPaths.length} song paths, starting progressive metadata extraction...');
-
-      // Step 2: Process metadata extraction in batches of 10
-      final List<Song> allSongs = [];
-      const int batchSize = 10;
-      int totalProcessed = 0;
-
-      for (int i = 0; i < songPaths.length; i += batchSize) {
-        final batch = songPaths.skip(i).take(batchSize).toList();
-        final batchNumber = (i ~/ batchSize) + 1;
-        final totalBatches = (songPaths.length / batchSize).ceil();
-        
-        _logger.d('🔄 Processing batch $batchNumber/$totalBatches: ${batch.length} files');
-
-        final List<Song> batchSongs = [];
-
-        // Process each file in the batch
-        for (final filePath in batch) {
-          try {
-            final file = File(filePath);
-            if (await file.exists()) {
-              final song = await processFile(file, supportedFormats: supportedFormats);
-              if (song != null) {
-                batchSongs.add(song);
-                allSongs.add(song);
-              }
-            }
-          } catch (e) {
-            _logger.w('⚠️ Error processing file $filePath: $e');
-          }
-        }
-
-        // Apply filters to current batch
-        final filteredBatch = _applyFilters(batchSongs);
-        totalProcessed += filteredBatch.length;
-
-        // Report progress for this batch
-        final isComplete = (i + batchSize) >= songPaths.length;
-        onProgress(filteredBatch, isComplete, totalProcessed);
-
-        _logger.d('📀 Batch $batchNumber completed: ${filteredBatch.length} songs (Total: $totalProcessed)');
-
-        // Small delay to prevent UI blocking
-        if (!isComplete) {
-          await Future.delayed(const Duration(milliseconds: 100));
-        }
-      }
-
-      // Final progress update
-      _logger.i('🎵 Progressive fetching completed: ${allSongs.length} total songs');
-      onProgress([], true, totalProcessed);
-      
+      int total = 0;
+      await _processNewPaths(
+        paths,
+        existingForDedup: const [],
+        supportedFormats: supportedFormats,
+        onBatch: (batch, isComplete) {
+          total += batch.length;
+          onProgress(batch, isComplete, total);
+        },
+      );
+      _logger.i('🎵 Progressive scan completed: $total songs');
     } catch (e) {
-      _logger.e('❌ Error in optimized progressive song fetching', error: e);
+      _logger.e('❌ Error in progressive song scan', error: e);
       onProgress([], true, 0);
     }
   }
 
-  /// OPTIMIZED: Fetch only new songs with new flow
-  /// Returns a map with 'newSongs' and 'invalidSongIds' for comprehensive cleanup
-  static Future<Map<String, dynamic>> fetchNewSongs(List<Song> existingSongs, {List<String>? supportedFormats, Map<String, List<String>>? whitelistedFolders}) async {
-    _logger.i('🆕 Starting optimized new songs fetch (excluding ${existingSongs.length} existing songs)');
-
+  /// Incremental scan against the current library.
+  static Future<LibraryScanResult> scanLibrary(
+    List<Song> existingSongs, {
+    List<String>? supportedFormats,
+    Map<String, List<String>>? whitelistedFolders,
+  }) async {
+    _logger.i('🆕 Incremental scan (${existingSongs.length} songs in library)');
     try {
-      // Step 1: Get all song file paths first
-      final songPaths = await fetchSongsPath(
+      final paths = await scanSongPaths(
         whitelistedFolders: whitelistedFolders,
         supportedFormats: supportedFormats,
       );
+      if (paths == null) return LibraryScanResult.failed;
 
-      if (songPaths.isEmpty) {
-        _logger.w('⚠️ No song paths found');
-        return {
-          'newSongs': <Song>[],
-          'invalidSongIds': <String>[],
-        };
-      }
+      final pathSet = paths.toSet();
+      _pruneSkipCache(pathSet);
 
-      _logger.i('📋 Found ${songPaths.length} song paths, checking for new songs...');
+      final invalidSongIds = <String>[];
+      final updatedSongs = <Song>[];
+      final keptExisting = <Song>[];
 
-      // Step 2: Validate existing song paths and create set for quick lookup
-      final validatedExistingSongs = await _validateExistingSongs(existingSongs);
-      final existingSongPaths = validatedExistingSongs.map((song) => song.path).toSet();
-      
-      // Find invalid songs that were removed from device
-      final invalidSongIds = existingSongs
-          .where((song) => !validatedExistingSongs.any((validSong) => validSong.id == song.id))
-          .map((song) => song.id)
-          .toList();
-      
-      if (invalidSongIds.isNotEmpty) {
-        _logger.w('⚠️ Found ${invalidSongIds.length} invalid songs that need cleanup: $invalidSongIds');
-      }
-      
-      final newSongPaths = songPaths.where((path) => !existingSongPaths.contains(path)).toList();
-
-      if (newSongPaths.isEmpty) {
-        _logger.i('✅ No new songs found');
-        return {
-          'newSongs': <Song>[],
-          'invalidSongIds': invalidSongIds,
-        };
-      }
-
-      _logger.i('🆕 Found ${newSongPaths.length} new song paths, extracting metadata...');
-
-      // Step 3: Process metadata extraction for new songs only
-      final List<Song> newSongs = [];
-      const int batchSize = 10;
-      
-      for (int i = 0; i < newSongPaths.length; i += batchSize) {
-        final batch = newSongPaths.skip(i).take(batchSize).toList();
-        _logger.d('🔄 Processing new songs batch ${(i ~/ batchSize) + 1}/${(newSongPaths.length / batchSize).ceil()}: ${batch.length} files');
-
-        // Process each file in the batch
-        for (final filePath in batch) {
-          try {
-            final file = File(filePath);
-            if (await file.exists()) {
-              final song = await processFile(file, supportedFormats: supportedFormats);
-              if (song != null) {
-                newSongs.add(song);
-              }
-            }
-          } catch (e) {
-            _logger.w('⚠️ Error processing new file $filePath: $e');
+      for (final song in existingSongs) {
+        if (!pathSet.contains(song.path)) {
+          invalidSongIds.add(song.id);
+          continue;
+        }
+        FileStat stat;
+        try {
+          stat = await File(song.path).stat();
+          if (stat.type == FileSystemEntityType.notFound) {
+            invalidSongIds.add(song.id);
+            continue;
           }
+        } catch (_) {
+          invalidSongIds.add(song.id);
+          continue;
         }
 
-        // Small delay to prevent UI blocking
-        if (i + batchSize < newSongPaths.length) {
-          await Future.delayed(const Duration(milliseconds: 50));
-        }
-      }
-
-      // Step 4: Apply filters to new songs
-      final filteredNewSongs = _applyFilters(newSongs);
-      _logger.i('✅ Found ${filteredNewSongs.length} new songs after filtering');
-
-      return {
-        'newSongs': filteredNewSongs,
-        'invalidSongIds': invalidSongIds,
-      };
-    } catch (e) {
-      _logger.e('❌ Error in optimized new songs fetch', error: e);
-      return {
-        'newSongs': <Song>[],
-        'invalidSongIds': <String>[],
-      };
-    }
-  }
-
-
-  /// Get all folders recursively from whitelisted folders
-  /// This function creates a comprehensive list of all subdirectories
-  static Future<List<String>> getAllFoldersFromWhitelist(Map<String, List<String>> whitelistedFolders) async {
-    final List<String> allFolders = [];
-    
-    try {
-      // Get platform-specific whitelisted folders
-    final platform = Platform.isAndroid ? 'android' : 'ios';
-    final platformFolders = whitelistedFolders[platform] ?? [];
-      _logger.d('🔍 Processing whitelisted folders for $platform: $platformFolders');
-
-      // Process each whitelisted folder recursively
-      for (final whitelistFolder in platformFolders) {
-        final directory = Directory(whitelistFolder);
-      if (await directory.exists()) {
-          _logger.d('📁 Scanning whitelist folder: $whitelistFolder');
-          
-          // Add the whitelist folder itself
-          allFolders.add(whitelistFolder);
-          
-          // Recursively find all subdirectories
-          final subFolders = await _getAllSubdirectories(whitelistFolder);
-          allFolders.addAll(subFolders);
-          
-          _logger.d('📂 Found ${subFolders.length} subdirectories in $whitelistFolder');
+        final refreshed = await _refreshIfModified(
+          song,
+          stat,
+          supportedFormats: supportedFormats,
+        );
+        if (refreshed != null) {
+          updatedSongs.add(refreshed);
+          keptExisting.add(refreshed);
         } else {
-          _logger.w('⚠️ Whitelist folder does not exist: $whitelistFolder');
+          keptExisting.add(song);
         }
       }
 
-      // Remove duplicates and sort
-      final uniqueFolders = allFolders.toSet().toList();
-      uniqueFolders.sort();
-      
-      _logger.i('✅ Total folders to scan: ${uniqueFolders.length}');
-      _logger.d('📋 All folders: $uniqueFolders');
-      
-      return uniqueFolders;
-    } catch (e) {
-      _logger.e('❌ Error getting folders from whitelist', error: e);
-      return [];
-    }
-  }
-
-  /// Recursively get all subdirectories from a given folder
-  static Future<List<String>> _getAllSubdirectories(String folderPath) async {
-    final List<String> subdirectories = [];
-    
-    try {
-      final directory = Directory(folderPath);
-      await for (final entity in directory.list(recursive: true)) {
-        if (entity is Directory) {
-          subdirectories.add(entity.path);
-        }
+      // A removed song may have had duplicates that were skipped; let them
+      // be considered again so the recording does not disappear.
+      if (invalidSongIds.isNotEmpty) {
+        _removeSkipEntries(SkipReason.duplicate);
       }
+
+      final existingPaths = existingSongs.map((s) => s.path).toSet();
+      final candidatePaths = paths
+          .where((p) => !existingPaths.contains(p))
+          .toList();
+
+      final newSongs = <Song>[];
+      await _processNewPaths(
+        candidatePaths,
+        existingForDedup: keptExisting,
+        supportedFormats: supportedFormats,
+        onBatch: (batch, _) => newSongs.addAll(batch),
+      );
+
+      _logger.i(
+        '✅ Incremental scan: +${newSongs.length} new, '
+        '-${invalidSongIds.length} removed, ~${updatedSongs.length} updated',
+      );
+      return LibraryScanResult(
+        newSongs: newSongs,
+        invalidSongIds: invalidSongIds,
+        updatedSongs: updatedSongs,
+      );
     } catch (e) {
-      _logger.w('⚠️ Error scanning subdirectories in $folderPath: $e');
+      _logger.e('❌ Error in incremental scan', error: e);
+      return LibraryScanResult.failed;
     }
-    
-    return subdirectories;
   }
 
+  /// Backward compatible wrapper around [scanLibrary].
+  static Future<Map<String, dynamic>> fetchNewSongs(
+    List<Song> existingSongs, {
+    List<String>? supportedFormats,
+    Map<String, List<String>>? whitelistedFolders,
+  }) async {
+    final result = await scanLibrary(
+      existingSongs,
+      supportedFormats: supportedFormats,
+      whitelistedFolders: whitelistedFolders,
+    );
+    return result.toMap();
+  }
 
-  /// PUBLIC FUNCTION: Fetch all song file paths from whitelisted folders
-  /// This function finds all audio files in the comprehensive folder list
+  // ==================== PATH DISCOVERY ====================
+
+  /// Lists all audio files inside the whitelisted folders (recursively).
+  ///
+  /// Returns `null` when scanning was not possible (permission missing or no
+  /// whitelisted folder exists) so that callers never wipe the library
+  /// because of a transient problem.
+  static Future<List<String>?> scanSongPaths({
+    Map<String, List<String>>? whitelistedFolders,
+    List<String>? supportedFormats,
+  }) async {
+    if (!await permissionChecker()) {
+      _logger.w('❌ Permissions not granted, cannot scan');
+      return null;
+    }
+
+    final roots = (whitelistedFolders ?? const {})[platformKey] ?? const [];
+    final formats = (supportedFormats ?? FormatUtils.defaultSupportedFormats)
+        .map((f) => f.toLowerCase())
+        .toSet();
+
+    final existingRoots = <String>[];
+    for (final root in roots) {
+      if (await Directory(root).exists()) {
+        existingRoots.add(root);
+      } else {
+        _logger.w('⚠️ Whitelisted folder does not exist: $root');
+      }
+    }
+    if (existingRoots.isEmpty) {
+      _logger.w('⚠️ No whitelisted folder exists');
+      return null;
+    }
+
+    final found = <String>{};
+    for (final root in existingRoots) {
+      await _walk(Directory(root), formats, found);
+    }
+    final result = found.toList()..sort();
+    _logger.i('✅ Found ${result.length} audio files');
+    return result;
+  }
+
+  /// Public, list-returning variant kept for backward compatibility.
   static Future<List<String>> fetchSongsPath({
     Map<String, List<String>>? whitelistedFolders,
     List<String>? supportedFormats,
   }) async {
-    _logger.i('🎵 Starting to fetch song paths from device...');
+    return await scanSongPaths(
+          whitelistedFolders: whitelistedFolders,
+          supportedFormats: supportedFormats,
+        ) ??
+        <String>[];
+  }
 
+  /// Get all folders recursively from whitelisted folders.
+  static Future<List<String>> getAllFoldersFromWhitelist(
+    Map<String, List<String>> whitelistedFolders,
+  ) async {
+    final folders = <String>{};
+    for (final root in whitelistedFolders[platformKey] ?? const <String>[]) {
+      final dir = Directory(root);
+      if (!await dir.exists()) continue;
+      folders.add(root);
+      await _collectDirectories(dir, folders);
+    }
+    return folders.toList()..sort();
+  }
+
+  static Future<void> _collectDirectories(
+    Directory dir,
+    Set<String> out,
+  ) async {
+    List<FileSystemEntity> entries;
     try {
-      // Check permissions first
-      if (!await PermissionService.hasAllRequiredPermissions()) {
-        _logger.w('❌ Permissions not granted, cannot fetch song paths');
-        return [];
+      entries = await dir.list(followLinks: false).toList();
+    } catch (_) {
+      return;
+    }
+    for (final entity in entries) {
+      if (entity is Directory) {
+        out.add(entity.path);
+        await _collectDirectories(entity, out);
       }
+    }
+  }
 
-      // Get comprehensive folder list from whitelist
-      final allFolders = await getAllFoldersFromWhitelist(whitelistedFolders ?? {});
-      if (allFolders.isEmpty) {
-        _logger.w('⚠️ No folders found in whitelist');
-        return [];
+  /// Recursive walk that tolerates unreadable sub-folders (a single
+  /// permission error no longer aborts the whole folder tree).
+  static Future<void> _walk(
+    Directory dir,
+    Set<String> formats,
+    Set<String> out,
+  ) async {
+    List<FileSystemEntity> entries;
+    try {
+      entries = await dir.list(followLinks: false).toList();
+    } catch (e) {
+      _logger.w('⚠️ Cannot list ${dir.path}: $e');
+      return;
+    }
+    for (final entity in entries) {
+      if (entity is Directory) {
+        await _walk(entity, formats, out);
+      } else if (entity is File && isSupportedAudioPath(entity.path, formats)) {
+        out.add(entity.path);
       }
+    }
+  }
 
-      final List<String> allSongPaths = [];
-      final formats = supportedFormats ?? FormatUtils.defaultSupportedFormats;
+  /// True when [path] has one of [formats] and is not a video file.
+  static bool isSupportedAudioPath(String path, Iterable<String> formats) {
+    final ext = '.${AudioHeaderValidator.extensionOf(path)}';
+    if (ext == '.') return false;
+    if (videoFormats.contains(ext)) return false;
+    return formats.contains(ext);
+  }
 
-      _logger.i('🔍 Scanning ${allFolders.length} folders for audio files...');
+  // ==================== FILE PROCESSING ====================
 
-      // Process each folder to find audio files
-      for (final folder in allFolders) {
+  static Future<void> _processNewPaths(
+    List<String> paths, {
+    required List<Song> existingForDedup,
+    required List<String>? supportedFormats,
+    required void Function(List<Song> batch, bool isComplete) onBatch,
+  }) async {
+    if (paths.isEmpty) {
+      onBatch(const [], true);
+      return;
+    }
+
+    final kept = List<Song>.from(existingForDedup);
+    for (int i = 0; i < paths.length; i += batchSize) {
+      final batchPaths = paths.skip(i).take(batchSize);
+      final extracted = <Song>[];
+
+      for (final path in batchPaths) {
+        FileStat stat;
         try {
-          final directory = Directory(folder);
-          if (!await directory.exists()) {
-            _logger.w('⚠️ Folder does not exist: $folder');
-            continue;
-          }
-
-          _logger.d('📁 Scanning folder: $folder');
-          int fileCount = 0;
-
-          await for (final entity in directory.list(recursive: false)) {
-            if (entity is File) {
-              final filePath = entity.path.toLowerCase();
-              
-              // Check if file is a supported audio format
-              if (formats.any((format) => filePath.endsWith(format))) {
-                // Skip video files
-                if (!videoFormats.any((format) => filePath.endsWith(format))) {
-                  allSongPaths.add(entity.path);
-                  fileCount++;
-                }
-              }
-            }
-          }
-
-          _logger.d('🎵 Found $fileCount audio files in $folder');
-        } catch (e) {
-          _logger.e('❌ Error scanning folder $folder', error: e);
+          stat = await File(path).stat();
+        } catch (_) {
+          continue;
         }
+        if (stat.type == FileSystemEntityType.notFound) continue;
+        final signature = fileSignature(stat);
+        if (_isSkipped(path, signature)) continue;
+
+        final song = await processFile(
+          File(path),
+          supportedFormats: supportedFormats,
+        );
+        if (song == null) {
+          _markSkipped(path, signature, SkipReason.unreadable);
+          continue;
+        }
+        final normalized = normalizeSong(song).copyWith(
+          fileModifiedAt: stat.modified,
+          fileSize: song.fileSize ?? stat.size,
+        );
+        if (!passesBasicFilters(normalized)) {
+          _markSkipped(path, signature, SkipReason.filtered);
+          continue;
+        }
+        extracted.add(normalized);
       }
 
-      // Remove duplicates and sort
-      final uniquePaths = allSongPaths.toSet().toList();
-      uniquePaths.sort();
+      final dedup = SongCleanupService.filterDuplicatesAgainst(kept, extracted);
+      for (final dropped in dedup.dropped) {
+        final signature = dropped.fileModifiedAt != null
+            ? '${dropped.fileSize}:${dropped.fileModifiedAt!.millisecondsSinceEpoch}'
+            : '';
+        _markSkipped(dropped.path, signature, SkipReason.duplicate);
+      }
+      kept.addAll(dedup.accepted);
 
-      _logger.i('✅ Found ${uniquePaths.length} unique audio files');
-      return uniquePaths;
-    } catch (e) {
-      _logger.e('❌ Error fetching song paths', error: e);
-      return [];
+      final isComplete = i + batchSize >= paths.length;
+      onBatch(dedup.accepted, isComplete);
+      if (!isComplete && batchDelay > Duration.zero) {
+        await Future.delayed(batchDelay);
+      }
     }
   }
 
-  /// Scan a folder for music files
-  static Future<List<Song>> scanFolderForSongs(String folderPath, {List<String>? supportedFormats}) async {
-    final List<Song> songs = [];
+  /// Re-reads metadata of [song] when its file changed since it was indexed.
+  /// Returns the updated song (same ID and user data) or `null` when nothing
+  /// changed.
+  static Future<Song?> _refreshIfModified(
+    Song song,
+    FileStat stat, {
+    required List<String>? supportedFormats,
+  }) async {
+    final modifiedMs = stat.modified.millisecondsSinceEpoch;
 
-    try {
-      final directory = Directory(folderPath);
-      if (!await directory.exists()) {
-        _logger.w('Folder does not exist: $folderPath');
-        return songs;
+    if (song.fileModifiedAt == null) {
+      // Indexed by an older version: the ID encodes size + mtime at the time.
+      if (songIdFor(song.path, stat) == song.id) {
+        return song.copyWith(fileModifiedAt: stat.modified, fileSize: stat.size);
       }
-
-      await for (final entity in directory.list(recursive: true)) {
-        if (entity is File) {
-          final song = await processFile(entity, supportedFormats: supportedFormats);
-          if (song != null) {
-            songs.add(song);
-          }
-        }
-      }
-    } catch (e) {
-      _logger.e('Error scanning folder: $folderPath', error: e);
+    } else if (song.fileModifiedAt!.millisecondsSinceEpoch == modifiedMs &&
+        (song.fileSize == null || song.fileSize == stat.size)) {
+      return null; // unchanged
     }
 
-    return songs;
+    _logger.i('✏️ File changed, re-reading tags: ${song.path}');
+    final fresh = await processFile(
+      File(song.path),
+      supportedFormats: supportedFormats,
+    );
+    if (fresh == null) {
+      // Keep the old metadata but remember the new signature so we do not
+      // retry on every scan.
+      return song.copyWith(fileModifiedAt: stat.modified, fileSize: stat.size);
+    }
+    return mergeRefreshedSong(song, normalizeSong(fresh)).copyWith(
+      fileModifiedAt: stat.modified,
+      fileSize: stat.size,
+    );
   }
 
-  /// Process a file to extract song information using enhanced metadata extraction
-  static Future<Song?> processFile(File file, {List<String>? supportedFormats}) async {
+  /// Keeps identity and user data of [old] while taking the file metadata of
+  /// [fresh].
+  static Song mergeRefreshedSong(Song old, Song fresh) {
+    return fresh.copyWith(
+      id: old.id,
+      playCount: old.playCount,
+      lastPlayed: old.lastPlayed,
+      isFavorite: old.isFavorite,
+      myPlaylistIds: old.myPlaylistIds,
+      dateAdded: old.dateAdded ?? fresh.dateAdded,
+      features: old.features,
+      audioEmbedding: old.audioEmbedding,
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  /// Process a file to extract song information.
+  static Future<Song?> processFile(
+    File file, {
+    List<String>? supportedFormats,
+  }) async {
     try {
-      final path = file.path.toLowerCase();
-
-      // Check if file is a video format (exclude)
-      if (videoFormats.any((format) => path.endsWith(format))) {
-        _logger.d('⏭️ Skipping video file: ${file.path}');
-        return null;
-      }
-
-      // Use provided formats or default
-      final formats = supportedFormats ?? FormatUtils.defaultSupportedFormats;
-
-      // Check if file is a supported audio format
-      if (!formats.any((format) => path.endsWith(format))) {
-        return null;
-      }
-
-      // Skip invalid audio files (using provided formats)
-      if (!await _isValidAudioFileWithFormats(file.path, formats)) {
+      final formats = (supportedFormats ?? FormatUtils.defaultSupportedFormats)
+          .map((f) => f.toLowerCase());
+      if (!isSupportedAudioPath(file.path, formats)) return null;
+      if (!await AudioHeaderValidator.isValidFile(file.path)) {
         _logger.d('Skipping invalid audio file: ${file.path}');
         return null;
       }
-
-      // Use enhanced metadata extraction
-      final song = await MetadataExtractor.extractMetadata(file.path);
-
-      return song;
+      return await extractor(file.path);
     } catch (e) {
       _logger.e('Error processing file: ${file.path}', error: e);
       return null;
     }
   }
 
-  /// Apply filters to song list
-  static List<Song> _applyFilters(List<Song> songs) {
-    _logger.d('Applying filters to ${songs.length} songs');
-
-    // First apply basic filters
-    final basicFilteredSongs = songs.where((song) {
-      // Duration filter
-      if (song.duration < minDuration || song.duration > maxDuration) {
-        _logger.d(
-          'Song filtered out due to duration: ${song.title} (${song.duration})',
-        );
-        return false;
-      }
-
-      // File size filter (optional - skip very small or very large files)
-      if (song.fileSize != null) {
-        const minFileSize = 1024 * 10; // 10 KB minimum
-        const maxFileSize = 1024 * 1024 * 100; // 100 MB maximum
-
-        if (song.fileSize! < minFileSize || song.fileSize! > maxFileSize) {
-          _logger.d(
-            'Song filtered out due to file size: ${song.title} (${song.fileSize} bytes)',
-          );
-          return false;
-        }
-      }
-
-      // Title and artist filter (skip songs with empty or invalid metadata)
-      if (song.title.isEmpty || song.artists.isEmpty) {
-        _logger.d(
-          'Song filtered out due to missing metadata: ${song.title} - ${song.artists.join(', ')}',
-        );
-        return false;
-      }
-
-      return true;
-    }).toList();
-
-    _logger.d('Songs after basic filtering: ${basicFilteredSongs.length}');
-
-    // Then remove duplicates by title (exact or fuzzy matching)
-    final uniqueSongs = _useFuzzyMatching 
-        ? SongCleanupService.removeDuplicatesSongsFuzzy(basicFilteredSongs)
-        : SongCleanupService.removeDuplicateSongsByTitle(basicFilteredSongs);
-    _logger.d('Songs after duplicate removal: ${uniqueSongs.length}');
-
-    return uniqueSongs;
+  /// Scan a folder for music files (not used by the library scan).
+  static Future<List<Song>> scanFolderForSongs(
+    String folderPath, {
+    List<String>? supportedFormats,
+  }) async {
+    final songs = <Song>[];
+    final dir = Directory(folderPath);
+    if (!await dir.exists()) return songs;
+    final paths = <String>{};
+    await _walk(
+      dir,
+      (supportedFormats ?? FormatUtils.defaultSupportedFormats)
+          .map((f) => f.toLowerCase())
+          .toSet(),
+      paths,
+    );
+    for (final path in paths.toList()..sort()) {
+      final song = await processFile(File(path), supportedFormats: supportedFormats);
+      if (song != null) songs.add(song);
+    }
+    return songs;
   }
 
+  // ==================== FILTERS ====================
 
+  /// Fills missing title / artist / album instead of dropping the song.
+  static Song normalizeSong(Song song) {
+    final title = song.title.trim().isNotEmpty
+        ? song.title
+        : _fileBaseName(song.path);
+    final artists = song.artists.where((a) => a.trim().isNotEmpty).toList();
+    final albums = song.albums.where((a) => a.trim().isNotEmpty).toList();
+    return song.copyWith(
+      title: title,
+      artists: artists.isEmpty ? const ['Unknown Artist'] : artists,
+      albums: albums.isEmpty ? const ['Unknown Album'] : albums,
+    );
+  }
 
-
-
-  /// Set duplicate detection mode
-  static final bool _useFuzzyMatching = false;
-
-
-
-  /// Validate if file is a valid audio file using provided formats
-  static Future<bool> _isValidAudioFileWithFormats(String filePath, List<String> supportedFormats) async {
-    try {
-      final file = File(filePath);
-      if (!await file.exists()) return false;
-
-      final stat = await file.stat();
-      if (stat.size < 1024) return false;
-
-      // Check if file extension is in supported formats
-      final extension = '.${filePath.split('.').last.toLowerCase()}';
-      if (!supportedFormats.contains(extension)) return false;
-
-      // Basic header validation for common formats
-      final bytes = await file.openRead(0, 12).first;
-      return _validateAudioHeader(bytes, extension);
-    } catch (e) {
+  /// Basic sanity filters. Unknown (zero) duration and long files are kept.
+  static bool passesBasicFilters(Song song) {
+    if (song.fileSize != null && song.fileSize! < minFileSizeBytes) {
       return false;
     }
+    if (song.duration > Duration.zero && song.duration < minDuration) {
+      return false;
+    }
+    return true;
   }
 
-  /// Validate audio file header for common formats
-  static bool _validateAudioHeader(List<int> header, String extension) {
-    if (header.length < 4) return false;
-
-    switch (extension) {
-      case '.mp3':
-        // ID3v2 tag or MP3 frame header
-        if (header[0] == 0x49 && header[1] == 0x44 && header[2] == 0x33) return true;
-        if (header[0] == 0xFF && (header[1] & 0xE0) == 0xE0) return true;
-        return false;
-      case '.flac':
-        return header[0] == 0x66 && header[1] == 0x4C && header[2] == 0x61 && header[3] == 0x43;
-      case '.ogg':
-        return header[0] == 0x4F && header[1] == 0x67 && header[2] == 0x67 && header[3] == 0x53;
-      case '.wav':
-        return header[0] == 0x52 && header[1] == 0x49 && header[2] == 0x46 && header[3] == 0x46;
-      case '.m4a':
-      case '.m4p':
-        return header.length >= 8 && header[4] == 0x66 && header[5] == 0x74 && 
-               header[6] == 0x79 && header[7] == 0x70;
-      default:
-        return true; // For other formats, assume valid if extension matches
-    }
+  static String _fileBaseName(String path) {
+    final name = path.split('/').last;
+    final dot = name.lastIndexOf('.');
+    return dot > 0 ? name.substring(0, dot) : name;
   }
 
+  // ==================== SKIP CACHE HELPERS ====================
 
-  /// Validate existing songs to ensure their files still exist and are accessible
-  /// This prevents processing songs that have been moved, deleted, or are inaccessible
-  static Future<List<Song>> _validateExistingSongs(List<Song> existingSongs) async {
-    _logger.i('🔍 Validating ${existingSongs.length} existing songs...');
-    
-    final List<Song> validSongs = [];
-    final List<String> invalidPaths = [];
-    
-    for (final song in existingSongs) {
-      try {
-        final file = File(song.path);
-        
-        // Check if file exists
-        if (!await file.exists()) {
-          _logger.w('⚠️ Song file no longer exists: ${song.path}');
-          invalidPaths.add(song.path);
-          continue;
-        }
-        
-        // Check if file is accessible (can read basic properties)
-        try {
-          final stat = await file.stat();
-          if (stat.size < 1024) { // Less than 1KB is likely invalid
-            _logger.w('⚠️ Song file too small (${stat.size} bytes): ${song.path}');
-            invalidPaths.add(song.path);
-            continue;
-          }
-        } catch (e) {
-          _logger.w('⚠️ Cannot access song file: ${song.path} - $e');
-          invalidPaths.add(song.path);
-          continue;
-        }
-        
-        // File is valid, keep it
-        validSongs.add(song);
-        
-      } catch (e) {
-        _logger.w('⚠️ Error validating song: ${song.path} - $e');
-        invalidPaths.add(song.path);
-      }
-    }
-    
-    final removedCount = existingSongs.length - validSongs.length;
-    if (removedCount > 0) {
-      _logger.i('🗑️ Removed $removedCount invalid songs from existing list');
-      _logger.d('Invalid paths: $invalidPaths');
-    } else {
-      _logger.i('✅ All existing songs are still valid');
-    }
-    
-    return validSongs;
+  static bool _isSkipped(String path, String signature) {
+    final entry = _skippedFiles[path];
+    if (entry == null) return false;
+    return entry.split('|').first == signature;
   }
 
+  static void _markSkipped(String path, String signature, String reason) {
+    _skippedFiles[path] = '$signature|$reason';
+    onSkippedFilesChanged?.call();
+  }
 
+  static void _removeSkipEntries(String reason) {
+    final before = _skippedFiles.length;
+    _skippedFiles.removeWhere((_, v) => v.endsWith('|$reason'));
+    if (_skippedFiles.length != before) onSkippedFilesChanged?.call();
+  }
+
+  static void _pruneSkipCache(Set<String> presentPaths) {
+    final before = _skippedFiles.length;
+    _skippedFiles.removeWhere((path, _) => !presentPaths.contains(path));
+    if (_skippedFiles.length != before) onSkippedFilesChanged?.call();
+  }
 }

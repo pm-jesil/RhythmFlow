@@ -6,11 +6,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:rhythmflow/core/di/injection.dart';
 import 'package:rhythmflow/screens/app_settings/bloc/app_settings_bloc.dart';
-import 'package:music_feature_analyzer/music_feature_analyzer.dart';
+import 'package:hive/hive.dart';
 import 'package:audio_service/audio_service.dart' as audio_service_pkg;
 import 'utils/logger/logger.dart';
 import 'utils/services/audio_handler.dart';
 import 'utils/services/audio_service.dart';
+import 'utils/services/library_storage.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_bloc.dart';
@@ -26,6 +27,9 @@ void main() async {
   logger.i('🎵 RhythmFlow starting...');
 
   await _initializeHydratedBloc();
+  // Must be ready before the DI graph creates MusicBloc (it restores the
+  // library from this store).
+  await _initializeLibraryStorage();
 
   try {
     await configureDependencies();
@@ -63,21 +67,8 @@ void main() async {
     logger.e('❌ AudioService initialization failed: $e');
   }
 
-  // Initialize Music Feature Analyzer
-  try {
-    logger.i('🚀 Initializing Music Feature Analyzer...');
-    final analyzerInitialized = await MusicFeatureAnalyzer.initialize();
-    if (analyzerInitialized) {
-      logger.i('✅ Music Feature Analyzer initialized successfully');
-    } else {
-      logger.w(
-        '⚠️ Music Feature Analyzer initialization failed - will retry later',
-      );
-    }
-  } catch (e) {
-    logger.e('❌ Music Feature Analyzer initialization error: $e');
-    // Continue anyway - will retry in bloc if needed
-  }
+  // The Music Feature Analyzer (ML model) is initialised lazily by MusicBloc
+  // the first time features are extracted, which keeps cold start fast.
 
   runApp(const MyApp());
 }
@@ -95,6 +86,18 @@ Future<void> _initializeHydratedBloc() async {
     logger.i('HydratedBloc storage initialized successfully');
   } catch (e) {
     logger.e('Error initializing HydratedBloc storage', error: e);
+  }
+}
+
+Future<void> _initializeLibraryStorage() async {
+  final logger = AppLogger('LibraryStorageInitializer');
+  if (kIsWeb) return;
+  try {
+    final dir = await getApplicationDocumentsDirectory();
+    Hive.init('${dir.path}/rhythmflow_library');
+    await LibraryStorage.init();
+  } catch (e) {
+    logger.e('Error initializing library storage', error: e);
   }
 }
 

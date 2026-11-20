@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../../core/theme/theme_extension.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_bloc.dart';
@@ -18,10 +19,22 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  String _appVersion = '';
+
   @override
   void initState() {
     super.initState();
     // Theme sync is handled by AppSettingsBloc initialization
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) setState(() => _appVersion = info.version);
+    } catch (_) {
+      // Keep the placeholder when the platform info is unavailable.
+    }
   }
 
   @override
@@ -409,7 +422,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildNativeInfoTile(
             icon: CupertinoIcons.info,
             title: 'App Version',
-            subtitle: '1.0.0',
+            subtitle: _appVersion.isNotEmpty ? _appVersion : '—',
           ),
         ],
       ),

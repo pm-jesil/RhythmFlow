@@ -193,7 +193,33 @@ RhythmFlow is a sophisticated music player built with Flutter that offers advanc
 - **Battery Optimization**: Optimized for battery life
 
 ### Testing
-If tests are added to the project, use the commands below to run them.
+```bash
+flutter test                 # whole suite
+flutter test test/library    # music library scanning / auto-update tests
+```
+`test/library/` runs the real scanner and `MusicBloc` against temporary
+folders with real files (a fake tag reader replaces the native `audiotags`
+library), covering: new / deleted / edited files, removed folders, disabled
+formats, duplicate handling (including Malayalam, Tamil and Hindi titles),
+album/artist counts, persistence and concurrent scan requests.
+
+### Music library scanning & auto-update
+- **First launch**: storage permission is requested once, then a full scan
+  shows songs batch by batch.
+- **Incremental scans** of the whitelisted folders add
+  new files, remove deleted files, songs of removed folders and disabled
+  formats, and re-read tags of edited files (play counts, favourites and
+  playlists are kept).
+- **Automatic refresh**: when the app returns from the background, when
+  Android reports a change in the audio library (MediaStore observer), and
+  when music folders/formats change in Settings. Bursts are merged and at most
+  one follow-up scan is queued while a scan runs.
+- Albums and artists are rebuilt from the songs after every scan, so their
+  counts always match the library. Albums are grouped by album name + album
+  artist (or folder when the tag is missing).
+- Duplicates are only hidden when title, artist **and** duration match.
+- The library is stored in its own Hive box (`rhythmflow_library`) and saved
+  only when it changes; HydratedBloc keeps just the small player state.
 
 ## 🚀 Getting Started
 
@@ -206,12 +232,14 @@ If tests are added to the project, use the commands below to run them.
 ### Installation
 1. Clone the repository
 2. Install dependencies: `flutter pub get`
-3. Run code generation: `flutter packages pub run build_runner build`
-   - Dev loop (optional): `flutter packages pub run build_runner watch --delete-conflicting-outputs`
+3. Run code generation (required: `*.freezed.dart`, `*.g.dart` and
+   `injection.config.dart` are not committed):
+   `dart run build_runner build --delete-conflicting-outputs`
+   - Dev loop (optional): `dart run build_runner watch --delete-conflicting-outputs`
 4. Run the app: `flutter run`
 
 ### Configuration
-- Configure audio permissions in platform-specific files (Android: READ/WRITE/NOTIFICATION, foreground service)
+- Android storage access uses `READ_MEDIA_AUDIO` (Android 13+) or `READ_EXTERNAL_STORAGE` (older); `MANAGE_EXTERNAL_STORAGE` is intentionally not requested (Google Play policy). Deleting songs on Android 11+ shows the system confirmation dialog (MediaStore delete request in `MainActivity.kt`).
 - Set up background processing for feature extraction
 - Configure notification channels for media controls
 - Google Play in-app updates (Android): Ensure the app is distributed via Play Store for updates to work

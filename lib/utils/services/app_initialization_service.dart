@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../logger/logger.dart';
 import 'audio_service.dart';
 import 'permission_service.dart';
+import 'media_store_bridge.dart';
 import '../../screens/bottom_tab/bloc/music_bloc.dart';
 import '../../core/di/injection.dart';
 import '../../screens/widgets/playlist_source_helper.dart';
@@ -19,21 +21,37 @@ class AppInitializationService {
     }
 
     _logger.i('🚀 Starting app initialization...');
-    
+    // Set immediately: initialization now awaits the permission dialog and
+    // must not run twice if the caller rebuilds meanwhile.
+    _isInitialized = true;
+
     try {
-      // Step 1: Request permissions (non-blocking)
-      _requestPermissions().catchError((error) {
+      // Step 1: Make sure we can read the music library. On the very first
+      // launch the system permission dialog is shown once, *before* the first
+      // scan, so new users see their songs immediately instead of an empty
+      // library.
+      try {
+        await _requestPermissions(context);
+      } catch (error) {
         _logger.e('❌ Permission request failed', error: error);
-      });
-      
-      // Step 2: Load all music data (non-blocking)
+      }
+
+      // Step 2: Refresh the library live while the app is open whenever
+      // audio files are added/removed on the device (Android).
+      if (context.mounted) {
+        final musicBloc = context.read<MusicBloc>();
+        MediaStoreBridge.startObserving(
+          () => musicBloc.requestAutoRefresh(reason: 'media library changed'),
+        );
+      }
+
+      // Step 3: Load all music data (non-blocking)
       if (context.mounted) {
         _loadMusicData(context).catchError((error) {
           _logger.e('❌ Music data loading failed', error: error);
         });
       }
       
-      _isInitialized = true;
       _logger.i('✅ App initialization completed successfully');
       
     } catch (e) {
@@ -42,22 +60,28 @@ class AppInitializationService {
     }
   }
 
-  /// Request all required permissions
-  static Future<void> _requestPermissions() async {
-    _logger.i('📋 Requesting permissions...');
-    
-    try {
-      final hasPermissions = await PermissionService.hasAllRequiredPermissions();
-      
-      if (hasPermissions) {
-        _logger.i('✅ Permissions granted');
-      } else {
-        _logger.w('⚠️ Some permissions not granted, continuing anyway...');
-      }
-    } catch (e) {
-      _logger.e('❌ Permission request failed', error: e);
-      // Continue anyway to avoid blocking the UI
+  static const String permissionPromptedKey = 'storage_permission_prompted_v1';
+
+  /// Checks storage permission and, if it is missing, asks for it once (on
+  /// first launch). Later launches never nag; the Songs screen's
+  /// "Fetch songs" button and Settings > Music Library still ask on demand.
+  static Future<void> _requestPermissions(BuildContext context) async {
+    _logger.i('📋 Checking permissions...');
+    if (await PermissionService.hasAllRequiredPermissions()) {
+      _logger.i('✅ Permissions granted');
+      return;
     }
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(permissionPromptedKey) == true) {
+      _logger.w('⚠️ Permission not granted (already asked once)');
+      return;
+    }
+    await prefs.setBool(permissionPromptedKey, true);
+    if (!context.mounted) return;
+    final granted = await PermissionService.requestAllRequiredPermissions(
+      context,
+    );
+    _logger.i(granted ? '✅ Permission granted' : '⚠️ Permission denied');
   }
 
   /// Load all music data (non-blocking)

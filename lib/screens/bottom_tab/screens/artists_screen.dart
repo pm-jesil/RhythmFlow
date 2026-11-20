@@ -9,6 +9,7 @@ import '../../../utils/models/song/song_model.dart';
 import '../../../utils/models/playlist_source/playlist_source_model.dart';
 import '../bloc/music_bloc.dart';
 import '../widgets/album_artist_my_playlist_helper.dart';
+import '../../widgets/library_filter_helper.dart';
 
 class ArtistsScreen extends StatefulWidget {
   const ArtistsScreen({super.key});
@@ -67,19 +68,8 @@ class _ArtistsScreenState extends State<ArtistsScreen> {
   }
 
   void _onSearchChanged() {
-    setState(() {
-      final query = _searchController.text.toLowerCase();
-      if (query.isEmpty) {
-        _filteredArtists = context.read<MusicBloc>().state.artistList;
-      } else {
-        _filteredArtists = context
-            .read<MusicBloc>()
-            .state
-            .artistList
-            .where((artist) => artist.name.toLowerCase().contains(query))
-            .toList();
-      }
-    });
+    // The visible list is derived from bloc state in build(); just rebuild.
+    setState(() {});
   }
 
   @override
@@ -97,10 +87,12 @@ class _ArtistsScreenState extends State<ArtistsScreen> {
             Expanded(
               child: BlocBuilder<MusicBloc, MusicState>(
                 builder: (context, state) {
-                  // Update filtered artists when state changes
-                  if (_filteredArtists.isEmpty && state.artistList.isNotEmpty) {
-                    _filteredArtists = state.artistList;
-                  }
+                  // Always derive from the latest state so albums/artists added or
+                  // removed by a library scan show up immediately.
+                  _filteredArtists = LibraryFilterHelper.filterArtists(
+                    state.artistList,
+                    _searchController.text,
+                  );
 
                   // Trigger background loading after initial display
                   if (_filteredArtists.isNotEmpty &&
