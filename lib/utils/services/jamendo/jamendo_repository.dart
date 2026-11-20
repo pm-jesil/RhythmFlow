@@ -29,6 +29,11 @@ class JamendoRepository {
   /// Set when the last response came from the stale cache (offline).
   bool lastResponseWasStale = false;
 
+  /// Number of responses served from the stale cache so far. Callers that
+  /// run requests concurrently compare it before/after instead of reading
+  /// [lastResponseWasStale].
+  int staleResponseCount = 0;
+
   JamendoRepository({
     JamendoApiClient? client,
     JamendoCache? cache,
@@ -82,6 +87,7 @@ class JamendoRepository {
       if (stale != null) {
         _logger.i('📦 Serving stale cache for $endpoint (${e.kind})');
         lastResponseWasStale = true;
+        staleResponseCount++;
         return JamendoResponse(
           stale.results,
           next: stale.next,
