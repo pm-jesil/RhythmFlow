@@ -196,12 +196,31 @@ RhythmFlow is a sophisticated music player built with Flutter that offers advanc
 ```bash
 flutter test                 # whole suite
 flutter test test/library    # music library scanning / auto-update tests
+flutter test test/online     # Discover: Jamendo client, blocs, playback, UI
 ```
 `test/library/` runs the real scanner and `MusicBloc` against temporary
 folders with real files (a fake tag reader replaces the native `audiotags`
 library), covering: new / deleted / edited files, removed folders, disabled
 formats, duplicate handling (including Malayalam, Tamil and Hindi titles),
 album/artist counts, persistence and concurrent scan requests.
+
+### Discover (online music from Jamendo)
+1. Create an app at https://devportal.jamendo.com and copy its **Client ID**
+   (the client secret is not needed and must never be put in the app).
+2. Copy `config/jamendo.example.json` to `config/jamendo.json` (git-ignored)
+   and put your Client ID in it.
+3. Run / build with the defines file:
+   ```bash
+   flutter run --dart-define-from-file=config/jamendo.json
+   flutter build apk --release --dart-define-from-file=config/jamendo.json
+   ```
+   The VS Code launch configurations already pass it.
+
+Without a Client ID the app works normally and Discover shows a
+"not configured" card. Country/language lists are generated from the live
+API with `tool/survey_jamendo_*.py` + `tool/generate_jamendo_region_data.py`.
+The free Jamendo API is for non-commercial use; a commercial app needs a
+Jamendo licence.
 
 ### Music library scanning & auto-update
 - **First launch**: storage permission is requested once, then a full scan

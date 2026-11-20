@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.1.2
+
+### New: Discover (free online music from Jamendo)
+- **My Music | Discover** switch under the greeting card on For You. Every
+  tab follows the selected source; Discover is the default.
+- **Discover home**: Top in your country, picks in your language, trending,
+  fresh albums, curated mixes, artists and 24/7 live radio, plus "Jump back
+  in". Each row loads independently with its own shimmer skeleton and retry.
+- **Online tabs**: Songs (search, Popular/Newest, mood and genre chips,
+  infinite scroll), Albums, Artists, and Playlists (liked songs, recently
+  played, downloads, mixes, radio).
+- **Country & language**: chosen from lists of the 159 countries and 47
+  languages that actually have music on Jamendo (surveyed from the live
+  API). Asked on the Welcome screen, in Profile, and through a first-time
+  "Personalise Discover" popup that shows a "setting up your music player"
+  progress while Discover loads, then closes by itself.
+- **Streaming** through the existing player, mini player, queue and
+  notification (network cover art); signed stream URLs are refreshed.
+- **Download to My Music** for tracks whose artists allow it: progress,
+  title/artist/album/cover/licence tags, saved to `Music/RhythmFlow`, and the
+  library updates automatically.
+- Offline: cached results with an offline banner; nothing is lost.
+
+### Notes
+- Jamendo's `lang` filter returns no results, so language picks combine
+  language tags with artists from countries where the language is spoken.
+- Jamendo randomly answers ~1 in 4 requests with an empty result; the client
+  retries those and never caches empty responses.
+- Build with `--dart-define-from-file=config/jamendo.json` (see README).
+
+### Fixes
+- `isAiShuffleEnabled` is now persisted.
+- Media cards / pickers no longer overflow with large fonts.
+
+
 ## 1.1.1
 
 ### Fixed – music library scanning and counts
