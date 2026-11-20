@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../../screens/online/bloc/online_library_bloc.dart';
 import '../../logger/logger.dart';
 import '../../models/song/song_model.dart';
+import '../audio_header_validator.dart';
 import '../media_store_bridge.dart';
 
 typedef FileDownloader =
@@ -32,6 +33,7 @@ class DownloadService {
   final CoverFetcher _fetchCover;
   final AudioSaver _save;
   final Future<Directory> Function() _tempDir;
+  final Future<bool> Function(String path) _validate;
 
   /// Called after a song was saved (used to refresh "My Music").
   final VoidCallback? onSaved;
@@ -45,8 +47,10 @@ class DownloadService {
     CoverFetcher? fetchCover,
     AudioSaver? save,
     Future<Directory> Function()? tempDir,
+    Future<bool> Function(String path)? validate,
     this.onSaved,
-  }) : _download = download ?? _dioDownload,
+  }) : _validate = validate ?? AudioHeaderValidator.isValidFile,
+       _download = download ?? _dioDownload,
        _writeTags = writeTags ?? _writeAudioTags,
        _fetchCover = fetchCover ?? _dioBytes,
        _save = save ?? _saveToMusicLibrary,
@@ -92,6 +96,12 @@ class DownloadService {
           _emit(song, DownloadPhase.downloading, progress: progress);
         }
       });
+
+      // Jamendo answers some broken tracks with an error page; never save
+      // anything that is not real audio into the music library.
+      if (!await _validate(tempPath)) {
+        throw const FormatException('Downloaded file is not valid audio');
+      }
 
       Uint8List? cover;
       final art = song.albumArt;
@@ -152,6 +162,7 @@ class DownloadService {
       return 'Network error';
     }
     if (e is FileSystemException) return 'Could not save the file';
+    if (e is FormatException) return 'This song is not available right now';
     return 'Download failed';
   }
 

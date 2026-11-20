@@ -13,6 +13,7 @@ import '../../utils/services/jamendo/jamendo_api_client.dart';
 import '../../utils/services/jamendo/jamendo_models.dart';
 import '../../utils/services/jamendo/jamendo_repository.dart';
 import '../../utils/services/jamendo/online_song_registry.dart';
+import '../../utils/services/jamendo/taste_models.dart';
 import '../playlist_detail_screen/playlist_detail_screen.dart';
 import 'widgets/online_widgets.dart';
 
@@ -253,7 +254,12 @@ void openOnlineMix(BuildContext context, JamendoMix mix) {
         title: mix.title,
         type: PlaylistDetailType.playlist,
         load: () async {
-          final songs = await _repo.mixTracks(mix.tag, limit: 50);
+          // Picked tastes use the per-tag query that is known to work;
+          // featured genres use Jamendo's featured chart.
+          final taste = MusicTastes.byId(mix.tag);
+          final songs = !mix.featured && taste != null
+              ? await _repo.tasteTracks(taste, limit: 50)
+              : await _repo.mixTracks(mix.tag, limit: 50);
           return OnlineCollection(
             name: mix.title,
             songs: songs,

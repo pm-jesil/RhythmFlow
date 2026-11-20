@@ -32,8 +32,8 @@ class AppRouter {
           return BlocBuilder<AppSettingsBloc, AppSettingsState>(
             builder: (context, appSettingsState) {
               // Check if user profile is set
-              final isProfileSet = appSettingsState.userName != null && 
-                                   appSettingsState.nickName != null;
+              // Blank names do not count as signed in.
+              final isProfileSet = appSettingsState.isProfileComplete;
               
               final content = isProfileSet 
                 ? const BottomTab() 

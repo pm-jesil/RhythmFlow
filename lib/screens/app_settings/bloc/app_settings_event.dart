@@ -61,6 +61,18 @@ class AppSettingsEvent with _$AppSettingsEvent {
     required List<String> languages,
   }) = _UpdateMusicRegion;
 
+  /// Saves the whole Discover profile from the setup form in one step.
+  const factory AppSettingsEvent.updateDiscoverProfile({
+    String? nickName,
+    required String country,
+    required List<String> languages,
+    required List<String> tastes,
+  }) = _UpdateDiscoverProfile;
+
+  const factory AppSettingsEvent.updateMusicTastes({
+    required List<String> tastes,
+  }) = _UpdateMusicTastes;
+
   const factory AppSettingsEvent.trackShuffleUsage({
     required String shuffleType,
   }) = _TrackShuffleUsage;

@@ -209,6 +209,7 @@ class JamendoMapper {
       albumArtist: artistName.isEmpty ? null : artistName,
       source: SongSources.jamendo,
       remoteId: id,
+      remoteArtistId: nonEmpty(json['artist_id'] ?? album?['artist_id'] ?? artist?['id']),
       streamUrl: nonEmpty(json['audio']),
       downloadUrl: nonEmpty(json['audiodownload']),
       downloadAllowed: toBool(json['audiodownload_allowed']),

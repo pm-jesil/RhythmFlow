@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/services/jamendo/region_models.dart';
 import 'online/widgets/region_pickers.dart';
+import 'online/widgets/taste_picker.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../core/theme/theme_extension.dart';
@@ -23,6 +24,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   // locale; no network call.
   String? _musicCountry;
   List<String> _musicLanguages = const [];
+  List<String> _musicTastes = const [];
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -289,6 +291,11 @@ class _WelcomeScreenState extends State<WelcomeScreen>
           onCountryChanged: (c) => setState(() => _musicCountry = c),
           onLanguagesChanged: (l) => setState(() => _musicLanguages = l),
         ),
+        SizedBox(height: 12.h),
+        TastesField(
+          tastes: _musicTastes,
+          onChanged: (t) => setState(() => _musicTastes = t),
+        ),
         SizedBox(height: 24.h),
       ],
     );
@@ -412,6 +419,9 @@ class _WelcomeScreenState extends State<WelcomeScreen>
           languages: _musicLanguages,
         ),
       );
+    }
+    if (_musicTastes.isNotEmpty) {
+      settings.add(AppSettingsEvent.updateMusicTastes(tastes: _musicTastes));
     }
     settings.add(
       AppSettingsEvent.updateUserProfile(

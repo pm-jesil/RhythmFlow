@@ -8,7 +8,10 @@ import '../../../utils/models/song/song_model.dart';
 import '../../../utils/services/jamendo/jamendo_api_client.dart';
 import '../../../utils/services/jamendo/jamendo_repository.dart';
 import '../../../utils/services/jamendo/online_song_registry.dart';
+import '../../../utils/services/jamendo/jamendo_models.dart';
+import '../../../utils/services/jamendo/recommendation_service.dart';
 import '../../../utils/services/jamendo/region_models.dart';
+import '../../../utils/services/jamendo/taste_models.dart';
 import 'discover_section.dart';
 
 export 'discover_section.dart';
@@ -23,11 +26,21 @@ class DiscoverBloc extends HydratedBloc<DiscoverEvent, DiscoverState> {
   static final AppLogger _logger = AppLogger('DiscoverBloc');
 
   final JamendoRepository repository;
+  final RecommendationService recommendations;
   final DateTime Function() _now;
+
+  /// Liked / recently played online songs (from OnlineLibraryBloc) used by
+  /// "Made for you". Empty when not provided.
+  final ({List<Song> liked, List<Song> recent}) Function()? libraryInputs;
   bool _loading = false;
 
-  DiscoverBloc({required this.repository, DateTime Function()? now})
-    : _now = now ?? DateTime.now,
+  DiscoverBloc({
+    required this.repository,
+    DateTime Function()? now,
+    this.libraryInputs,
+    RecommendationService? recommendations,
+  }) : _now = now ?? DateTime.now,
+       recommendations = recommendations ?? RecommendationService(repository),
       super(const DiscoverState()) {
     on<_LoadHome>(_onLoadHome);
     on<_RefreshSection>(_onRefreshSection);
@@ -56,7 +69,55 @@ class DiscoverBloc extends HydratedBloc<DiscoverEvent, DiscoverState> {
     final language = state.languages.isEmpty
         ? null
         : MusicRegions.languageByCode(state.languages.first);
+    final tastes = state.tastes
+        .map(MusicTastes.byId)
+        .whereType<MusicTaste>()
+        .toList();
+    final heroTaste = tastes.isNotEmpty ? tastes.first : MusicTastes.byId('pop')!;
     return [
+      _SectionDef(
+        id: DiscoverSectionIds.hero,
+        title: 'Featured for you',
+        subtitle: '${heroTaste.emoji} ${heroTaste.label}',
+        kind: DiscoverSectionKind.tracks,
+        style: SectionStyle.hero,
+        load: (force) async =>
+            (await repository.tasteTracks(heroTaste, limit: 6, forceRefresh: force))
+                .where((s) => s.albumArt != null)
+                .take(5)
+                .toList(),
+      ),
+      if (tastes.isNotEmpty)
+        _SectionDef(
+          id: DiscoverSectionIds.madeForYou,
+          title: 'Made for you',
+          subtitle: 'Based on your taste and listening',
+          kind: DiscoverSectionKind.tracks,
+          load: (force) {
+            final inputs = libraryInputs?.call();
+            return recommendations.madeForYou(
+              pickedTastes: state.tastes,
+              liked: inputs?.liked ?? const [],
+              recent: inputs?.recent ?? const [],
+              forceRefresh: force,
+            );
+          },
+        ),
+      _SectionDef(
+        id: DiscoverSectionIds.trending,
+        title: 'Trending now',
+        subtitle: 'Top 10 on Jamendo this week',
+        kind: DiscoverSectionKind.tracks,
+        style: SectionStyle.chart,
+        load: (force) async =>
+            (await repository.tracks(limit: 10, forceRefresh: force)).items.take(10).toList(),
+      ),
+      _SectionDef(
+        id: DiscoverSectionIds.mixes,
+        title: tastes.isEmpty ? 'Mixes for you' : 'Your mixes',
+        subtitle: tastes.isEmpty ? 'Curated by Jamendo' : 'Your vibes + Jamendo picks',
+        kind: DiscoverSectionKind.mixes,
+      ),
       if (country != null)
         _SectionDef(
           id: DiscoverSectionIds.country,
@@ -71,35 +132,26 @@ class DiscoverBloc extends HydratedBloc<DiscoverEvent, DiscoverState> {
       if (language != null)
         _SectionDef(
           id: DiscoverSectionIds.language,
-          title: language.isGlobal
-              ? 'Popular songs'
-              : '${language.name} picks',
+          title: language.isGlobal ? 'Popular songs' : '${language.name} picks',
           subtitle: language.isGlobal
               ? 'Most played vocals this month'
               : language.nativeName,
           kind: DiscoverSectionKind.tracks,
-          load: (force) =>
-              repository.languagePicks(language, forceRefresh: force),
+          load: (force) => repository.languagePicks(language, forceRefresh: force),
         ),
-      _SectionDef(
-        id: DiscoverSectionIds.trending,
-        title: 'Trending this week',
-        subtitle: 'Most popular on Jamendo',
-        kind: DiscoverSectionKind.tracks,
-        load: (force) async =>
-            (await repository.tracks(forceRefresh: force)).items,
-      ),
+      for (var i = 0; i < tastes.length && i < 2; i++)
+        _SectionDef(
+          id: i == 0 ? DiscoverSectionIds.because0 : DiscoverSectionIds.because1,
+          title: 'Because you like ${tastes[i].label}',
+          subtitle: '${tastes[i].emoji} Popular this month',
+          kind: DiscoverSectionKind.tracks,
+          load: (force) => repository.tasteTracks(tastes[i], forceRefresh: force),
+        ),
       _SectionDef(
         id: DiscoverSectionIds.newReleases,
         title: 'Fresh releases',
         subtitle: 'New albums',
         kind: DiscoverSectionKind.albums,
-      ),
-      _SectionDef(
-        id: DiscoverSectionIds.mixes,
-        title: 'Mixes for you',
-        subtitle: 'Curated by Jamendo',
-        kind: DiscoverSectionKind.mixes,
       ),
       _SectionDef(
         id: DiscoverSectionIds.artists,
@@ -116,12 +168,35 @@ class DiscoverBloc extends HydratedBloc<DiscoverEvent, DiscoverState> {
     ];
   }
 
+  /// Personal mixes (one per picked taste) followed by Jamendo's featured
+  /// genre mixes that the user did not pick.
+  static List<JamendoMix> buildMixes(List<String> tastes, List<JamendoMix> featured) {
+    final picked = tastes
+        .map(MusicTastes.byId)
+        .whereType<MusicTaste>()
+        .map(
+          (t) => JamendoMix(
+            id: 'mix_${t.id}',
+            title: 'Your ${t.label} Mix',
+            subtitle: '${t.emoji} Made for you',
+            tag: t.id,
+            featured: false,
+          ),
+        )
+        .toList();
+    final pickedTags = picked.map((m) => m.tag).toSet();
+    return [...picked, ...featured.where((m) => !pickedTags.contains(m.tag))];
+  }
+
+  List<JamendoMix> _mixes() => buildMixes(state.tastes, repository.mixes());
+
   Future<DiscoverSection> _loadSection(_SectionDef def, {bool force = false}) async {
     var section = DiscoverSection(
       id: def.id,
       title: def.title,
       subtitle: def.subtitle,
       kind: def.kind,
+      style: def.style,
     );
     try {
       switch (def.kind) {
@@ -129,7 +204,8 @@ class DiscoverBloc extends HydratedBloc<DiscoverEvent, DiscoverState> {
           var songs = await def.load!(force);
           if (songs.isEmpty &&
               (def.id == DiscoverSectionIds.country ||
-                  def.id == DiscoverSectionIds.language)) {
+                  def.id == DiscoverSectionIds.language ||
+                  def.id == DiscoverSectionIds.madeForYou)) {
             // Thin catalogue for this region: show popular music instead.
             songs = (await repository.tracks(forceRefresh: force)).items;
             section = section.copyWith(subtitle: 'Popular worldwide');
@@ -152,7 +228,7 @@ class DiscoverBloc extends HydratedBloc<DiscoverEvent, DiscoverState> {
             )).items,
           );
         case DiscoverSectionKind.mixes:
-          section = section.copyWith(mixes: repository.mixes());
+          section = section.copyWith(mixes: _mixes());
         case DiscoverSectionKind.radios:
           section = section.copyWith(
             radios: await repository.radios(forceRefresh: force),
@@ -199,7 +275,12 @@ class DiscoverBloc extends HydratedBloc<DiscoverEvent, DiscoverState> {
         sections: {
           for (final def in defs)
             def.id: (state.sections[def.id] ??
-                    DiscoverSection(id: def.id, title: def.title, kind: def.kind))
+                    DiscoverSection(
+                      id: def.id,
+                      title: def.title,
+                      kind: def.kind,
+                      style: def.style,
+                    ))
                 .copyWith(
                   title: def.title,
                   subtitle: def.subtitle,
@@ -256,19 +337,27 @@ class DiscoverBloc extends HydratedBloc<DiscoverEvent, DiscoverState> {
     Emitter<DiscoverState> emit,
   ) async {
     final languages = List<String>.from(event.languages);
+    final tastes = List<String>.from(event.tastes);
     if (event.country == state.country &&
         languages.join(',') == state.languages.join(',') &&
+        tastes.join(',') == state.tastes.join(',') &&
         state.sections.isNotEmpty) {
       return;
     }
-    // Drop personalised rows built for the previous region.
+    // Drop personalised rows built for the previous region / tastes.
     final sections = Map<String, DiscoverSection>.from(state.sections)
       ..remove(DiscoverSectionIds.country)
-      ..remove(DiscoverSectionIds.language);
+      ..remove(DiscoverSectionIds.language)
+      ..remove(DiscoverSectionIds.hero)
+      ..remove(DiscoverSectionIds.madeForYou)
+      ..remove(DiscoverSectionIds.because0)
+      ..remove(DiscoverSectionIds.because1)
+      ..remove(DiscoverSectionIds.mixes);
     emit(
       state.copyWith(
         country: event.country,
         languages: languages,
+        tastes: tastes,
         sections: sections,
       ),
     );
@@ -288,6 +377,7 @@ class DiscoverBloc extends HydratedBloc<DiscoverEvent, DiscoverState> {
       return {
         'country': state.country,
         'languages': state.languages,
+        'tastes': state.tastes,
         'lastLoadedAt': state.lastLoadedAt?.toIso8601String(),
         'sections': [
           for (final s in state.sections.values)
@@ -302,7 +392,8 @@ class DiscoverBloc extends HydratedBloc<DiscoverEvent, DiscoverState> {
   @override
   DiscoverState? fromJson(Map<String, dynamic> json) {
     try {
-      final mixes = repository.mixes();
+      final tastes = List<String>.from(json['tastes'] ?? const []);
+      final mixes = buildMixes(tastes, repository.mixes());
       final sections = <String, DiscoverSection>{};
       for (final raw in (json['sections'] as List? ?? const [])) {
         final section = DiscoverSection.fromJson(
@@ -314,6 +405,7 @@ class DiscoverBloc extends HydratedBloc<DiscoverEvent, DiscoverState> {
       return DiscoverState(
         country: json['country'] as String?,
         languages: List<String>.from(json['languages'] ?? const []),
+        tastes: tastes,
         sections: sections,
         lastLoadedAt: json['lastLoadedAt'] == null
             ? null
@@ -332,6 +424,7 @@ class _SectionDef {
   final String title;
   final String subtitle;
   final DiscoverSectionKind kind;
+  final SectionStyle style;
 
   /// Loader for track sections (other kinds are loaded by kind).
   final Future<List<Song>> Function(bool force)? load;
@@ -341,6 +434,7 @@ class _SectionDef {
     required this.title,
     required this.subtitle,
     required this.kind,
+    this.style = SectionStyle.shelf,
     this.load,
   });
 }

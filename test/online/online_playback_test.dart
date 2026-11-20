@@ -173,6 +173,39 @@ void main() {
     expect(queue.first, ids[2]);
   });
 
+  test('offline: a Discover queue that cannot play stops instead of looping', () async {
+    // The bloc registered its invalid-song handler on the audio service.
+    final onInvalid = verify(() => audio.setInvalidSongCallback(captureAny())).captured.single
+        as void Function(Song, String?, PlaylistSource?);
+    // Every song fails to load (no internet).
+    when(
+      () => audio.playSong(
+        any(),
+        playlistId: any(named: 'playlistId'),
+        playlistSource: any(named: 'playlistSource'),
+      ),
+    ).thenAnswer((i) async {
+      final song = i.positionalArguments.first as Song;
+      played.add(song);
+      onInvalid(song, null, null);
+    });
+
+    final songs = registerQueue('trending', 6);
+    bloc.add(MusicEvent.playOrPauseSong(
+      songId: songs.first.id,
+      currentPlayList: songs.map((s) => s.id).toList(),
+      playlistSource: PlaylistSource.online('trending'),
+    ));
+    await settle(400);
+
+    expect(played.length, lessThanOrEqualTo(MusicBloc.maxInvalidSongAttempts + 2),
+        reason: 'stops after a few failed songs');
+    expect(bloc.state.myPlayerState.isPlaying, isFalse);
+    verify(() => audio.stop()).called(greaterThanOrEqualTo(1));
+    // An online failure never rescans the device library.
+    expect(bloc.isScanning, isFalse);
+  });
+
   test('randomOrderKeepingCurrent', () {
     final order = MusicBloc.randomOrderKeepingCurrent('b', ['a', 'b', 'c', 'd'], Random(1));
     expect(order.first, 'b');

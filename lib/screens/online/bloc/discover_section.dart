@@ -9,23 +9,34 @@ enum DiscoverSectionKind { tracks, albums, artists, mixes, radios }
 
 enum SectionStatus { idle, loading, success, error }
 
+/// How a section is drawn on Discover home.
+enum SectionStyle { shelf, hero, chart }
+
 /// Ids of the Discover home sections (also their display order).
 class DiscoverSectionIds {
   DiscoverSectionIds._();
+  static const String hero = 'hero';
+  static const String madeForYou = 'made_for_you';
   static const String country = 'country';
   static const String language = 'language';
   static const String trending = 'trending';
+  static const String because0 = 'because_0';
+  static const String because1 = 'because_1';
   static const String newReleases = 'new_releases';
   static const String mixes = 'mixes';
   static const String artists = 'artists';
   static const String radio = 'radio';
 
   static const List<String> order = [
+    hero,
+    madeForYou,
+    trending,
+    mixes,
     country,
     language,
-    trending,
+    because0,
+    because1,
     newReleases,
-    mixes,
     artists,
     radio,
   ];
@@ -37,6 +48,7 @@ class DiscoverSection {
   final String title;
   final String subtitle;
   final DiscoverSectionKind kind;
+  final SectionStyle style;
   final SectionStatus status;
   final List<Song> songs;
   final List<Album> albums;
@@ -50,6 +62,7 @@ class DiscoverSection {
     required this.id,
     required this.title,
     required this.kind,
+    this.style = SectionStyle.shelf,
     this.subtitle = '',
     this.status = SectionStatus.idle,
     this.songs = const [],
@@ -92,6 +105,7 @@ class DiscoverSection {
       title: title ?? this.title,
       subtitle: subtitle ?? this.subtitle,
       kind: kind,
+      style: style,
       status: status ?? this.status,
       songs: songs ?? this.songs,
       albums: albums ?? this.albums,
@@ -108,6 +122,7 @@ class DiscoverSection {
     'title': title,
     'subtitle': subtitle,
     'kind': kind.name,
+    'style': style.name,
     'songs': songs.map((s) => s.toJson()).toList(),
     'albums': albums.map((a) => a.toJson()).toList(),
     'artists': artists.map((a) => a.toJson()).toList(),
@@ -133,6 +148,10 @@ class DiscoverSection {
       title: json['title'] as String? ?? '',
       subtitle: json['subtitle'] as String? ?? '',
       kind: kind,
+      style: SectionStyle.values.firstWhere(
+        (s) => s.name == json['style'],
+        orElse: () => SectionStyle.shelf,
+      ),
       status: SectionStatus.success,
       songs: maps(json['songs']).map(Song.fromJson).toList(),
       albums: maps(json['albums']).map(Album.fromJson).toList(),

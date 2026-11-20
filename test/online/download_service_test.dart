@@ -59,6 +59,7 @@ void main() {
   }) => DownloadService(
     library: library,
     tempDir: () async => temp,
+    validate: (_) async => true,
     download: download ??
         (url, path, progress) async {
           for (var i = 1; i <= 10; i++) {
@@ -153,10 +154,28 @@ void main() {
     expect(s.isDownloading('jm_1'), isFalse);
   });
 
+  test('an error page instead of audio is never saved', () async {
+    final s = DownloadService(
+      library: library,
+      tempDir: () async => temp,
+      download: (_, path, _) async => File(path).writeAsString('<html>error</html>'),
+      fetchCover: (_) async => null,
+      writeTags: (_, _, _) async {},
+      validate: (path) async => false,
+      save: (_, _, _) async => throw StateError('must not save'),
+    );
+    expect(await s.download(downloadable()), isNull);
+    await settle();
+    final d = library.state.downloads['jm_1']!;
+    expect(d.phase, DownloadPhase.failed);
+    expect(d.error, 'This song is not available right now');
+  });
+
   test('tag writing failure still saves the song', () async {
     final s = DownloadService(
       library: library,
       tempDir: () async => temp,
+      validate: (_) async => true,
       download: (_, path, _) async => File(path).writeAsBytes([1, 2]),
       fetchCover: (_) async => null,
       writeTags: (_, _, _) async => throw Exception('unsupported'),

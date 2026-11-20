@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../online/widgets/region_pickers.dart';
+import '../online/widgets/taste_picker.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../core/theme/theme_extension.dart';
@@ -25,9 +26,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   // Discover personalisation
   String? _musicCountry;
   List<String> _musicLanguages = const [];
+  List<String> _musicTastes = const [];
   String _originalRegion = '';
 
-  String get _regionKey => '${_musicCountry ?? ''}|${_musicLanguages.join(',')}';
+  String get _regionKey =>
+      '${_musicCountry ?? ''}|${_musicLanguages.join(',')}|${_musicTastes.join(',')}';
 
   @override
   void initState() {
@@ -43,6 +46,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     _nicknameController.text = _originalNickName;
     _musicCountry = state.musicCountry;
     _musicLanguages = state.musicLanguages;
+    _musicTastes = state.musicTastes;
     _originalRegion = _regionKey;
     
     // Add listeners to detect changes
@@ -217,6 +221,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           languages: _musicLanguages,
           onCountryChanged: (c) => setState(() => _musicCountry = c),
           onLanguagesChanged: (l) => setState(() => _musicLanguages = l),
+        ),
+        SizedBox(height: 12.h),
+        TastesField(
+          tastes: _musicTastes,
+          onChanged: (t) => setState(() => _musicTastes = t),
         ),
       ],
     );
@@ -398,6 +407,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             country: _musicCountry!,
             languages: _musicLanguages,
           ),
+        );
+      }
+      if (_musicTastes.isNotEmpty) {
+        context.read<AppSettingsBloc>().add(
+          AppSettingsEvent.updateMusicTastes(tastes: _musicTastes),
         );
       }
 

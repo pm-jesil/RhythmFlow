@@ -25,6 +25,10 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
     on<_TrackShuffleUsage>(_onTrackShuffleUsage);
     on<_UpdateMusicSource>(_onUpdateMusicSource);
     on<_UpdateMusicRegion>(_onUpdateMusicRegion);
+    on<_UpdateMusicTastes>(
+      (event, emit) => emit(state.copyWith(musicTastes: _cleanList(event.tastes))),
+    );
+    on<_UpdateDiscoverProfile>(_onUpdateDiscoverProfile);
 
     // Initialize theme sync
     _initializeThemeSync();
@@ -140,6 +144,7 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
     final currentMusicSource = state.musicSource;
     final currentMusicCountry = state.musicCountry;
     final currentMusicLanguages = state.musicLanguages;
+    final currentMusicTastes = state.musicTastes;
 
     // Create new state with preserved values
     final resetState = AppSettingsState(
@@ -188,6 +193,7 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
       musicSource: currentMusicSource,
       musicCountry: currentMusicCountry,
       musicLanguages: currentMusicLanguages,
+      musicTastes: currentMusicTastes,
     );
 
     emit(resetState);
@@ -318,6 +324,36 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
     );
   }
 
+  static List<String> _cleanList(List<String> values) {
+    final result = <String>[];
+    for (final v in values) {
+      final t = v.trim();
+      if (t.isNotEmpty && !result.contains(t)) result.add(t);
+    }
+    return result;
+  }
+
+  void _onUpdateDiscoverProfile(
+    _UpdateDiscoverProfile event,
+    Emitter<AppSettingsState> emit,
+  ) {
+    final nick = event.nickName?.trim();
+    final setName = nick != null && nick.isNotEmpty;
+    emit(
+      state.copyWith(
+        nickName: setName ? nick : state.nickName,
+        // userName mirrors the nickname when it was never set (Welcome
+        // screen does the same).
+        userName: setName && (state.userName?.trim().isEmpty ?? true)
+            ? nick
+            : state.userName,
+        musicCountry: event.country.isEmpty ? state.musicCountry : event.country.toUpperCase(),
+        musicLanguages: _cleanList(event.languages),
+        musicTastes: _cleanList(event.tastes),
+      ),
+    );
+  }
+
   @override
   Map<String, dynamic>? toJson(AppSettingsState state) {
     try {
@@ -341,6 +377,7 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
         'musicSource': state.musicSource,
         'musicCountry': state.musicCountry,
         'musicLanguages': state.musicLanguages,
+        'musicTastes': state.musicTastes,
       };
     } catch (_) {
       return null; // skip persisting on serialization errors
@@ -403,6 +440,7 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
             : MusicSourceKeys.online,
         musicCountry: json['musicCountry'] as String?,
         musicLanguages: List<String>.from(json['musicLanguages'] ?? const []),
+        musicTastes: List<String>.from(json['musicTastes'] ?? const []),
       );
     } catch (e) {
       return null;

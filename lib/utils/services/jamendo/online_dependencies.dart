@@ -6,6 +6,7 @@ import '../../../screens/bottom_tab/bloc/music_bloc.dart';
 import '../../../screens/online/bloc/discover_bloc.dart';
 import '../../../screens/online/bloc/online_library_bloc.dart';
 import '../../logger/logger.dart';
+import '../../models/song/song_model.dart';
 import '../audio_service.dart';
 import 'download_service.dart';
 import 'jamendo_cache.dart';
@@ -20,6 +21,9 @@ class OnlineDependencies {
   static final AppLogger _logger = AppLogger('OnlineDependencies');
   static final List<StreamSubscription<dynamic>> _subscriptions = [];
 
+  /// Delay before likes refresh "Made for you" (several taps -> one call).
+  static Duration likesRefreshDelay = const Duration(seconds: 3);
+
   /// Call after HydratedBloc storage, Hive and `configureDependencies()`.
   static Future<void> init() async {
     if (getIt.isRegistered<JamendoRepository>()) return;
@@ -31,7 +35,13 @@ class OnlineDependencies {
     final library = OnlineLibraryBloc();
     getIt.registerSingleton<OnlineLibraryBloc>(library);
 
-    final discover = DiscoverBloc(repository: repository);
+    final discover = DiscoverBloc(
+      repository: repository,
+      libraryInputs: () => (
+        liked: library.state.likedSongs,
+        recent: library.state.recentlyPlayed.where((s) => !s.isRadio).toList(),
+      ),
+    );
     getIt.registerSingleton<DiscoverBloc>(discover);
 
     final musicBloc = getIt<MusicBloc>();
@@ -62,7 +72,7 @@ class OnlineDependencies {
   }) {
     // Country / language picked in settings -> personalised Discover rows.
     String regionKey(AppSettingsState s) =>
-        '${s.musicCountry}|${s.musicLanguages.join(',')}';
+        '${s.musicCountry}|${s.musicLanguages.join(',')}|${s.musicTastes.join(',')}';
     var lastRegion = regionKey(settings.state);
     _subscriptions.add(
       settings.stream.listen((s) {
@@ -73,8 +83,28 @@ class OnlineDependencies {
           DiscoverEvent.regionChanged(
             country: s.musicCountry,
             languages: s.musicLanguages,
+            tastes: s.musicTastes,
           ),
         );
+      }),
+    );
+
+    // Likes change -> refresh "Made for you" (debounced).
+    var likedKey = library.state.likedSongs.map((s) => s.id).join(',');
+    Timer? likesTimer;
+    _subscriptions.add(
+      library.stream.listen((s) {
+        final key = s.likedSongs.map((x) => x.id).join(',');
+        if (key == likedKey) return;
+        likedKey = key;
+        likesTimer?.cancel();
+        likesTimer = Timer(likesRefreshDelay, () {
+          if (discover.state.sections.containsKey(DiscoverSectionIds.madeForYou)) {
+            discover.add(
+              const DiscoverEvent.refreshSection(sectionId: DiscoverSectionIds.madeForYou),
+            );
+          }
+        });
       }),
     );
 

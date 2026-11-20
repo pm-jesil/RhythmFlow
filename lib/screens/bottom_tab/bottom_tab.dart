@@ -11,6 +11,7 @@ import '../../utils/services/app_initialization_service.dart';
 import '../online/bloc/online_browse_bloc.dart';
 import '../online/online_browse_screen.dart';
 import '../online/online_playlists_screen.dart';
+import '../online/widgets/discover_gate.dart';
 import '../app_settings/bloc/app_settings_bloc.dart';
 import 'screens/song_list_screen.dart';
 import 'screens/for_you_screen.dart';
@@ -144,15 +145,16 @@ class BottomTabState extends State<BottomTab> with TickerProviderStateMixin {
   // the device library (My Music) or Jamendo (Discover).
   Widget _getScreen(int index, {required bool online}) {
     if (online && index != 0) {
+      // Discover tabs are only for signed-in users who finished the setup.
       switch (index) {
         case 1:
-          return const OnlineBrowseScreen(kind: OnlineBrowseKind.tracks);
+          return const DiscoverGate(child: OnlineBrowseScreen(kind: OnlineBrowseKind.tracks));
         case 2:
-          return const OnlineBrowseScreen(kind: OnlineBrowseKind.albums);
+          return const DiscoverGate(child: OnlineBrowseScreen(kind: OnlineBrowseKind.albums));
         case 3:
-          return const OnlineBrowseScreen(kind: OnlineBrowseKind.artists);
+          return const DiscoverGate(child: OnlineBrowseScreen(kind: OnlineBrowseKind.artists));
         case 4:
-          return const OnlinePlaylistsScreen();
+          return const DiscoverGate(child: OnlinePlaylistsScreen());
       }
     }
     switch (index) {

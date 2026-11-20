@@ -28,6 +28,10 @@ class AppSettingsState with _$AppSettingsState {
     // picks them (Welcome screen, Discover setup sheet or Profile).
     String? musicCountry,
     @Default(<String>[]) List<String> musicLanguages,
+
+    // Discover tastes: Jamendo tag ids of genres / moods the user likes
+    // (see MusicTastes). Drive "Made for you" and suggestions.
+    @Default(<String>[]) List<String> musicTastes,
   }) = _Initial;
 
   factory AppSettingsState.initial() => AppSettingsState(
@@ -87,4 +91,16 @@ extension AppSettingsRegionX on AppSettingsState {
   /// Discover needs a country and at least one language.
   bool get hasMusicRegion =>
       (musicCountry?.isNotEmpty ?? false) && musicLanguages.isNotEmpty;
+
+  bool get hasMusicTastes => musicTastes.isNotEmpty;
+
+  /// The local "login": a non-blank name and nickname (Welcome screen).
+  bool get isProfileComplete =>
+      (userName?.trim().isNotEmpty ?? false) &&
+      (nickName?.trim().isNotEmpty ?? false);
+
+  /// Discover is only shown to a signed-in user who finished the Discover
+  /// setup (country, languages and tastes).
+  bool get isDiscoverReady =>
+      isProfileComplete && hasMusicRegion && hasMusicTastes;
 }

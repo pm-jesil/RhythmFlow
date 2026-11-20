@@ -29,6 +29,23 @@ FakeTransport fakeJamendo({Set<String> failing = const {}, bool offline = false}
       if (path.contains(f)) return const SocketException('offline');
     }
     if (path.endsWith('/radios/')) return fixture('radios.json');
+    if (path.contains('artists/musicinfo')) {
+      return envelope([
+        {'id': p['id'], 'name': 'Liked artist', 'musicinfo': {'tags': ['hiphop', 'trap', 'unknowntag']}},
+      ]);
+    }
+    if (path.contains('artists/tracks')) {
+      return envelope([
+        {
+          'id': p['id'],
+          'name': 'Fav artist',
+          'tracks': [
+            for (var i = 0; i < 3; i++)
+              {'id': 'fav${p['id']}_$i', 'name': 'Fav song $i', 'duration': '200', 'audio': 'https://s/fav$i'},
+          ],
+        },
+      ]);
+    }
     if (path.contains('artists/locations')) {
       return envelope([{'id': '10', 'name': 'Local artist'}]);
     }
@@ -48,7 +65,7 @@ FakeTransport fakeJamendo({Set<String> failing = const {}, bool offline = false}
     }
     if (path.endsWith('/tracks/')) {
       final offset = int.parse(p['offset'] ?? '0');
-      final label = p['search'] ?? p['fuzzytags'] ?? p['artist_id'] ?? p['order'] ?? 'x';
+      final label = p['search'] ?? p['fuzzytags'] ?? p['tags'] ?? p['artist_id'] ?? p['order'] ?? 'x';
       // Two full pages, then a short last page.
       final count = offset >= 6 ? 1 : 3;
       return envelope([
@@ -56,7 +73,8 @@ FakeTransport fakeJamendo({Set<String> failing = const {}, bool offline = false}
           {
             'id': '${label.hashCode.abs()}_${offset + i}',
             'name': '$label ${offset + i}',
-            'artist_name': 'Artist ${offset + i}',
+            'artist_name': '$label artist ${offset + i}',
+            'artist_id': '${label.hashCode.abs()}${offset + i}',
             'duration': 200,
             'audio': 'https://stream/${offset + i}',
           },
@@ -92,13 +110,23 @@ void main() {
   });
 
   group('DiscoverBloc', () {
-    test('loads every section for the region in order', () async {
+    test('loads every section for region + tastes in order', () async {
       final bloc = DiscoverBloc(repository: repoFor(fakeJamendo()));
-      bloc.add(const DiscoverEvent.regionChanged(country: 'IN', languages: ['ml']));
-      await settle(100);
+      bloc.add(const DiscoverEvent.regionChanged(
+        country: 'IN',
+        languages: ['ml'],
+        tastes: ['hiphop', 'lofi'],
+      ));
+      await settle(150);
 
       final ids = bloc.state.orderedSections.map((s) => s.id).toList();
       expect(ids, DiscoverSectionIds.order);
+      expect(bloc.state.sections[DiscoverSectionIds.hero]!.style, SectionStyle.hero);
+      expect(bloc.state.sections[DiscoverSectionIds.trending]!.style, SectionStyle.chart);
+      expect(bloc.state.sections[DiscoverSectionIds.trending]!.songs.length, lessThanOrEqualTo(10));
+      expect(bloc.state.sections[DiscoverSectionIds.because0]!.title, 'Because you like Hip-Hop & Rap');
+      expect(bloc.state.sections[DiscoverSectionIds.because1]!.title, 'Because you like Lo-fi');
+      expect(bloc.state.sections[DiscoverSectionIds.madeForYou]!.songs, isNotEmpty);
       expect(bloc.state.sections.values.every((s) => s.status == SectionStatus.success), isTrue);
       expect(bloc.state.sections[DiscoverSectionIds.country]!.title, contains('India'));
       expect(bloc.state.sections[DiscoverSectionIds.language]!.title, 'Malayalam picks');
@@ -111,13 +139,64 @@ void main() {
       await bloc.close();
     });
 
-    test('without country/language only the global sections load', () async {
+    test('without region/tastes only the global sections load', () async {
       final bloc = DiscoverBloc(repository: repoFor(fakeJamendo()));
       bloc.add(const DiscoverEvent.loadHome());
       await settle(100);
-      expect(bloc.state.sections.keys, isNot(contains(DiscoverSectionIds.country)));
-      expect(bloc.state.sections.keys, isNot(contains(DiscoverSectionIds.language)));
-      expect(bloc.state.sections, hasLength(5));
+      expect(bloc.state.sections.keys.toSet(), {
+        DiscoverSectionIds.hero,
+        DiscoverSectionIds.trending,
+        DiscoverSectionIds.mixes,
+        DiscoverSectionIds.newReleases,
+        DiscoverSectionIds.artists,
+        DiscoverSectionIds.radio,
+      });
+      await bloc.close();
+    });
+
+    test('personal mixes come first, then featured genres not picked', () async {
+      final bloc = DiscoverBloc(repository: repoFor(fakeJamendo()));
+      bloc.add(const DiscoverEvent.regionChanged(country: 'IN', languages: ['en'], tastes: ['lofi', 'pop']));
+      await settle(150);
+      final mixes = bloc.state.sections[DiscoverSectionIds.mixes]!.mixes;
+      expect(mixes.take(2).map((m) => m.title), ['Your Lo-fi Mix', 'Your Pop Mix']);
+      expect(mixes.where((m) => m.tag == 'pop'), hasLength(1), reason: 'no duplicate pop mix');
+      expect(mixes.first.featured, isFalse);
+      await bloc.close();
+    });
+
+    test('Made for you uses liked songs\' artists and excludes them', () async {
+      final liked = JamendoMapper.track({
+        'id': 'liked1', 'name': 'Liked', 'artist_name': 'Fav', 'artist_id': '777',
+      });
+      final t = fakeJamendo();
+      final bloc = DiscoverBloc(
+        repository: repoFor(t),
+        libraryInputs: () => (liked: [liked], recent: const []),
+      );
+      bloc.add(const DiscoverEvent.regionChanged(country: 'IN', languages: ['en'], tastes: ['lofi']));
+      await settle(150);
+      final made = bloc.state.sections[DiscoverSectionIds.madeForYou]!.songs;
+      expect(made.map((s) => s.id), isNot(contains(liked.id)));
+      // Tags of the liked artist (hiphop, trap) were queried.
+      expect(t.requests.any((u) => u.path.contains('artists/musicinfo') && u.queryParameters['id'] == '777'), isTrue);
+      expect(t.requests.any((u) => u.queryParameters['fuzzytags'] == 'hiphop' || u.queryParameters['tags'] == 'hiphop'), isTrue);
+      // Songs of the favourite artist are suggested.
+      expect(made.any((s) => s.title.startsWith('Fav song')), isTrue);
+      await bloc.close();
+    });
+
+    test('changing tastes rebuilds the personal rows', () async {
+      final bloc = DiscoverBloc(repository: repoFor(fakeJamendo()));
+      bloc.add(const DiscoverEvent.regionChanged(country: 'IN', languages: ['en'], tastes: ['lofi']));
+      await settle(150);
+      expect(bloc.state.sections[DiscoverSectionIds.because0]!.title, contains('Lo-fi'));
+      expect(bloc.state.sections.containsKey(DiscoverSectionIds.because1), isFalse);
+      bloc.add(const DiscoverEvent.regionChanged(country: 'IN', languages: ['en'], tastes: ['jazz', 'rock']));
+      await settle(150);
+      expect(bloc.state.sections[DiscoverSectionIds.because0]!.title, contains('Jazz'));
+      expect(bloc.state.sections[DiscoverSectionIds.because1]!.title, contains('Rock'));
+      expect(bloc.state.tastes, ['jazz', 'rock']);
       await bloc.close();
     });
 
@@ -192,7 +271,7 @@ void main() {
 
     test('state is persisted and restored (instant first paint)', () async {
       final bloc = DiscoverBloc(repository: repoFor(fakeJamendo()));
-      bloc.add(const DiscoverEvent.regionChanged(country: 'IN', languages: ['ml']));
+      bloc.add(const DiscoverEvent.regionChanged(country: 'IN', languages: ['ml'], tastes: ['rock']));
       await settle(100);
       final saved = bloc.toJson(bloc.state)!;
       await bloc.close();
@@ -201,9 +280,16 @@ void main() {
       final restored = DiscoverBloc(repository: repoFor(fakeJamendo())).fromJson(saved)!;
       expect(restored.country, 'IN');
       expect(restored.languages, ['ml']);
+      expect(restored.tastes, ['rock']);
+      expect(restored.sections[DiscoverSectionIds.mixes]!.mixes.first.title, 'Your Rock Mix');
+      // The hero only shows songs with artwork; the fake API has none, so the
+      // (empty) hero is not persisted. One taste -> one 'because' row.
+      expect(restored.sections.containsKey(DiscoverSectionIds.hero), isFalse);
       expect(
         restored.orderedSections.map((s) => s.id),
-        DiscoverSectionIds.order,
+        DiscoverSectionIds.order.where(
+          (id) => id != DiscoverSectionIds.hero && id != DiscoverSectionIds.because1,
+        ),
       );
       expect(restored.sections[DiscoverSectionIds.trending]!.songs, isNotEmpty);
       expect(restored.sections[DiscoverSectionIds.mixes]!.mixes, isNotEmpty);

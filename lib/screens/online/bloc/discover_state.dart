@@ -13,6 +13,9 @@ abstract class DiscoverState with _$DiscoverState {
     String? country,
     @Default(<String>[]) List<String> languages,
 
+    /// Picked tastes (genres / moods) the personal rows were built for.
+    @Default(<String>[]) List<String> tastes,
+
     /// Some data is shown from the offline cache.
     @Default(false) bool isOffline,
 
@@ -38,5 +41,6 @@ abstract class DiscoverState with _$DiscoverState {
       sections.isNotEmpty &&
       sections.values.every((s) => s.hasError && s.isEmpty);
 
-  String get regionKey => '${country ?? ''}|${languages.join(',')}';
+  String get regionKey =>
+      '${country ?? ''}|${languages.join(',')}|${tastes.join(',')}';
 }

@@ -51,6 +51,8 @@ class Song with _$Song {
     /// null for on-device songs.
     String? source,
     String? remoteId,
+    /// Jamendo artist id (used for suggestions).
+    String? remoteArtistId,
     String? streamUrl,
     String? downloadUrl,
     bool? downloadAllowed,

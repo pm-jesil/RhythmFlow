@@ -7,6 +7,7 @@ import 'jamendo_cache.dart';
 import 'jamendo_config.dart';
 import 'jamendo_models.dart';
 import 'region_models.dart';
+import 'taste_models.dart';
 
 /// Ordering used by the online tabs.
 enum OnlineSort { popular, newest }
@@ -151,6 +152,49 @@ class JamendoRepository {
     final songs = JamendoMapper.dedupe(response.results.map(JamendoMapper.track));
     _rememberStreams(songs);
     return _page(songs, response, offset, limit);
+  }
+
+  /// Popular tracks for a taste (genre / mood). Some tags only work with
+  /// `tags` and others only with `fuzzytags`, so the other parameter is
+  /// tried when the preferred one returns nothing.
+  Future<List<Song>> tasteTracks(
+    MusicTaste taste, {
+    int limit = JamendoConfig.sectionSize,
+    bool forceRefresh = false,
+  }) async {
+    Future<List<Song>> query(bool fuzzy) async {
+      final response = await _get(
+        'tracks',
+        {
+          ..._trackDefaults,
+          fuzzy ? 'fuzzytags' : 'tags': taste.id,
+          'boost': 'popularity_month',
+          'limit': limit,
+        },
+        ttl: JamendoConfig.homeTtl,
+        forceRefresh: forceRefresh,
+      );
+      return response.results.map(JamendoMapper.track).toList();
+    }
+
+    var songs = await query(taste.useFuzzy);
+    if (songs.isEmpty) songs = await query(!taste.useFuzzy);
+    songs = limitPerArtist(JamendoMapper.dedupe(songs), perArtist: 2).toList();
+    _rememberStreams(songs);
+    return songs;
+  }
+
+  /// Genre / mood tags of an artist (`/artists/musicinfo`), cached.
+  Future<List<String>> artistTags(String artistRemoteId) async {
+    final response = await _get(
+      'artists/musicinfo',
+      {'id': artistRemoteId},
+      ttl: const Duration(days: 7),
+    );
+    if (response.results.isEmpty) return const [];
+    final info = response.results.first['musicinfo'];
+    if (info is! Map || info['tags'] is! List) return const [];
+    return (info['tags'] as List).map((t) => t.toString().toLowerCase()).toList();
   }
 
   /// Ranking parameters that Jamendo actually honours (measured on the live

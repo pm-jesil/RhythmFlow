@@ -13,6 +13,9 @@ import '../bottom_tab/bloc/music_bloc.dart';
 import 'bloc/discover_bloc.dart';
 import 'bloc/online_library_bloc.dart';
 import 'online_collection_screen.dart';
+import 'widgets/discover_feature_widgets.dart';
+import 'widgets/discover_gate.dart';
+import 'widgets/taste_picker.dart';
 import 'widgets/discover_setup_dialog.dart';
 import 'widgets/online_widgets.dart';
 
@@ -36,13 +39,15 @@ class _DiscoverHomeContentState extends State<DiscoverHomeContent> {
     if (!mounted) return;
     final settings = context.read<AppSettingsBloc>().state;
     final discover = context.read<DiscoverBloc>();
-    if (settings.hasMusicRegion &&
-        (discover.state.country != settings.musicCountry ||
-            discover.state.languages.join(',') != settings.musicLanguages.join(','))) {
+    if (!settings.isDiscoverReady) return; // setup form is shown instead
+    if (discover.state.country != settings.musicCountry ||
+        discover.state.languages.join(',') != settings.musicLanguages.join(',') ||
+        discover.state.tastes.join(',') != settings.musicTastes.join(',')) {
       discover.add(
         DiscoverEvent.regionChanged(
           country: settings.musicCountry,
           languages: settings.musicLanguages,
+          tastes: settings.musicTastes,
         ),
       );
     } else {
@@ -57,6 +62,10 @@ class _DiscoverHomeContentState extends State<DiscoverHomeContent> {
     return BlocBuilder<DiscoverBloc, DiscoverState>(
       builder: (context, state) {
         if (state.notConfigured) return const _NotConfigured();
+        // Only signed-in users who finished the setup see Discover.
+        if (!settings.isDiscoverReady) {
+          return const DiscoverGate(fullScreen: false, child: SizedBox.shrink());
+        }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -67,7 +76,12 @@ class _DiscoverHomeContentState extends State<DiscoverHomeContent> {
                 ),
               ),
             _RegionChip(settings: settings),
-            SizedBox(height: 16.h),
+            SizedBox(height: 10.h),
+            VibeChipsRow(
+              tastes: settings.musicTastes,
+              onEdit: () => _editVibes(context, settings.musicTastes),
+            ),
+            SizedBox(height: 18.h),
             const _RecentlyPlayedShelf(),
             if (state.isInitialLoading)
               const DiscoverHomeSkeleton()
@@ -81,6 +95,13 @@ class _DiscoverHomeContentState extends State<DiscoverHomeContent> {
         );
       },
     );
+  }
+}
+
+Future<void> _editVibes(BuildContext context, List<String> current) async {
+  final picked = await showTastePicker(context, selected: current);
+  if (picked != null && context.mounted) {
+    context.read<AppSettingsBloc>().add(AppSettingsEvent.updateMusicTastes(tastes: picked));
   }
 }
 
@@ -142,7 +163,7 @@ class _RecentlyPlayedShelf extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const OnlineSectionHeader(title: 'Jump back in', subtitle: 'Recently played'),
-          _SongShelf(queueKey: 'recent', title: 'Recently played', songs: songs, small: true),
+          QuickAccessGrid(queueKey: 'recent', title: 'Recently played', songs: songs),
         ],
       ),
     );
@@ -172,7 +193,11 @@ class DiscoverSectionView extends StatelessWidget {
 
     Widget body;
     if (section.isEmpty && section.isLoading) {
-      body = _ShelfSkeleton(circle: section.kind == DiscoverSectionKind.artists);
+      body = switch (section.style) {
+        SectionStyle.hero => const _HeroSkeleton(),
+        SectionStyle.chart => const _ChartSkeleton(),
+        SectionStyle.shelf => _ShelfSkeleton(circle: section.kind == DiscoverSectionKind.artists),
+      };
     } else if (section.isEmpty && section.hasError) {
       body = InlineRetry(
         height: 150.h,
@@ -185,6 +210,16 @@ class DiscoverSectionView extends StatelessWidget {
       return const SizedBox.shrink();
     } else {
       body = switch (section.kind) {
+        DiscoverSectionKind.tracks when section.style == SectionStyle.hero => HeroCarousel(
+          queueKey: 'section_${section.id}',
+          title: section.title,
+          songs: section.songs,
+        ),
+        DiscoverSectionKind.tracks when section.style == SectionStyle.chart => RankedChart(
+          queueKey: 'section_${section.id}',
+          title: section.title,
+          songs: section.songs,
+        ),
         DiscoverSectionKind.tracks => _SongShelf(
           queueKey: 'section_${section.id}',
           title: section.title,
@@ -251,13 +286,11 @@ class _SongShelf extends StatelessWidget {
     required this.queueKey,
     required this.title,
     required this.songs,
-    this.small = false,
   });
 
   final String queueKey;
   final String title;
   final List<Song> songs;
-  final bool small;
 
   @override
   Widget build(BuildContext context) {
@@ -265,12 +298,12 @@ class _SongShelf extends StatelessWidget {
       (b) => b.state.myPlayerState.currentSongId,
     );
     return HorizontalShelf(
-      height: small ? 158.h : 186.h,
+      height: 186.h,
       itemCount: songs.length,
       itemBuilder: (context, i) {
         final song = songs[i];
         return OnlineMediaCard(
-          width: small ? 110.w : 132.w,
+          width: 132.w,
           title: song.title,
           subtitle: song.artists.first,
           imageUrl: song.albumArt,
@@ -315,6 +348,42 @@ class _ShelfSkeleton extends StatelessWidget {
   }
 }
 
+class _HeroSkeleton extends StatelessWidget {
+  const _HeroSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Skeletonizer(
+      effect: discoverShimmer(context),
+      child: Skeleton.leaf(
+        child: Container(
+          height: 190.h,
+          decoration: BoxDecoration(
+            color: Colors.grey,
+            borderRadius: BorderRadius.circular(22.r),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChartSkeleton extends StatelessWidget {
+  const _ChartSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Skeletonizer(
+      effect: discoverShimmer(context),
+      child: RankedChart(
+        queueKey: 'skeleton',
+        title: '',
+        songs: SkeletonData.songs(8),
+      ),
+    );
+  }
+}
+
 /// Full-page skeleton with the same rhythm as the real Discover home.
 class DiscoverHomeSkeleton extends StatelessWidget {
   const DiscoverHomeSkeleton({super.key});
@@ -326,7 +395,10 @@ class DiscoverHomeSkeleton extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final circle in [false, false, true, false]) ...[
+          const OnlineSectionHeader(title: 'Featured for you', subtitle: 'Loading'),
+          const _HeroSkeleton(),
+          SizedBox(height: 22.h),
+          for (final circle in [false, true, false]) ...[
             const OnlineSectionHeader(title: 'Loading section', subtitle: 'Finding great music'),
             _ShelfSkeleton(circle: circle),
             SizedBox(height: 22.h),

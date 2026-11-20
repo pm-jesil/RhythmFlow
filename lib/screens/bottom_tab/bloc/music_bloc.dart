@@ -276,6 +276,10 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     _playerStateSubscription = _audioService.playerStateStream.listen((
       playerState,
     ) {
+      // A song is really playing: consecutive-failure counter starts over.
+      if (playerState.playing && playerState.processingState == ProcessingState.ready) {
+        _invalidSongAttempts = 0;
+      }
       if (!_isUpdatingState) {
         if (state.myPlayerState.isPlaying != playerState.playing) {
           add(
@@ -2024,8 +2028,9 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
       '🎵 Audio service song changed: "${newSong.title}" | Queueing for processing',
     );
 
-    // Reset invalid song attempts counter on successful song change
-    _invalidSongAttempts = 0;
+    // Note: the invalid-song counter is reset when audio actually starts
+    // playing (player state listener), not here: this callback also fires
+    // for songs that then fail to load, which would defeat the limit.
 
     // Add to queue instead of ignoring
     _pendingSongChanges.add(newSong);
@@ -2121,7 +2126,25 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     // Clear any pending song changes to prevent conflicts
     _clearPendingSongChanges();
 
-    _refreshLibraryToRemoveInvalidSongs();
+    // Several songs in a row could not be played (e.g. offline with a
+    // Discover queue): stop instead of skipping through the whole queue.
+    if (_invalidSongAttempts > maxInvalidSongAttempts) {
+      _logger.w('⏹️ $_invalidSongAttempts songs in a row failed - stopping playback');
+      _invalidSongAttempts = 0;
+      unawaited(_audioService.stop());
+      add(
+        MusicEvent.updateMusicBlocState(
+          newState: state.copyWith(
+            myPlayerState: state.myPlayerState.copyWith(isPlaying: false),
+          ),
+        ),
+      );
+      return;
+    }
+
+    // A missing local file means the library changed; an unplayable online
+    // (Discover) song is a Jamendo / network problem, so no rescan.
+    if (!invalidSong.isOnline) _refreshLibraryToRemoveInvalidSongs();
 
     // Try to play next song
     _tryPlayNextSong();

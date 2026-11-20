@@ -10,6 +10,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/theme/theme_extension.dart';
 import '../../../utils/services/jamendo/region_models.dart';
+import '../../../utils/services/jamendo/taste_models.dart';
+import 'taste_picker.dart';
 import '../../app_settings/bloc/app_settings_bloc.dart';
 import '../bloc/discover_bloc.dart';
 import 'region_pickers.dart';
@@ -53,6 +55,10 @@ class DiscoverSetupDialog extends StatefulWidget {
   static Duration maxSetupTime = const Duration(seconds: 25);
   static Duration doneTime = const Duration(milliseconds: 1100);
 
+  /// The setup popup opens by itself at most once per app session (the
+  /// "Finish setting up Discover" card stays available afterwards).
+  static bool autoPromptShown = false;
+
   @override
   State<DiscoverSetupDialog> createState() => _DiscoverSetupDialogState();
 }
@@ -67,6 +73,9 @@ class _DiscoverSetupDialogState extends State<DiscoverSetupDialog> {
   SetupStage _stage = SetupStage.ask;
   String? _country;
   List<String> _languages = const [];
+  List<String> _tastes = const [];
+  final TextEditingController _name = TextEditingController();
+  bool _needsName = false;
   List<_SetupStep> _steps = const [];
   final Set<int> _doneSteps = {};
   StreamSubscription<DiscoverState>? _sub;
@@ -79,6 +88,11 @@ class _DiscoverSetupDialogState extends State<DiscoverSetupDialog> {
     final settings = context.read<AppSettingsBloc>().state;
     _country = settings.musicCountry;
     _languages = settings.musicLanguages;
+    _tastes = settings.musicTastes;
+    // The local "login" is the profile name; ask for it in the same form
+    // when it is missing.
+    _needsName = !settings.isProfileComplete;
+    _name.text = settings.nickName?.trim() ?? '';
     if (_country == null || _languages.isEmpty) {
       // Offline suggestion from the device locale (no network call).
       final locale = WidgetsBinding.instance.platformDispatcher.locale;
@@ -92,20 +106,41 @@ class _DiscoverSetupDialogState extends State<DiscoverSetupDialog> {
 
   @override
   void dispose() {
+    _name.dispose();
     _sub?.cancel();
     _timeout?.cancel();
     super.dispose();
   }
 
-  bool get _canSubmit => (_country?.isNotEmpty ?? false) && _languages.isNotEmpty;
+  bool get _hasName => !_needsName || _name.text.trim().length >= 2;
+
+  bool get _canSubmit =>
+      _hasName &&
+      (_country?.isNotEmpty ?? false) &&
+      _languages.isNotEmpty &&
+      _tastes.length >= MusicTastes.minPicks;
+
+  /// What is still missing (shown on the button).
+  String get _missingHint {
+    if (!_hasName) return 'Enter your name';
+    if (!(_country?.isNotEmpty ?? false)) return 'Choose your country';
+    if (_languages.isEmpty) return 'Choose a language';
+    if (_tastes.isEmpty) return 'Pick at least one vibe';
+    return widget.editing ? 'Update my music' : 'Set up my music';
+  }
 
   void _submit() {
     if (!_canSubmit) return;
     HapticFeedback.mediumImpact();
     final country = MusicRegions.countryByAlpha2(_country)!;
     final language = MusicRegions.languageByCode(_languages.first);
+    final firstTaste = MusicTastes.byId(_tastes.first);
     _steps = [
       const _SetupStep('Saving your preferences', []),
+      _SetupStep(
+        'Learning your taste${firstTaste == null ? '' : ' for ${firstTaste.label}'}',
+        const [DiscoverSectionIds.madeForYou],
+      ),
       _SetupStep('Finding artists from ${country.name}', const [DiscoverSectionIds.country]),
       _SetupStep(
         language == null || language.isGlobal
@@ -132,9 +167,20 @@ class _DiscoverSetupDialogState extends State<DiscoverSetupDialog> {
     // DiscoverEvent.regionChanged; send it directly too in case the
     // region is unchanged (re-run of the setup).
     context.read<AppSettingsBloc>().add(
-      AppSettingsEvent.updateMusicRegion(country: _country!, languages: _languages),
+      AppSettingsEvent.updateDiscoverProfile(
+        nickName: _needsName ? _name.text.trim() : null,
+        country: _country!,
+        languages: _languages,
+        tastes: _tastes,
+      ),
     );
-    discover.add(DiscoverEvent.regionChanged(country: _country, languages: _languages));
+    discover.add(
+      DiscoverEvent.regionChanged(
+        country: _country,
+        languages: _languages,
+        tastes: _tastes,
+      ),
+    );
     if (widget.editing) discover.add(const DiscoverEvent.loadHome(force: true));
     _timeout = Timer(DiscoverSetupDialog.maxSetupTime, _finish);
     _onDiscover(discover.state);
@@ -252,46 +298,102 @@ class _DiscoverSetupDialogState extends State<DiscoverSetupDialog> {
     ],
   );
 
+  Widget _label(String text) => Padding(
+    padding: EdgeInsets.only(bottom: 8.h, top: 4.h),
+    child: Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        text,
+        style: TextStyle(
+          color: context.onSurfaceVariantColor,
+          fontSize: 12.sp,
+          fontWeight: FontWeight.w600,
+          fontFamily: 'Poppins',
+        ),
+      ),
+    ),
+  );
+
   Widget _buildAsk() {
-    return Column(
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.78;
+    return ConstrainedBox(
       key: const ValueKey('setup_ask'),
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: EdgeInsets.all(14.r),
-          decoration: BoxDecoration(gradient: context.primaryGradient, shape: BoxShape.circle),
-          child: Icon(CupertinoIcons.globe, color: Colors.white, size: 28.sp),
-        ),
-        SizedBox(height: 14.h),
-        _title(
-          widget.editing ? 'Update your Discover' : 'Personalise Discover',
-          'Tell us where you listen from and the languages you love. '
-              "We'll find free music made for you.",
-        ),
-        SizedBox(height: 18.h),
-        RegionFields(
-          country: _country,
-          languages: _languages,
-          onCountryChanged: (c) => setState(() => _country = c),
-          onLanguagesChanged: (l) => setState(() => _languages = l),
-        ),
-        SizedBox(height: 18.h),
-        GradientButton(
-          key: const ValueKey('setup_submit'),
-          label: widget.editing ? 'Update my music' : 'Set up my music',
-          icon: CupertinoIcons.sparkles,
-          onPressed: _canSubmit ? _submit : null,
-        ),
-        SizedBox(height: 4.h),
-        TextButton(
-          key: const ValueKey('setup_skip'),
-          onPressed: () => Navigator.of(context).pop(false),
-          child: Text(
-            widget.editing ? 'Cancel' : 'Not now',
-            style: TextStyle(color: context.onSurfaceVariantColor, fontFamily: 'Poppins'),
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(14.r),
+                    decoration: BoxDecoration(gradient: context.primaryGradient, shape: BoxShape.circle),
+                    child: Icon(CupertinoIcons.globe, color: Colors.white, size: 28.sp),
+                  ),
+                  SizedBox(height: 14.h),
+                  _title(
+                    widget.editing ? 'Update your Discover' : 'Personalise Discover',
+                    'Tell us a little about you and the music you love. '
+                        "We'll find free music made for you.",
+                  ),
+                  SizedBox(height: 18.h),
+                  if (_needsName) ...[
+                    _label('Your name'),
+                    TextField(
+                      key: const ValueKey('setup_name'),
+                      controller: _name,
+                      onChanged: (_) => setState(() {}),
+                      textCapitalization: TextCapitalization.words,
+                      style: TextStyle(color: context.onSurfaceColor, fontFamily: 'Poppins'),
+                      decoration: InputDecoration(
+                        hintText: 'What should we call you?',
+                        prefixIcon: const Icon(CupertinoIcons.person),
+                        filled: true,
+                        fillColor: context.onSurfaceColor.withValues(alpha: 0.04),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16.r),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 14.h),
+                  ],
+                  _label('Where & what language'),
+                  RegionFields(
+                    country: _country,
+                    languages: _languages,
+                    onCountryChanged: (c) => setState(() => _country = c),
+                    onLanguagesChanged: (l) => setState(() => _languages = l),
+                  ),
+                  SizedBox(height: 16.h),
+                  _label('Pick your vibe · ${_tastes.length} selected'),
+                  TastePicker(
+                    selected: _tastes,
+                    onChanged: (t) => setState(() => _tastes = t),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-      ],
+          SizedBox(height: 14.h),
+          GradientButton(
+            key: const ValueKey('setup_submit'),
+            label: _missingHint,
+            icon: CupertinoIcons.sparkles,
+            onPressed: _canSubmit ? _submit : null,
+          ),
+          SizedBox(height: 4.h),
+          TextButton(
+            key: const ValueKey('setup_skip'),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              widget.editing ? 'Cancel' : 'Not now',
+              style: TextStyle(color: context.onSurfaceVariantColor, fontFamily: 'Poppins'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

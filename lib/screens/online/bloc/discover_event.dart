@@ -14,9 +14,11 @@ abstract class DiscoverEvent with _$DiscoverEvent {
   }) = _RefreshSection;
 
   /// Country / languages changed: rebuild personalised sections.
+  /// Country / languages / tastes changed: rebuild personalised sections.
   const factory DiscoverEvent.regionChanged({
     String? country,
     @Default(<String>[]) List<String> languages,
+    @Default(<String>[]) List<String> tastes,
   }) = _RegionChanged;
 
   /// Internal: one section finished loading (or failed).

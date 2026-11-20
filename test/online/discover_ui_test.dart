@@ -16,6 +16,7 @@ import 'package:rhythmflow/screens/online/bloc/online_browse_bloc.dart';
 import 'package:rhythmflow/screens/online/bloc/online_library_bloc.dart';
 import 'package:rhythmflow/screens/online/online_browse_screen.dart';
 import 'package:rhythmflow/screens/online/online_playlists_screen.dart';
+import 'package:rhythmflow/screens/online/widgets/discover_gate.dart';
 import 'package:rhythmflow/screens/online/widgets/discover_setup_dialog.dart';
 import 'package:rhythmflow/screens/online/widgets/region_pickers.dart';
 import 'package:rhythmflow/screens/widgets/music_source_switch.dart';
@@ -87,6 +88,7 @@ void main() {
     when(() => music.stream).thenAnswer((_) => const Stream.empty());
     when(() => music.add(any())).thenAnswer((i) => musicEvents.add(i.positionalArguments.first as MusicEvent));
     DiscoverSetupDialog.minSetupTime = const Duration(milliseconds: 50);
+    DiscoverSetupDialog.autoPromptShown = false;
     DiscoverSetupDialog.doneTime = const Duration(milliseconds: 50);
     OnlineBrowseBloc.queryDebounce = const Duration(milliseconds: 20);
   });
@@ -126,8 +128,14 @@ void main() {
     }
   }
 
-  void setRegion() {
-    settings.add(const AppSettingsEvent.updateMusicRegion(country: 'IN', languages: ['ml']));
+  /// A signed-in user who finished the Discover setup.
+  void setRegion({List<String> tastes = const ['hiphop', 'lofi']}) {
+    settings.add(AppSettingsEvent.updateDiscoverProfile(
+      nickName: 'Jesil',
+      country: 'IN',
+      languages: const ['ml'],
+      tastes: tastes,
+    ));
   }
 
   testWidgets('source switch toggles My Music / Discover', (tester) async {
@@ -153,7 +161,7 @@ void main() {
     expect(find.byType(MusicSourceSwitch), findsOneWidget);
     expect(find.textContaining('Top in India'), findsOneWidget);
     expect(find.text('Malayalam picks'), findsOneWidget);
-    expect(find.text('Trending this week'), findsOneWidget);
+    expect(find.text('Trending now'), findsOneWidget);
     expect(find.byKey(const ValueKey('discover_region_chip')), findsOneWidget);
     expect(find.textContaining('India · Malayalam'), findsOneWidget);
 
@@ -182,27 +190,125 @@ void main() {
     expect(find.text('Artists'), findsWidgets, reason: 'local quick stats are back');
   });
 
-  testWidgets('first time on Discover: setup popup, setting up, then closes', (tester) async {
+  testWidgets('not signed in: one form asks name, region and vibes, then sets up', (tester) async {
+    expect(settings.state.isProfileComplete, isFalse);
     await pump(tester, const ForYouScreen());
     await settle(tester, 3);
 
-    // Popup is shown because no country / language is set yet.
-    expect(find.byKey(const ValueKey('setup_submit')), findsOneWidget);
-    // Pre-selected from the test locale (en_US).
+    // Gate: the popup opens and the Discover content is replaced by a prompt.
+    expect(find.byType(DiscoverSetupDialog), findsOneWidget);
+    expect(find.byKey(const ValueKey('setup_name')), findsOneWidget, reason: 'name asked in the same form');
+    // Country / language pre-selected from the test locale (en_US).
     expect(find.textContaining('United States'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('setup_submit')));
+    // Nothing can be submitted until name and vibes are given.
+    final submit = find.byKey(const ValueKey('setup_submit'));
+    expect(find.text('Enter your name'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('setup_name')), 'Jesil');
+    await tester.pump();
+    expect(find.text('Pick at least one vibe'), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('taste_hiphop')));
+    await tester.tap(find.byKey(const ValueKey('taste_hiphop')));
+    await tester.pump();
+    expect(find.text('Set up my music'), findsOneWidget);
+
+    await tester.tap(submit);
     await tester.pump();
     expect(find.text('Setting up your music player'), findsOneWidget);
+    expect(find.textContaining('Learning your taste for Hip-Hop & Rap'), findsOneWidget);
     expect(find.textContaining('Finding artists from United States'), findsOneWidget);
 
-    await settle(tester, 20);
-    expect(find.text('Setting up your music player'), findsNothing);
+    await settle(tester, 25);
     expect(find.byType(DiscoverSetupDialog), findsNothing, reason: 'popup closed');
+    expect(find.byType(ForYouScreen), findsOneWidget, reason: 'screen underneath not popped');
+    expect(settings.state.nickName, 'Jesil');
     expect(settings.state.musicCountry, 'US');
     expect(settings.state.musicLanguages, ['en']);
-    expect(find.textContaining('Top in United States'), findsOneWidget);
-    expect(find.byType(ForYouScreen), findsOneWidget, reason: 'screen underneath not popped');
+    expect(settings.state.musicTastes, ['hiphop']);
+    expect(settings.state.isDiscoverReady, isTrue);
+    expect(find.byKey(const ValueKey('discover_setup_prompt')), findsNothing);
+    expect(find.text('Made for you'), findsOneWidget);
+  });
+
+  testWidgets('signed in but no vibes yet: form skips the name, asks the rest', (tester) async {
+    settings.add(const AppSettingsEvent.updateUserProfile(userName: 'Jesil', nickName: 'Jesil'));
+    settings.add(const AppSettingsEvent.updateMusicRegion(country: 'IN', languages: ['ml']));
+    await pump(tester, const ForYouScreen());
+    await settle(tester, 3);
+    expect(find.byType(DiscoverSetupDialog), findsOneWidget);
+    expect(find.byKey(const ValueKey('setup_name')), findsNothing);
+    expect(find.textContaining('India'), findsWidgets, reason: 'saved region prefilled');
+  });
+
+  testWidgets('Discover tabs are gated until setup is complete', (tester) async {
+    await pump(tester, const DiscoverGate(child: Text('secret discover content')));
+    await settle(tester, 2);
+    expect(find.text('secret discover content'), findsNothing);
+    expect(find.byKey(const ValueKey('discover_setup_prompt')), findsOneWidget);
+    expect(find.textContaining('your name'), findsOneWidget);
+
+    setRegion();
+    await settle(tester, 2);
+    expect(find.text('secret discover content'), findsOneWidget);
+    expect(find.byKey(const ValueKey('discover_setup_prompt')), findsNothing);
+  });
+
+  testWidgets('trending chart, vibe chips and personal mix', (tester) async {
+    setRegion(tastes: ['lofi']);
+    await pump(tester, const ForYouScreen());
+    await settle(tester, 15);
+
+    // Ranked chart with rank numbers.
+    expect(find.text('Trending now'), findsOneWidget);
+    await tester.ensureVisible(find.text('popularity_week 0').first);
+    expect(find.text('1'), findsWidgets);
+    expect(find.text('2'), findsWidgets);
+    await tester.ensureVisible(find.text('popularity_week 1').first);
+    await tester.pump();
+    await tester.tap(find.text('popularity_week 1').first);
+    await tester.pump();
+    final play = musicEvents.lastWhere(
+      (e) => e.maybeWhen(playOrPauseSong: (_, _, _, _) => true, orElse: () => false),
+    );
+    play.maybeWhen(
+      playOrPauseSong: (songId, playList, isForceStop, source) {
+        expect(source, PlaylistSource.online('section_${DiscoverSectionIds.trending}'));
+        expect(OnlineSongRegistry.get(songId!)!.title, 'popularity_week 1');
+      },
+      orElse: () => fail('expected chart playback'),
+    );
+
+    // Vibe chip opens "Your Lo-fi Mix".
+    await tester.drag(find.byType(CustomScrollView).first, const Offset(0, 4000));
+    await tester.pump();
+    await tester.ensureVisible(find.byKey(const ValueKey('taste_lofi')).first);
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('taste_lofi')).first);
+    await settle(tester, 8);
+    expect(find.text('Your Lo-fi Mix'), findsWidgets);
+    expect(jamendo.requests.any((u) => u.queryParameters['tags'] == 'lofi' || u.queryParameters['fuzzytags'] == 'lofi'), isTrue);
+  });
+
+  testWidgets('vibes editor sheet updates tastes', (tester) async {
+    setRegion(tastes: ['lofi']);
+    await pump(tester, const ForYouScreen());
+    await settle(tester, 6);
+    await tester.drag(find.byType(CustomScrollView).first, const Offset(0, 4000));
+    await tester.pump();
+    await tester.ensureVisible(find.byKey(const ValueKey('vibes_edit')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('vibes_edit')));
+    // Let the bottom-sheet slide-in transition finish before tapping in it.
+    await settle(tester, 10);
+    expect(find.text('Your music vibes'), findsOneWidget);
+    // (No ensureVisible here: inside a DraggableScrollableSheet it would move
+    // the sheet itself, which a real drag does not do.)
+    await tester.tap(find.byKey(const ValueKey('taste_jazz')).last);
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('tastes_done')));
+    await settle(tester, 4);
+    expect(settings.state.musicTastes, ['lofi', 'jazz']);
   });
 
   testWidgets('"Not now" closes the popup without saving', (tester) async {

@@ -316,12 +316,10 @@ class _ForYouScreenState extends State<ForYouScreen> {
   }
 
   /// The Discover setup popup is offered once per app session when Discover
-  /// is shown without a country / language.
-  static bool _regionPromptShown = false;
-
+  /// is shown before the setup is complete (name, region, tastes).
   void _maybeAskForRegion(AppSettingsState settings) {
-    if (settings.hasMusicRegion || _regionPromptShown) return;
-    _regionPromptShown = true;
+    if (settings.isDiscoverReady || DiscoverSetupDialog.autoPromptShown) return;
+    DiscoverSetupDialog.autoPromptShown = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) showDiscoverSetupDialog(context);
     });
