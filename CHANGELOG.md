@@ -35,6 +35,38 @@
 - New For You layout on Discover: vibe chips, quick-access "Jump back in"
   grid, featured hero carousel and a ranked Top 10 chart.
 
+### New: Ringtone maker
+- **Make a ringtone from any song** — My Music or Discover. In the full
+  player open the extra options (arrow) and tap the bell, or use
+  "Make Ringtone" in a song's menu.
+- The editor **pauses the playing song**, then shows the part to cut
+  (30 s from where you were listening): range slider, ±0.5 s fine-tune for
+  start and end, a preview that plays only the selection (separate player:
+  the queue, notification and history are untouched), and a name field.
+- **Discover songs are downloaded automatically** for editing (with
+  progress), only when the artist allows downloads; a song already
+  downloaded to My Music is reused, and the last few are cached. Live radio
+  can't be used.
+- Lossless cutting, no re-encoding: MP3 on frame boundaries and WAV in Dart,
+  AAC/M4A with Android's MediaExtractor + MediaMuxer. Other formats (FLAC,
+  OGG, …) show a clear message. Length 1–60 s.
+- Saved to `Ringtones/RhythmFlow` and registered with Android as a
+  ringtone / notification / alarm sound. **Set as ringtone, notification or
+  alarm** right after saving or from the list (asks once for "Modify system
+  settings").
+- **My Ringtones** tile on the Playlists tab of both My Music and Discover,
+  opening a list like the song list: tap to preview, and rename (names kept
+  unique), share, set as… or delete. Ringtones deleted outside the app
+  disappear from the list.
+
+### Playback fixes (Discover ↔ My Music)
+- The queue screen and the mini player now show Discover queues (they only
+  looked in the device library).
+- The full player's heart likes a Discover song (Liked songs) instead of
+  adding its id to the local Favourites playlist; "+" downloads it instead of
+  adding it to a local playlist (live radio shows a note).
+- Song menu labels no longer overflow with large fonts.
+
 ### Access
 - Discover (home and its tabs) is only for a signed-in user (profile name)
   who finished the Discover setup. Anything missing — name, country,

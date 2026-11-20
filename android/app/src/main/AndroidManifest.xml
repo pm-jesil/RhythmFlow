@@ -26,6 +26,14 @@
     <!-- Media Permissions (Android 13+) -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
 
+    <!-- Set a trimmed song as the phone ringtone / notification / alarm
+         sound (RingtoneManager.setActualDefaultRingtoneUri). The user grants
+         it on the system "Modify system settings" screen, opened only when
+         they tap "Set as ringtone". -->
+    <uses-permission
+        android:name="android.permission.WRITE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+
     <!-- Vibration Permission (for haptic feedback) -->
     <uses-permission android:name="android.permission.VIBRATE" />
 

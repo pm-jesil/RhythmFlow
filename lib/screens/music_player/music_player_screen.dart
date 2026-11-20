@@ -19,6 +19,7 @@ import 'package:rxdart/rxdart.dart';
 import 'package:get_it/get_it.dart';
 import 'widgets/playlist_selection_popup.dart';
 import '../online/bloc/online_library_bloc.dart';
+import '../ringtones/ringtone_actions.dart' show openRingtoneEditor;
 import '../online/widgets/online_widgets.dart' show startDownload;
 import '../widgets/custom_scrolling_text.dart';
 import '../../core/widgets/app_custom.dart';
@@ -891,6 +892,18 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                                       );
                                                     },
                                                   ),
+
+                                                  // Make ringtone (hidden initially; local and Discover songs)
+                                                  if (_showAllOptions)
+                                                    _buildCompactBottomButton(
+                                                      icon: CupertinoIcons.bell,
+                                                      onPressed: () {
+                                                        openRingtoneEditor(
+                                                          context,
+                                                          currentSong,
+                                                        );
+                                                      },
+                                                    ),
 
                                                   // Playback Settings Button (hidden initially)
                                                   if (_showAllOptions)

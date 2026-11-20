@@ -122,4 +122,78 @@ class MediaStoreBridge {
     if (await file.exists()) await file.delete();
     return !await file.exists();
   }
+
+  // ==================== RINGTONES ====================
+
+  /// Lossless AAC/M4A cut (MediaExtractor + MediaMuxer). Returns the kept
+  /// duration in ms. Throws [PlatformException] (`unsupported` for non-AAC).
+  static Future<int> trimAudio({
+    required String inputPath,
+    required String outputPath,
+    required int startMs,
+    required int endMs,
+  }) async {
+    final ms = await channel.invokeMethod<int>('trimAudio', {
+      'inputPath': inputPath,
+      'outputPath': outputPath,
+      'startMs': startMs,
+      'endMs': endMs,
+    });
+    return ms ?? endMs - startMs;
+  }
+
+  /// Saves a ringtone file into `Ringtones/RhythmFlow` and marks it as a
+  /// ringtone / notification / alarm sound. Returns `(uri, path)`.
+  static Future<({String uri, String path})> saveRingtone({
+    required String tempPath,
+    required String fileName,
+    required String title,
+    required String mimeType,
+    String? artist,
+  }) async {
+    final result = await channel.invokeMapMethod<String, dynamic>('saveRingtone', {
+      'tempPath': tempPath,
+      'fileName': fileName,
+      'title': title,
+      'mimeType': mimeType,
+      'artist': artist,
+    });
+    final uri = result?['uri'] as String?;
+    if (uri == null || uri.isEmpty) {
+      throw PlatformException(code: 'save_failed', message: 'No uri returned');
+    }
+    return (uri: uri, path: (result?['path'] as String?) ?? '');
+  }
+
+  /// Whether the app may change the default ringtone ("Modify system
+  /// settings").
+  static Future<bool> canWriteSettings() async =>
+      await channel.invokeMethod<bool>('canWriteSettings') ?? false;
+
+  /// Opens the system "Modify system settings" screen for this app.
+  static Future<void> openWriteSettings() => channel.invokeMethod<bool>('openWriteSettings');
+
+  /// [type] is `ringtone`, `notification` or `alarm`. Throws a
+  /// [PlatformException] with code `no_permission` without the permission.
+  static Future<void> setDefaultRingtone(String uri, String type) =>
+      channel.invokeMethod<bool>('setDefaultRingtone', {'uri': uri, 'type': type});
+
+  /// Renames a ringtone file the app created. Returns the new path.
+  static Future<String> renameRingtone({
+    String? uri,
+    String? path,
+    required String fileName,
+    required String title,
+  }) async {
+    final newPath = await channel.invokeMethod<String>('renameRingtone', {
+      'uri': uri,
+      'path': path,
+      'fileName': fileName,
+      'title': title,
+    });
+    return newPath ?? path ?? '';
+  }
+
+  static Future<bool> deleteRingtone({String? uri, String? path}) async =>
+      await channel.invokeMethod<bool>('deleteRingtone', {'uri': uri, 'path': path}) ?? false;
 }

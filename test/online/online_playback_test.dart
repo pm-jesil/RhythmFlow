@@ -74,6 +74,7 @@ void main() {
     when(() => audio.stop()).thenAnswer((_) async {});
     when(() => audio.pause()).thenAnswer((_) async {});
     when(() => audio.resume()).thenAnswer((_) async {});
+    when(() => audio.position).thenReturn(const Duration(seconds: 42));
     when(
       () => audio.playSong(
         any(),
@@ -262,6 +263,135 @@ void main() {
     expect(discover.state.sections.keys, contains(DiscoverSectionIds.country));
     await library.close();
     await discover.close();
+  });
+
+  group('switching between Discover and My Music', () {
+    Song localSong(int i) => Song(
+      id: 'local_$i',
+      title: 'Local $i',
+      artists: ['Local Artist'],
+      albums: ['Local Album'],
+      path: '/music/local_$i.mp3',
+      duration: const Duration(minutes: 3),
+    );
+
+    Future<List<Song>> seedLocal(int count) async {
+      final songs = [for (var i = 1; i <= count; i++) localSong(i)];
+      bloc.add(MusicEvent.updateMusicBlocState(newState: bloc.state.copyWith(allSongs: songs)));
+      await settle(20);
+      return songs;
+    }
+
+    Future<void> playOnline(List<Song> songs, int index) async {
+      bloc.add(MusicEvent.playOrPauseSong(
+        songId: songs[index].id,
+        currentPlayList: songs.map((s) => s.id).toList(),
+        playlistSource: PlaylistSource.online('trending'),
+      ));
+      await settle(80);
+    }
+
+    Future<void> playLocal(List<Song> songs, int index) async {
+      bloc.add(MusicEvent.playOrPauseSong(
+        songId: songs[index].id,
+        currentPlayList: songs.map((s) => s.id).toList(),
+        playlistSource: PlaylistSource.allSongs(),
+      ));
+      await settle(80);
+    }
+
+    test('Discover -> My Music -> Discover swaps the whole queue each time', () async {
+      final local = await seedLocal(3);
+      final online = registerQueue('trending', 3);
+
+      await playOnline(online, 0);
+      expect(bloc.state.myPlayerState.playlistId, 'online_trending');
+
+      await playLocal(local, 1);
+      final p = bloc.state.myPlayerState;
+      expect(played.last.id, 'local_2');
+      expect(played.last.isOnline, isFalse);
+      expect(p.playlistId, 'all_songs');
+      expect(p.currentPlayList.toSet(), local.map((s) => s.id).toSet(),
+          reason: 'no Discover songs left in a local queue');
+      expect(MusicBloc.onlineQueueJson(p), isEmpty, reason: 'nothing online persisted');
+
+      // Next stays inside My Music.
+      bloc.add(const MusicEvent.playNext());
+      await settle(80);
+      expect(bloc.state.myPlayerState.currentSongId, startsWith('local_'));
+
+      await playOnline(online, 2);
+      expect(played.last.id, online[2].id);
+      expect(bloc.state.myPlayerState.currentPlayList.toSet(), online.map((s) => s.id).toSet());
+      expect(bloc.state.allSongs, hasLength(3), reason: 'the library is untouched');
+    });
+
+    test('tapping the playing song pauses / resumes for both sources', () async {
+      final local = await seedLocal(2);
+      final online = registerQueue('trending', 2);
+      await playOnline(online, 0);
+      await playOnline(online, 0); // same song -> pause
+      expect(bloc.state.myPlayerState.isPlaying, isFalse);
+      verify(() => audio.pause()).called(1);
+      await playOnline(online, 0); // resume
+      expect(bloc.state.myPlayerState.isPlaying, isTrue);
+      verify(() => audio.resume()).called(1);
+
+      await playLocal(local, 0);
+      await playLocal(local, 0);
+      expect(bloc.state.myPlayerState.isPlaying, isFalse);
+    });
+
+    test('pauseIfPlaying (ringtone editor) only pauses a playing song', () async {
+      expect(bloc.pauseIfPlaying(), isFalse, reason: 'nothing playing');
+      final online = registerQueue('trending', 2);
+      await playOnline(online, 0);
+      expect(bloc.pauseIfPlaying(), isTrue);
+      await settle(40);
+      expect(bloc.state.myPlayerState.isPlaying, isFalse);
+      expect(bloc.state.myPlayerState.currentSongId, online[0].id, reason: 'song stays loaded');
+      expect(bloc.pauseIfPlaying(), isFalse, reason: 'already paused');
+    });
+
+    test('history gets Discover songs only; play counts only local songs', () async {
+      final library = OnlineLibraryBloc();
+      final discover = DiscoverBloc(repository: repoFor(fakeJamendo()));
+      OnlineDependencies.connect(settings: settings, musicBloc: bloc, discover: discover, library: library);
+      final local = await seedLocal(2);
+      final online = registerQueue('trending', 2);
+
+      await playOnline(online, 0);
+      await playLocal(local, 0);
+      await playOnline(online, 1);
+      expect(library.state.recentlyPlayed.map((s) => s.id), [online[1].id, online[0].id]);
+      expect(bloc.findSong('local_1')!.isOnline, isFalse);
+      expect(bloc.state.allSongs.any((s) => s.isOnline), isFalse);
+      await library.close();
+      await discover.close();
+    });
+
+    test('findSong resolves both sources; unknown ids are null', () async {
+      final local = await seedLocal(1);
+      final online = registerQueue('trending', 1);
+      expect(bloc.findSong(local[0].id)?.title, 'Local 1');
+      expect(bloc.findSong(online[0].id)?.title, 'Online 1');
+      expect(bloc.findSong('nope'), isNull);
+      expect(bloc.findSong(null), isNull);
+    });
+
+    test('a failing local song does not stop a later Discover queue', () async {
+      final onInvalid = verify(() => audio.setInvalidSongCallback(captureAny())).captured.single
+          as void Function(Song, String?, PlaylistSource?);
+      final local = await seedLocal(1);
+      await playLocal(local, 0);
+      onInvalid(local[0], null, PlaylistSource.allSongs());
+      await settle(80);
+      final online = registerQueue('trending', 2);
+      await playOnline(online, 0);
+      expect(played.last.id, online[0].id);
+      expect(bloc.state.myPlayerState.isPlaying, isTrue);
+    });
   });
 
   group('PlaylistSourceHelper with online sources', () {

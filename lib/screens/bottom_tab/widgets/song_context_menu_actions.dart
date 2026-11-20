@@ -16,6 +16,7 @@ import '../../../utils/models/artist/artist_model.dart';
 import '../bloc/music_bloc.dart';
 import '../../music_player/widgets/playlist_selection_popup.dart';
 import 'album_artist_my_playlist_helper.dart';
+import '../../ringtones/ringtone_actions.dart' show openRingtoneEditor;
 
 /// Extension to capitalize strings
 extension StringExtension on String {
@@ -70,6 +71,14 @@ class SongContextMenuActions {
         break;
       case 'delete':
         _handleDeleteSong(context, songId, songTitle);
+        break;
+      case 'ringtone':
+        final song = context.read<MusicBloc>().findSong(songId);
+        if (song == null) {
+          AppCustom.error(context, 'Song not found');
+        } else {
+          openRingtoneEditor(context, song);
+        }
         break;
       default:
         _logger.w('⚠️ Unknown menu action: $action');

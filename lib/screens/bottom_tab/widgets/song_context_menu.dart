@@ -38,6 +38,7 @@ class _SongContextMenuState extends State<SongContextMenu>
     {'icon': Icons.share, 'title': 'Share Song', 'action': 'share', 'color': 'primary'},
     {'icon': Icons.info_outline, 'title': 'View Song Info', 'action': 'info', 'color': 'primary'},
     {'icon': Icons.playlist_add, 'title': 'Add to Playlist', 'action': 'playlist', 'color': 'primary'},
+    {'icon': Icons.notifications_active_outlined, 'title': 'Make Ringtone', 'action': 'ringtone', 'color': 'primary'},
     {'icon': Icons.album, 'title': 'Go to Album', 'action': 'album', 'color': 'primary'},
     {'icon': Icons.person, 'title': 'Go to Artist', 'action': 'artist', 'color': 'primary'},
     {'icon': Icons.delete_outline, 'title': 'Delete', 'action': 'delete', 'color': 'error'},
@@ -71,7 +72,7 @@ class _SongContextMenuState extends State<SongContextMenu>
   @override
   Widget build(BuildContext context) {
     final menuWidth = 200.0;
-    final menuHeight = 220.0;
+    final menuHeight = 256.0; // 7 items
 
     double left = widget.position.dx + (widget.size.width / 2) - (menuWidth / 2);
     double top = widget.position.dy - menuHeight - 8;
@@ -184,12 +185,16 @@ class _SongContextMenuState extends State<SongContextMenu>
             children: [
               Icon(icon, color: color, size: 20.sp),
               SizedBox(width: 12.w),
-              Text(
-                title,
-                style: TextStyle(
-                  color: context.onSurfaceColor,
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.w500,
+              Flexible(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: context.onSurfaceColor,
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],

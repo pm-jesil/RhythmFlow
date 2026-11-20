@@ -20,6 +20,8 @@ import 'package:rhythmflow/utils/services/jamendo/jamendo_repository.dart';
 import 'package:rhythmflow/utils/services/jamendo/recommendation_service.dart';
 import 'package:rhythmflow/utils/services/jamendo/region_models.dart';
 import 'package:rhythmflow/utils/services/jamendo/taste_models.dart';
+import 'package:rhythmflow/utils/services/ringtone/audio_trimmer.dart';
+import 'package:rhythmflow/utils/services/ringtone/ringtone_service.dart';
 
 const clientId = String.fromEnvironment('JAMENDO_CLIENT_ID');
 
@@ -201,6 +203,41 @@ void main() {
       expect(valid, greaterThan(0));
     }, skip: skip, timeout: const Timeout(Duration(minutes: 3)));
 
+    test('ringtone from a Discover song: auto-download + lossless cut', () async {
+      final dir = await Directory.systemTemp.createTemp('jm_rt_');
+      addTearDown(() => dir.delete(recursive: true));
+      final service = RingtoneService(
+        cacheDir: () async => dir,
+        platform: RingtonePlatform.files(() async => dir),
+      );
+      final songs = (await repo.tracks(limit: 10)).items.where((s) => s.canDownload);
+      RingtoneItemCheck? done;
+      for (final song in songs.take(4)) {
+        try {
+          final progress = <double>[];
+          final source = await service.prepareSource(song, onProgress: progress.add);
+          expect(progress.last, 1.0);
+          final ringtone = await service.create(
+            song: song,
+            sourcePath: source,
+            start: const Duration(seconds: 10),
+            end: const Duration(seconds: 25),
+            name: song.title,
+          );
+          done = RingtoneItemCheck(ringtone.path, ringtone.duration);
+          break;
+        } on RingtoneException catch (e) {
+          // ignore: avoid_print
+          print('skipping ${song.remoteId}: $e'); // broken track on Jamendo's side
+        }
+      }
+      expect(done, isNotNull);
+      final bytes = await File(done!.path).readAsBytes();
+      expect(await AudioHeaderValidator.isValidFile(done.path), isTrue);
+      expect(Mp3Cutter.totalDuration(bytes).inMilliseconds, closeTo(15000, 60));
+      expect(done.duration.inMilliseconds, closeTo(15000, 60));
+    }, skip: skip, timeout: const Timeout(Duration(minutes: 3)));
+
     test('Made for you from tastes', () async {
       final songs = await RecommendationService(repo).madeForYou(pickedTastes: ['hiphop', 'lofi']);
       expect(songs, isNotEmpty);
@@ -211,4 +248,10 @@ void main() {
       expect(perArtist.values.every((n) => n <= 2), isTrue);
     }, skip: skip, timeout: const Timeout(Duration(minutes: 3)));
   });
+}
+
+class RingtoneItemCheck {
+  final String path;
+  final Duration duration;
+  RingtoneItemCheck(this.path, this.duration);
 }

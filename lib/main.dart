@@ -15,6 +15,8 @@ import 'utils/services/library_storage.dart';
 import 'utils/services/jamendo/online_dependencies.dart';
 import 'screens/online/bloc/discover_bloc.dart';
 import 'screens/online/bloc/online_library_bloc.dart';
+import 'screens/ringtones/bloc/ringtone_library_bloc.dart';
+import 'utils/services/ringtone/ringtone_dependencies.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_bloc.dart';
@@ -46,6 +48,13 @@ void main() async {
     await OnlineDependencies.init();
   } catch (e) {
     logger.e('❌ Error initializing Discover services: $e');
+  }
+
+  // Ringtone maker ("My Ringtones").
+  try {
+    RingtoneDependencies.init();
+  } catch (e) {
+    logger.e('❌ Error initializing ringtones: $e');
   }
 
   // Initialize audio_service for background playback and notifications
@@ -165,6 +174,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         if (getIt.isRegistered<OnlineLibraryBloc>())
           BlocProvider<OnlineLibraryBloc>.value(
             value: getIt<OnlineLibraryBloc>(),
+          ),
+        if (getIt.isRegistered<RingtoneLibraryBloc>())
+          BlocProvider<RingtoneLibraryBloc>.value(
+            value: getIt<RingtoneLibraryBloc>(),
           ),
       ],
       child: BlocBuilder<AppSettingsBloc, AppSettingsState>(

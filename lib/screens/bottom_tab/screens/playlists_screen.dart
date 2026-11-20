@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../ringtones/ringtone_actions.dart' show MyRingtonesTile;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:rhythmflow/core/constants/app_enums.dart';
 import '../../../core/theme/theme_extension.dart';
@@ -154,6 +155,14 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                               },
                             ),
                           ),
+                        ),
+                      ),
+
+                      // My Ringtones
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 0),
+                          child: const MyRingtonesTile(),
                         ),
                       ),
 

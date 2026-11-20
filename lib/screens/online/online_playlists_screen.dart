@@ -13,6 +13,7 @@ import '../bottom_tab/widgets/custom_tab_view_app_bar.dart';
 import '../widgets/custom_3d_card.dart';
 import 'bloc/discover_bloc.dart';
 import 'bloc/online_library_bloc.dart';
+import '../ringtones/ringtone_actions.dart' show MyRingtonesTile;
 import 'online_collection_screen.dart';
 import 'widgets/online_widgets.dart';
 
@@ -181,6 +182,8 @@ class _LibraryTiles extends StatelessWidget {
               queueKey: 'downloads',
               emptyHint: 'Downloads are saved to My Music',
             ),
+            SizedBox(height: 10.h),
+            const MyRingtonesTile(),
           ],
         );
       },

@@ -2601,6 +2601,26 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
   // ==================== HELPER METHODS ====================
   /// Finds a song by id in the device library, then among online
   /// (Discover) songs. Online songs are never part of `allSongs`.
+  /// Current playback position (used to start a ringtone selection where
+  /// the user is listening).
+  Duration get audioPosition {
+    try {
+      return _audioService.position;
+    } catch (_) {
+      return state.myPlayerState.lastPosition ?? Duration.zero;
+    }
+  }
+
+  /// Pauses the current song if it is playing (the ringtone editor calls
+  /// this before it plays its own preview). Returns whether it paused.
+  bool pauseIfPlaying() {
+    final player = state.myPlayerState;
+    final id = player.currentSongId;
+    if (!player.isPlaying || id == null) return false;
+    add(MusicEvent.playOrPauseSong(songId: id));
+    return true;
+  }
+
   Song? findSong(String? id) {
     if (id == null) return null;
     for (final song in state.allSongs) {

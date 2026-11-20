@@ -197,6 +197,7 @@ RhythmFlow is a sophisticated music player built with Flutter that offers advanc
 flutter test                 # whole suite
 flutter test test/library    # music library scanning / auto-update tests
 flutter test test/online     # Discover: Jamendo client, blocs, playback, UI
+flutter test test/ringtone   # ringtone maker
 # Live tests against the real Jamendo API (one per endpoint / feature):
 flutter test test/live --dart-define-from-file=config/jamendo.json
 ```
@@ -231,6 +232,18 @@ API with `tool/survey_jamendo_*.py` + `tool/generate_jamendo_region_data.py`
 suites and the Jamendo API behaviour they guard against.
 The free Jamendo API is for non-commercial use; a commercial app needs a
 Jamendo licence.
+
+### Ringtone maker
+Any song (My Music or Discover) can be cut into a ringtone: full player →
+extra options → bell, or "Make Ringtone" in a song's menu. The editor
+pauses the music, downloads Discover songs automatically (only when the
+artist allows downloads), and lets you pick 1–60 s with a slider and
+±0.5 s buttons, preview the selection, name it and save it. Cutting is
+lossless (MP3/WAV in Dart, AAC/M4A with Android MediaMuxer). Ringtones are
+saved to `Ringtones/RhythmFlow` and can be set as the ringtone,
+notification or alarm sound (Android asks once for "Modify system
+settings"). **My Ringtones** (Playlists tab, both sources) lists them with
+preview, rename, share, set as and delete.
 
 ### Music library scanning & auto-update
 - **First launch**: storage permission is requested once, then a full scan

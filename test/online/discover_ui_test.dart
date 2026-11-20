@@ -19,6 +19,7 @@ import 'package:rhythmflow/screens/online/online_playlists_screen.dart';
 import 'package:rhythmflow/screens/online/widgets/discover_gate.dart';
 import 'package:rhythmflow/screens/online/widgets/discover_setup_dialog.dart';
 import 'package:rhythmflow/screens/online/widgets/region_pickers.dart';
+import 'package:rhythmflow/screens/ringtones/bloc/ringtone_library_bloc.dart';
 import 'package:rhythmflow/screens/widgets/music_source_switch.dart';
 import 'package:rhythmflow/utils/models/playlist_source/playlist_source_model.dart';
 import 'package:rhythmflow/utils/models/song/song_model.dart';
@@ -59,6 +60,7 @@ void main() {
   late DiscoverBloc discover;
   late OnlineLibraryBloc library;
   late MockMusicBloc music;
+  late RingtoneLibraryBloc ringtones;
   late FakeTransport jamendo;
   final musicEvents = <MusicEvent>[];
 
@@ -82,6 +84,7 @@ void main() {
     settings = AppSettingsBloc();
     discover = DiscoverBloc(repository: repo);
     library = OnlineLibraryBloc();
+    ringtones = RingtoneLibraryBloc();
     music = MockMusicBloc();
     musicEvents.clear();
     when(() => music.state).thenReturn(MusicState.initial());
@@ -97,6 +100,7 @@ void main() {
     await settings.close();
     await discover.close();
     await library.close();
+    await ringtones.close();
     await getIt.reset();
   });
 
@@ -111,6 +115,7 @@ void main() {
           BlocProvider<MusicBloc>.value(value: music),
           BlocProvider<DiscoverBloc>.value(value: discover),
           BlocProvider<OnlineLibraryBloc>.value(value: library),
+          BlocProvider<RingtoneLibraryBloc>.value(value: ringtones),
         ],
         child: ScreenUtilInit(
           designSize: const Size(375, 812),
@@ -422,10 +427,13 @@ void main() {
     expect(find.text('Liked songs'), findsOneWidget);
     expect(find.text('Recently played'), findsOneWidget);
     expect(find.text('Downloaded'), findsOneWidget);
+    expect(find.byKey(const ValueKey('my_ringtones_tile')), findsOneWidget);
     expect(find.text('Pop Mix'), findsOneWidget);
     await tester.drag(find.byType(ListView).first, const Offset(0, -1500));
     await settle(tester, 2);
     expect(find.text('Best Of Jamendo'), findsOneWidget);
+    await tester.ensureVisible(find.text('Best Of Jamendo'));
+    await tester.pump();
     await tester.tap(find.text('Best Of Jamendo'));
     await tester.pump();
     musicEvents.last.maybeWhen(

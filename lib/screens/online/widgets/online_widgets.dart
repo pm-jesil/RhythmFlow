@@ -21,6 +21,7 @@ import '../../bottom_tab/bloc/music_bloc.dart';
 import '../../widgets/art_image.dart';
 import '../../widgets/custom_3d_card.dart';
 import '../bloc/online_library_bloc.dart';
+import '../../ringtones/ringtone_actions.dart' show openRingtoneEditor;
 
 // ==================== PLAYBACK ====================
 
@@ -660,11 +661,15 @@ class _SongMenu extends StatelessWidget {
             }
           case 'download':
             if (context.mounted) await startDownload(context, song);
+          case 'ringtone':
+            if (context.mounted) await openRingtoneEditor(context, song);
         }
       },
       itemBuilder: (_) => [
         if (song.canDownload)
           const PopupMenuItem(value: 'download', child: Text('Download to My Music')),
+        if (song.canDownload)
+          const PopupMenuItem(value: 'ringtone', child: Text('Make ringtone')),
         if (song.shareUrl != null) const PopupMenuItem(value: 'share', child: Text('Share')),
         if (song.shareUrl != null) const PopupMenuItem(value: 'open', child: Text('Open on Jamendo')),
         if (song.licenseUrl != null)
