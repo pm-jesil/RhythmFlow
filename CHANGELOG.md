@@ -23,6 +23,24 @@
   library updates automatically.
 - Offline: cached results with an offline banner; nothing is lost.
 
+### Taste & suggestions
+- **Pick your vibe**: 30 genres and 10 moods (Hip-Hop & Rap, Lo-fi,
+  Traditional, Indian, Romantic, Sad, …) — only tags that really have music
+  on Jamendo (live survey, ≥ 1000 tracks each).
+- **Made for you**: suggestions built on the device from your picked vibes,
+  the genres/moods of artists you like and play (`/artists/musicinfo`) and
+  more songs by those artists (Jamendo has no working "similar tracks"
+  endpoint). Refreshes when you like songs.
+- **Because you like …** rows and **Your mixes** (one per vibe).
+- New For You layout on Discover: vibe chips, quick-access "Jump back in"
+  grid, featured hero carousel and a ranked Top 10 chart.
+
+### Access
+- Discover (home and its tabs) is only for a signed-in user (profile name)
+  who finished the Discover setup. Anything missing — name, country,
+  language or vibes — is asked in **one** form; otherwise a "Finish setting
+  up Discover" card is shown.
+
 ### Notes
 - Jamendo's `lang` filter returns no results, so language picks combine
   language tags with artists from countries where the language is spoken.
@@ -31,6 +49,11 @@
 - Build with `--dart-define-from-file=config/jamendo.json` (see README).
 
 ### Fixes
+- Downloads are checked to be real audio before being saved (Jamendo can
+  answer broken tracks with an error page).
+- An unplayable Discover song no longer triggers a device library rescan.
+- The "too many unplayable songs" limit is now enforced: an offline Discover
+  queue stops instead of skipping through every song.
 - `isAiShuffleEnabled` is now persisted.
 - Media cards / pickers no longer overflow with large fonts.
 
@@ -83,3 +106,5 @@
 - Settings shows the real app version.
 - Stat cards on For You no longer overflow with large system fonts.
 - Fixed 17 previously failing tests; added 119 library tests.
+
+_(1.1.2 test count: 492 passing + 19 opt-in live API tests — see docs/TESTING.md.)_
