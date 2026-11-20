@@ -124,7 +124,10 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
       // Skip completed songs - they won't be shown in the queue
       if (!completedSongs.contains(songId)) {
         try {
-          final song = state.allSongs.firstWhere((s) => s.id == songId);
+          // Queues can hold Discover (online) songs, which are not in
+          // allSongs; resolve through the bloc.
+          final song = context.read<MusicBloc>().findSong(songId) ??
+              (throw StateError('missing'));
           if (songId == currentSongId) {
             currentSong = song;
           }
@@ -132,7 +135,7 @@ class _PlayingQueueScreenState extends State<PlayingQueueScreen> {
             song,
           ); // Add all songs (including current) to maintain order
         } catch (e) {
-          _logger.w('Song not found in allSongs: $songId');
+          _logger.w('Song not found in library or Discover: $songId');
         }
       }
     }

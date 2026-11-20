@@ -18,6 +18,8 @@ import 'package:rhythmflow/utils/services/audio_service.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:get_it/get_it.dart';
 import 'widgets/playlist_selection_popup.dart';
+import '../online/bloc/online_library_bloc.dart';
+import '../online/widgets/online_widgets.dart' show startDownload;
 import '../widgets/custom_scrolling_text.dart';
 import '../../core/widgets/app_custom.dart';
 
@@ -877,9 +879,11 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
                                                     ),
                                                   ),
 
-                                                  // Playlist Button
+                                                  // Playlist Button (download for Discover songs)
                                                   _buildCompactBottomButton(
-                                                    icon: CupertinoIcons.add,
+                                                    icon: currentSong.isOnline
+                                                        ? CupertinoIcons.arrow_down_circle
+                                                        : CupertinoIcons.add,
                                                     onPressed: () {
                                                       _showCreatePlaylistDialog(
                                                         context,
@@ -1898,7 +1902,20 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
   }
 
   /// Check if song is favorite
+  /// Discover's library, when available (not provided in some tests).
+  OnlineLibraryBloc? _onlineLibrary(BuildContext context) {
+    try {
+      return context.read<OnlineLibraryBloc>();
+    } catch (_) {
+      return null;
+    }
+  }
+
   bool _isFavorite(Song song) {
+    // Discover songs use "Liked songs"; local songs the Favorites playlist.
+    if (song.isOnline) {
+      return _onlineLibrary(context)?.state.isLiked(song.id) ?? false;
+    }
     // Check if song is in favorites playlist
     final favoritesPlaylist = context
         .read<MusicBloc>()
@@ -1914,6 +1931,20 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
   void _toggleFavorite(BuildContext context, Song song) {
     HapticFeedback.lightImpact();
     _logger.i('❤️ Toggle favorite for song: ${song.title}');
+
+    if (song.isOnline) {
+      // Online songs never go into local playlists.
+      final library = _onlineLibrary(context);
+      if (library == null) return;
+      final wasLiked = library.state.isLiked(song.id);
+      library.add(OnlineLibraryEvent.toggleLike(song));
+      setState(() {});
+      AppCustom.success(
+        context,
+        wasLiked ? 'Removed from liked songs' : 'Added to liked songs',
+      );
+      return;
+    }
 
     // Use the new playlist event to toggle favorite
     context.read<MusicBloc>().add(
@@ -1932,6 +1963,21 @@ class _MusicPlayerModalState extends State<MusicPlayerModal>
   /// Show comprehensive playlist selection popup
   void _showCreatePlaylistDialog(BuildContext context, Song song) {
     HapticFeedback.lightImpact();
+    if (song.isOnline) {
+      // Discover songs are kept out of local playlists: offer the download
+      // (then the song is in My Music and can be added anywhere).
+      if (song.canDownload) {
+        startDownload(context, song);
+      } else {
+        AppCustom.info(
+          context,
+          song.isRadio
+              ? 'Live radio can\'t be added to playlists'
+              : 'Like it with ♡ to keep it in Discover › Liked songs',
+        );
+      }
+      return;
+    }
     _logger.i('📝 Show playlist selection popup for song: ${song.title}');
 
     AppCustom.showBottomSheet(

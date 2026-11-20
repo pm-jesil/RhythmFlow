@@ -194,9 +194,8 @@ class _CustomMusicFloatingButtonState extends State<CustomMusicFloatingButton>
 
         // Find current song from allSongs list with proper error handling
         try {
-          final currentSong = state.allSongs.firstWhere(
-            (song) => song.id == currentSongId,
-          );
+          final currentSong = context.read<MusicBloc>().findSong(currentSongId) ??
+              (throw StateError('Current song not found: $currentSongId'));
 
           return Positioned(
           bottom: 100.h,
