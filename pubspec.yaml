@@ -33,6 +33,7 @@ dependencies:
 
   # Audio & Media - Enhanced for Music Player
   just_audio: ^0.10.4
+  audio_session: ^0.2.2
   audio_service: ^0.18.18
   audiotags: ^1.4.5
   rxdart: ^0.28.0

@@ -400,7 +400,14 @@ class MainActivity : AudioServiceActivity() {
                 put(MediaStore.Audio.Media.DISPLAY_NAME, fileName)
                 put(MediaStore.Audio.Media.TITLE, title)
             }
-            contentResolver.update(target, values, null, null)
+            try {
+                contentResolver.update(target, values, null, null)
+            } catch (e: SecurityException) {
+                // Made by an earlier install of the app: no longer ours.
+                throw IllegalStateException(
+                    "Android did not allow renaming this ringtone (it was made by an earlier install). Make a new one instead",
+                )
+            }
             var newPath = path ?: ""
             contentResolver.query(target, arrayOf(MediaStore.Audio.Media.DATA), null, null, null)
                 ?.use { c -> if (c.moveToFirst()) newPath = c.getString(0) ?: newPath }

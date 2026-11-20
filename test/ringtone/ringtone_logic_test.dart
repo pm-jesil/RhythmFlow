@@ -178,7 +178,7 @@ void main() {
 
     test('mime types', () {
       expect(RingtoneService.mimeFor('mp3'), 'audio/mpeg');
-      expect(RingtoneService.mimeFor('wav'), 'audio/wav');
+      expect(RingtoneService.mimeFor('wav'), 'audio/x-wav');
       expect(RingtoneService.mimeFor('m4a'), 'audio/mp4');
     });
   });
@@ -338,6 +338,26 @@ void main() {
       expect(await s.exists(renamed), isTrue);
       await s.delete(renamed);
       expect(await s.exists(renamed), isFalse);
+    });
+
+    test('a delete Android refuses is reported (file kept, entry kept)', () async {
+      final f = File('${fake.dir.path}/Kept.mp3')..writeAsBytesSync(mp3());
+      final refusing = RingtonePlatform(
+        save: fake.platform.save,
+        rename: fake.platform.rename,
+        delete: ({uri, path}) async => false,
+        canWriteSettings: fake.platform.canWriteSettings,
+        openWriteSettings: fake.platform.openWriteSettings,
+        setDefault: fake.platform.setDefault,
+        supportsSystemRingtones: true,
+      );
+      await expectLater(
+        service(platform: refusing).delete(item('k', path: f.path)),
+        throwsA(isA<RingtoneException>().having((e) => e.message, 'm', contains('Files app'))),
+      );
+      // Already gone: deleting is fine.
+      f.deleteSync();
+      await service(platform: refusing).delete(item('k', path: f.path));
     });
 
     test('set as ringtone: permission, success, failure, unsupported', () async {

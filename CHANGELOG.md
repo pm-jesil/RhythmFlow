@@ -59,6 +59,41 @@
   unique), share, set as… or delete. Ringtones deleted outside the app
   disappear from the list.
 
+### Lock screen & notification reliability (all Android versions)
+- **Notification no longer disappears mid-queue.** When one song failed to
+  load (broken Discover track, network drop, corrupt file) the player
+  reported `idle`; audio_service then removed the notification and stopped
+  its foreground service, and Android 12+ does not allow restarting it from
+  the background — the next song played with no notification or lock-screen
+  controls. `idle` is now reported only after an explicit stop.
+- **Pausing from the lock screen / headset no longer restarts the song.**
+  just_audio's `play()` completes only when playback pauses; it was awaited
+  before telling the app, so the app's "play" arrived exactly when the user
+  paused. Lock-screen play/pause are now idempotent (`MusicEvent.setPlaying`):
+  double presses or late duplicates never toggle the song back on, and an
+  app/audio mismatch is corrected.
+- **Release builds kept the shuffle/repeat notification icons** — they were
+  removed by resource shrinking (only referenced from Dart). Added
+  `res/raw/keep.xml` and a proper monochrome status-bar icon.
+- **Large cover art is downscaled (512 px)** before it is sent to the lock
+  screen; multi-MB embedded covers could exceed Android's Binder limit and
+  make the notification update fail.
+- **Swiping the app away** no longer disposes the player under a live
+  notification: it keeps playing (controls keep working), or ends the
+  session cleanly when paused.
+- **Audio focus**: the audio session is configured for music, so calls and
+  other players pause/duck RhythmFlow and unplugging headphones pauses it.
+- Lock-screen seek bar gets the real duration for songs without one in their
+  tags; player errors no longer freeze the notification state.
+- **Play counts** are credited to the right song (tracking used to start
+  only after the song ended, because `play()` was awaited).
+
+### Ringtone platform fixes
+- WAV ringtones use Android's `audio/x-wav` type (no double extension).
+- A delete Android refuses is reported instead of silently dropping the
+  ringtone from the list; renaming a ringtone made by an earlier install
+  explains why it can't be renamed.
+
 ### Playback fixes (Discover ↔ My Music)
 - The queue screen and the mini player now show Discover queues (they only
   looked in the device library).

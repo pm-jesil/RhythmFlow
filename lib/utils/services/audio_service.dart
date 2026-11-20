@@ -367,10 +367,9 @@ class AudioService {
       // Note: Shuffle/repeat state should already be synced by MusicBloc before playSong is called
       await _audioHandler?.updateMediaItem(mediaItem);
       
-      // Start playback - this triggers PlaybackState update which shows notification
-      await _audioPlayer.play();
-
-      // Start play count tracking
+      // Start play count tracking BEFORE playing: just_audio's play() only
+      // completes when playback pauses or ends, so tracking started after
+      // it would credit the play to the wrong song.
       final duration = _audioPlayer.duration ?? song.duration;
       PlayCountTrackingService.startTracking(
         song: song,
@@ -379,6 +378,15 @@ class AudioService {
         playlistId: playlistId,
         playlistSource: playlistSource,
       );
+
+      // Start playback - this triggers PlaybackState update which shows
+      // notification. Not awaited (see above); failures are still handled.
+      unawaited(_audioPlayer.play().catchError((Object e) {
+        _logger.e('❌ Playback failed for "${song.title}": $e');
+        if (_currentSong?.id == song.id) {
+          _handleInvalidSong(song, playlistId, playlistSource);
+        }
+      }));
 
       _logger.i(
         '🎉 Successfully started playing: "${song.title}" | Position: ${_audioPlayer.position.inSeconds}s | Duration: ${_audioPlayer.duration?.inSeconds ?? 0}s',
@@ -437,7 +445,10 @@ class AudioService {
         _logger.i('📱 MediaItem updated for resume - notification should appear');
       }
       
-      await _audioPlayer.play();
+      // Not awaited: play() completes only when playback pauses again.
+      unawaited(_audioPlayer.play().catchError((Object e) {
+        _logger.e('❌ Resume failed: $e');
+      }));
       _logger.i(
         '✅ Playback resumed successfully | Song: ${_currentSong?.title ?? "None"} | Position: ${_audioPlayer.position.inSeconds}s',
       );

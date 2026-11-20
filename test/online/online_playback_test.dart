@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:just_audio/just_audio.dart';
@@ -50,6 +51,7 @@ void main() {
   late AppSettingsState settingsState;
   late MusicBloc bloc;
   final played = <Song>[];
+  var audioPlaying = false;
 
   setUpAll(() {
     registerFallbackValue(FakeSettingsEvent());
@@ -72,8 +74,10 @@ void main() {
     audio = MockAudioService();
     when(() => audio.playerStateStream).thenAnswer((_) => const Stream<PlayerState>.empty());
     when(() => audio.stop()).thenAnswer((_) async {});
-    when(() => audio.pause()).thenAnswer((_) async {});
-    when(() => audio.resume()).thenAnswer((_) async {});
+    audioPlaying = false;
+    when(() => audio.isPlaying).thenAnswer((_) => audioPlaying);
+    when(() => audio.pause()).thenAnswer((_) async => audioPlaying = false);
+    when(() => audio.resume()).thenAnswer((_) async => audioPlaying = true);
     when(() => audio.position).thenReturn(const Duration(seconds: 42));
     when(
       () => audio.playSong(
@@ -81,7 +85,10 @@ void main() {
         playlistId: any(named: 'playlistId'),
         playlistSource: any(named: 'playlistSource'),
       ),
-    ).thenAnswer((i) async => played.add(i.positionalArguments.first as Song));
+    ).thenAnswer((i) async {
+      audioPlaying = true;
+      played.add(i.positionalArguments.first as Song);
+    });
 
     settingsState = AppSettingsState.initial().copyWith(isAiShuffleEnabled: false);
     settings = MockSettings();
@@ -391,6 +398,108 @@ void main() {
       await playOnline(online, 0);
       expect(played.last.id, online[0].id);
       expect(bloc.state.myPlayerState.isPlaying, isTrue);
+    });
+  });
+
+  group('lock screen / notification controls drive the app', () {
+    ({VoidCallback? play, VoidCallback? pause}) playPause() {
+      final c = verify(() => audio.setPlayPauseCallbacks(
+            onPlay: captureAny(named: 'onPlay'),
+            onPause: captureAny(named: 'onPause'),
+          )).captured;
+      return (play: c[0] as VoidCallback?, pause: c[1] as VoidCallback?);
+    }
+
+    ({VoidCallback? next, VoidCallback? previous}) skips() {
+      final c = verify(() => audio.setSkipCallbacks(
+            onNext: captureAny(named: 'onNext'),
+            onPrevious: captureAny(named: 'onPrevious'),
+          )).captured;
+      return (next: c[0] as VoidCallback?, previous: c[1] as VoidCallback?);
+    }
+
+    Future<List<Song>> startDiscover() async {
+      final songs = registerQueue('trending', 3);
+      bloc.add(MusicEvent.playOrPauseSong(
+        songId: songs[0].id,
+        currentPlayList: songs.map((s) => s.id).toList(),
+        playlistSource: PlaylistSource.online('trending'),
+      ));
+      await settle(80);
+      return songs;
+    }
+
+    test('pause then play from the lock screen', () async {
+      final controls = playPause();
+      await startDiscover();
+      controls.pause!();
+      await settle(60);
+      expect(bloc.state.myPlayerState.isPlaying, isFalse);
+      verify(() => audio.pause()).called(1);
+      controls.play!();
+      await settle(60);
+      expect(bloc.state.myPlayerState.isPlaying, isTrue);
+      verify(() => audio.resume()).called(1);
+    });
+
+    test('duplicate / late button events never flip the state twice', () async {
+      final controls = playPause();
+      await startDiscover();
+      controls.play!(); // already playing: ignored
+      await settle(40);
+      expect(bloc.state.myPlayerState.isPlaying, isTrue);
+      verifyNever(() => audio.pause());
+      controls.pause!();
+      controls.pause!(); // double tap on a headset
+      await settle(60);
+      expect(bloc.state.myPlayerState.isPlaying, isFalse);
+      verify(() => audio.pause()).called(1);
+      verifyNever(() => audio.resume());
+    });
+
+    test('app and audio out of sync: the button brings the audio in line', () async {
+      final controls = playPause();
+      await startDiscover();
+      audioPlaying = false; // OS paused the player, app state not updated yet
+      controls.play!();
+      await settle(40);
+      verify(() => audio.resume()).called(1);
+      expect(bloc.state.myPlayerState.isPlaying, isTrue);
+    });
+
+    test('next / previous from the notification move through the queue', () async {
+      final skip = skips();
+      final songs = await startDiscover();
+      skip.next!();
+      await settle(80);
+      expect(bloc.state.myPlayerState.currentSongId, songs[1].id);
+      skip.previous!();
+      await settle(80);
+      expect(bloc.state.myPlayerState.currentSongId, songs[0].id);
+    });
+
+    test('nothing loaded: play from a stale notification does nothing', () async {
+      final controls = playPause();
+      controls.play!();
+      controls.pause!();
+      await settle(40);
+      expect(played, isEmpty);
+      expect(bloc.state.myPlayerState.currentSongId, isNull);
+    });
+
+    test('player state from the OS (e.g. call interruption) syncs the app', () async {
+      final states = StreamController<PlayerState>.broadcast();
+      when(() => audio.playerStateStream).thenAnswer((_) => states.stream);
+      await bloc.close();
+      bloc = MusicBloc(audio, MockRemote(), settings);
+      await startDiscover();
+      states.add(PlayerState(false, ProcessingState.ready)); // paused by audio focus loss
+      await settle(40);
+      expect(bloc.state.myPlayerState.isPlaying, isFalse);
+      states.add(PlayerState(true, ProcessingState.ready)); // focus regained
+      await settle(40);
+      expect(bloc.state.myPlayerState.isPlaying, isTrue);
+      await states.close();
     });
   });
 

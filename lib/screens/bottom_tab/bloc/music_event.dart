@@ -51,6 +51,11 @@ abstract class MusicEvent with _$MusicEvent {
     PlaylistSource? playlistSource,
   }) = _PlayOrPauseSong;
 
+  /// Play or pause the current song (lock screen, notification, headset).
+  /// Unlike [playOrPauseSong] it is idempotent: repeated presses that ask
+  /// for the state the player is already in do nothing.
+  const factory MusicEvent.setPlaying({required bool playing}) = _SetPlaying;
+
   const factory MusicEvent.playNext() = _PlayNext;
   const factory MusicEvent.playPrevious() = _PlayPrevious;
 

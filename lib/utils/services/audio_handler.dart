@@ -10,7 +10,16 @@ class RhythmFlowAudioHandler extends BaseAudioHandler
     with SeekHandler, QueueHandler {
   static final AppLogger _logger = AppLogger('RhythmFlowAudioHandler');
 
-  final AudioPlayer _player = AudioPlayer();
+  final AudioPlayer _player;
+
+  /// True only after an explicit [stop]. audio_service removes the
+  /// notification and stops its foreground service as soon as it sees
+  /// `idle`; Android 12+ then refuses to start it again while the app is in
+  /// the background, so the next song would play with no notification and
+  /// no lock-screen controls. just_audio also reports `idle` when one song
+  /// fails to load (broken Discover track, network drop, corrupt file) - that
+  /// must not end the session, the queue moves on to the next song.
+  bool _stopped = true;
 
   // Shuffle and Repeat state
   bool _isShuffle = false;
@@ -28,9 +37,12 @@ class RhythmFlowAudioHandler extends BaseAudioHandler
     name: 'Repeat',
   );
 
-  RhythmFlowAudioHandler() {
+  RhythmFlowAudioHandler({AudioPlayer? player}) : _player = player ?? AudioPlayer() {
     _initializePlayer();
   }
+
+  /// Whether the session was explicitly stopped (for tests / diagnostics).
+  bool get isStopped => _stopped;
 
   /// Update shuffle state
   void updateShuffleState(bool isShuffle) {
@@ -92,9 +104,28 @@ class RhythmFlowAudioHandler extends BaseAudioHandler
   void _initializePlayer() {
     _logger.i('🎵 Initializing RhythmFlowAudioHandler...');
 
-    // Transform just_audio playback events to audio_service playback states
-    _player.playbackEventStream.listen((event) {
-      playbackState.add(_transformEvent(event));
+    // Transform just_audio playback events to audio_service playback states.
+    // Errors (e.g. a stream that cannot be opened) must not break the
+    // stream: without onError the state would freeze and the notification
+    // would show stale controls.
+    _player.playbackEventStream.listen(
+      (event) => playbackState.add(_transformEvent(event)),
+      onError: (Object e, StackTrace st) {
+        _logger.w('⚠️ Playback error (session kept alive): $e');
+        _updatePlaybackState();
+      },
+    );
+
+    // Songs whose tags had no length: give the lock screen / notification
+    // the real duration so its seek bar works.
+    _player.durationStream.listen((duration) {
+      final item = mediaItem.valueOrNull;
+      if (item == null || duration == null || duration <= Duration.zero) return;
+      final known = item.duration;
+      if (known == null || known <= Duration.zero ||
+          (known - duration).abs() > const Duration(seconds: 2)) {
+        mediaItem.add(item.copyWith(duration: duration));
+      }
     });
 
     // Listen to player state changes
@@ -145,19 +176,42 @@ class RhythmFlowAudioHandler extends BaseAudioHandler
         MediaAction.custom,
       },
       androidCompactActionIndices: const [0, 1, 2],
-      processingState: const {
-        ProcessingState.idle: AudioProcessingState.idle,
-        ProcessingState.loading: AudioProcessingState.loading,
-        ProcessingState.buffering: AudioProcessingState.buffering,
-        ProcessingState.ready: AudioProcessingState.ready,
-        ProcessingState.completed: AudioProcessingState.completed,
-      }[_player.processingState] ?? AudioProcessingState.idle,
+      processingState: mapProcessingState(
+        _player.processingState,
+        stopped: _stopped,
+        hasMediaItem: mediaItem.valueOrNull != null,
+      ),
       playing: _player.playing,
       updatePosition: _player.position,
       bufferedPosition: _player.bufferedPosition,
       speed: _player.speed,
       queueIndex: event.currentIndex,
     );
+  }
+
+  /// just_audio -> audio_service state. `idle` is only reported after an
+  /// explicit stop (or when nothing was ever loaded); otherwise a failed
+  /// song is reported as `buffering` so the foreground service and the
+  /// lock-screen notification stay alive while the queue moves on.
+  static AudioProcessingState mapProcessingState(
+    ProcessingState state, {
+    required bool stopped,
+    required bool hasMediaItem,
+  }) {
+    switch (state) {
+      case ProcessingState.idle:
+        return (stopped || !hasMediaItem)
+            ? AudioProcessingState.idle
+            : AudioProcessingState.buffering;
+      case ProcessingState.loading:
+        return AudioProcessingState.loading;
+      case ProcessingState.buffering:
+        return AudioProcessingState.buffering;
+      case ProcessingState.ready:
+        return AudioProcessingState.ready;
+      case ProcessingState.completed:
+        return AudioProcessingState.completed;
+    }
   }
 
   // Getters
@@ -241,7 +295,14 @@ class RhythmFlowAudioHandler extends BaseAudioHandler
   @override
   Future<void> play() async {
     _logger.i('▶️ Play requested from notification');
-    await _player.play();
+    _stopped = false;
+    // just_audio's play() completes only when playback pauses or ends. It
+    // must not be awaited here: the MusicBloc callback would then fire at
+    // the moment the user pauses (lock screen / headset) and resume the
+    // song again.
+    unawaited(_player.play().catchError((Object e) {
+      _logger.e('❌ Play failed: $e');
+    }));
     // Trigger callback to sync with MusicBloc
     onPlay?.call();
   }
@@ -257,7 +318,11 @@ class RhythmFlowAudioHandler extends BaseAudioHandler
   @override
   Future<void> stop() async {
     _logger.i('⏹️ Stop requested');
+    _stopped = true;
     await _player.stop();
+    // Make sure audio_service sees idle and removes the notification even
+    // if the player was already idle.
+    _updatePlaybackState();
   }
 
   @override
@@ -301,6 +366,8 @@ class RhythmFlowAudioHandler extends BaseAudioHandler
   @override
   Future<void> updateMediaItem(MediaItem item) async {
     _logger.i('📱 Updating media item: ${item.title}');
+    // A new song starts a (new) session.
+    _stopped = false;
     // Set MediaItem first - this is required for notification to appear
     mediaItem.add(item);
     
@@ -317,11 +384,17 @@ class RhythmFlowAudioHandler extends BaseAudioHandler
     mediaItem.add(null);
   }
 
-  /// Dispose resources
+  /// The user swiped the app away from Recents. Keep playing (the
+  /// notification stays and controls keep working); when paused, end the
+  /// session so no dead notification is left behind. The player must NOT be
+  /// disposed here: the service and engine can outlive the task, and a
+  /// disposed player would leave the notification without working controls.
   @override
   Future<void> onTaskRemoved() async {
-    _logger.i('🗑️ Task removed - disposing handler');
-    await _player.dispose();
+    _logger.i('🗑️ Task removed (playing: ${_player.playing})');
+    if (!_player.playing) {
+      await stop();
+    }
     await super.onTaskRemoved();
   }
 }

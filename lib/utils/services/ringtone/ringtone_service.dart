@@ -219,7 +219,9 @@ class RingtoneService {
   }
 
   static String mimeFor(String extension) => switch (extension) {
-    'wav' => 'audio/wav',
+    // Android's MimeTypeMap name for .wav; with "audio/wav" some versions
+    // append a second extension to the file name.
+    'wav' => 'audio/x-wav',
     'm4a' => 'audio/mp4',
     _ => 'audio/mpeg',
   };
@@ -399,7 +401,12 @@ class RingtoneService {
 
   Future<void> delete(RingtoneItem item) async {
     try {
-      await platform.delete(uri: item.uri, path: item.path.isEmpty ? null : item.path);
+      final deleted = await platform.delete(uri: item.uri, path: item.path.isEmpty ? null : item.path);
+      if (!deleted && await exists(item) && item.path.isNotEmpty) {
+        throw const RingtoneException(
+          'Android did not allow deleting this file. Remove it from Ringtones/RhythmFlow in your Files app',
+        );
+      }
     } on PlatformException catch (e) {
       throw RingtoneException(e.message ?? 'Could not delete the ringtone');
     }

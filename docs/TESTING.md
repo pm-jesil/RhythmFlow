@@ -6,6 +6,8 @@ flutter test                                               # everything (offline
 flutter test test/library                                  # My Music: scanning, counts
 flutter test test/online                                   # Discover: client, blocs, playback, UI
 flutter test test/ringtone                                 # ringtone maker: cutter, service, blocs, UI
+flutter test test/playback                                 # lock screen / notification session
+flutter test test/platform                                 # Android manifest, resources, channel methods
 flutter test test/live --dart-define-from-file=config/jamendo.json   # real Jamendo API
 ```
 
@@ -15,7 +17,9 @@ flutter test test/live --dart-define-from-file=config/jamendo.json   # real Jame
 | `test/online/jamendo_data_layer_test.dart` | URL building (`%20`, never `+`), retries, empty-result retries, error mapping, parsing of recorded Jamendo responses (string vs number quirks), cache freshness / offline fallback, repository queries, region lists. |
 | `test/online/online_blocs_test.dart` | Discover sections (order, per-section errors, fallbacks, personal rows, Made for you inputs, persistence), browse paging / debounced search, online library (likes, history, downloads). |
 | `test/online/taste_and_recommendation_test.dart` | Taste catalogue, taste profile scoring, blending, per-tag query fallback, artist tags, login/profile rules, one-step Discover profile save. |
-| `test/online/online_playback_test.dart` | Playing Discover lists through the real `MusicBloc`: queue, next/previous, shuffle revert, AI-shuffle fallback, queue persistence, offline stop, history/region wiring. Switching Discover → My Music → Discover (queue swapped each time, nothing online persisted for a local queue, library untouched), pause/resume for both sources, `pauseIfPlaying`, history only for Discover songs, a failing local song not blocking a later Discover queue. |
+| `test/online/online_playback_test.dart` | Playing Discover lists through the real `MusicBloc`: queue, next/previous, shuffle revert, AI-shuffle fallback, queue persistence, offline stop, history/region wiring. Switching Discover → My Music → Discover (queue swapped each time, nothing online persisted for a local queue, library untouched), pause/resume for both sources, `pauseIfPlaying`, history only for Discover songs, a failing local song not blocking a later Discover queue. Lock-screen controls driving the bloc: pause/play, duplicate presses, app/audio mismatch, next/previous, stale notification, OS interruptions. |
+| `test/playback/notification_session_test.dart` | The audio_service handler on a just_audio double with real `play()` semantics (completes only on pause): idle only after an explicit stop, failed songs keep the session, player errors, play/pause from the lock screen (no late "play" after pausing), controls and compact view, shuffle/repeat icons, skip/custom actions, duration fill-in, swipe-away while playing / paused; `AudioService.playSong` returns while playing, play counts go to the right song, load failures keep the notification, resume, stop. |
+| `test/platform/android_config_test.dart` | Manifest (foreground service type and permissions for Android 9–15, media button receiver, storage permissions per version, WRITE_SETTINGS), notification icons present **and** listed in `keep.xml` for release shrinking, notification config (ongoing/stop-on-pause pairing, art downscale), every `MediaStoreBridge` call has a Kotlin handler, ringtone save paths for scoped and legacy storage, long work off the main thread. |
 | `test/ringtone/audio_trimmer_test.dart` | Synthesised MP3 frames (MPEG-1/2, padding, ID3v2, Xing, ID3v1, junk resync) and WAV files (extra chunks, stereo alignment): frame-exact cuts, durations, headers, unsupported formats. |
 | `test/ringtone/ringtone_logic_test.dart` | Selection rules (default 30 s from the play position, 1–60 s, inside the song), names (cleaning, unicode, unique), which songs qualify, auto-download of Discover songs (progress, cache, reuse of My Music downloads, error pages, offline/server errors, cache limit), create / rename / delete / set as (permission, failures, non-Android), library bloc (order, defaults, verify, persistence), editor cubit (prepare, retry, trim handles, real length, save, failed save). |
 | `test/ringtone/ringtone_ui_test.dart` | Editor: pauses music, ±0.5 s buttons, preview of the selection, rename + save, Discover download progress, unusable songs, retry, closing, set as ringtone with the permission dialog, open My Ringtones. List: empty state, preview, rename to a taken name, set as alarm, delete with cancel/confirm, files deleted outside the app. My Ringtones tile on the Playlists tab; "Make Ringtone" in the song menu. |
@@ -39,3 +43,20 @@ flutter test test/live --dart-define-from-file=config/jamendo.json   # real Jame
   500); the player skips them and downloads are validated before saving.
 * Download URLs serve real MP3s even though some responses are labelled
   `text/html`.
+
+## Lock screen / notification on Android versions
+
+| Android | What matters | Where it is handled |
+|---|---|---|
+| 5–7 | Monochrome small icon | `drawable/ic_stat_rhythmflow` |
+| 8+ | Notification channel | audio_service (`androidNotificationChannelId`) |
+| 9+ | `FOREGROUND_SERVICE` | manifest |
+| 10+ | Scoped storage for downloads / ringtones | MediaStore in `MainActivity.kt` |
+| 12+ | No foreground-service start from the background | session never reports `idle` between songs |
+| 13+ | Media controls built from the session; media notifications exempt from `POST_NOTIFICATIONS` | audio_service MediaSession + custom actions with kept icons |
+| 14+ | Typed foreground service | `foregroundServiceType="mediaPlayback"` + `FOREGROUND_SERVICE_MEDIA_PLAYBACK` |
+
+Still checked by hand on a device (not reproducible in unit tests): OEM
+battery savers (Xiaomi, Oppo, Vivo, Samsung "sleeping apps") can kill any
+background player; if a user reports it, allow RhythmFlow to run
+unrestricted in battery settings.

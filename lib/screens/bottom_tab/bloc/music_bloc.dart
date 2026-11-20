@@ -105,6 +105,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     on<_UpdateSongDuration>(_onUpdateSongDuration);
     on<_AddOrUpdateMyPlayList>(_onAddOrUpdateMyPlayList);
     on<_PlayOrPauseSong>(_onPlayOrPauseSong);
+    on<_SetPlaying>(_onSetPlaying);
     on<_PlayNext>(_onPlayNext);
     on<_PlayPrevious>(_onPlayPrevious);
     on<_ToggleShuffle>(_onToggleShuffle);
@@ -175,31 +176,11 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
       },
       onRepeat: () => add(const MusicEvent.toggleRepeat()),
     );
+    // Lock screen / notification / headset. Idempotent: a double press or a
+    // late duplicate must never toggle the song back on.
     _audioService.setPlayPauseCallbacks(
-      onPlay: () {
-        // When play is pressed from notification, trigger play/pause event
-        if (state.myPlayerState.currentSongId != null &&
-            !state.myPlayerState.isPlaying) {
-          add(
-            MusicEvent.playOrPauseSong(
-              songId: state.myPlayerState.currentSongId,
-              currentPlayList: state.myPlayerState.currentPlayList,
-            ),
-          );
-        }
-      },
-      onPause: () {
-        // When pause is pressed from notification, trigger play/pause event
-        if (state.myPlayerState.currentSongId != null &&
-            state.myPlayerState.isPlaying) {
-          add(
-            MusicEvent.playOrPauseSong(
-              songId: state.myPlayerState.currentSongId,
-              currentPlayList: state.myPlayerState.currentPlayList,
-            ),
-          );
-        }
-      },
+      onPlay: () => add(const MusicEvent.setPlaying(playing: true)),
+      onPause: () => add(const MusicEvent.setPlaying(playing: false)),
     );
     _remoteControlService.setActionCallback(_handleRemoteControlAction);
 
@@ -1105,6 +1086,24 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
   }
 
   // ==================== PLAYBACK EVENT HANDLERS ====================
+  Future<void> _onSetPlaying(_SetPlaying event, Emitter<MusicState> emit) async {
+    final player = state.myPlayerState;
+    final id = player.currentSongId;
+    if (id == null) return; // stale notification, nothing loaded
+    if (player.isPlaying == event.playing) {
+      // Already in that state; make sure the audio agrees (e.g. the OS
+      // paused the player but the app state was not updated yet).
+      if (event.playing && !_audioService.isPlaying) _audioService.resume();
+      if (!event.playing && _audioService.isPlaying) _audioService.pause();
+      return;
+    }
+    await _onPlayOrPauseSong(
+      MusicEvent.playOrPauseSong(songId: id, currentPlayList: player.currentPlayList)
+          as _PlayOrPauseSong,
+      emit,
+    );
+  }
+
   Future<void> _onPlayOrPauseSong(
     _PlayOrPauseSong event,
     Emitter<MusicState> emit,

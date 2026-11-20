@@ -18,6 +18,9 @@ class PlayCountTrackingService {
   
   // Callback for updating play counts
   static Function(String songId)? onUpdatePlayCount;
+
+  /// The song currently being tracked (for tests / diagnostics).
+  static String? get trackedSongId => _currentSong?.id;
   
   /// Start tracking a song's play progress
   static void startTracking({

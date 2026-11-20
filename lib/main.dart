@@ -8,6 +8,7 @@ import 'package:rhythmflow/core/di/injection.dart';
 import 'package:rhythmflow/screens/app_settings/bloc/app_settings_bloc.dart';
 import 'package:hive/hive.dart';
 import 'package:audio_service/audio_service.dart' as audio_service_pkg;
+import 'package:audio_session/audio_session.dart';
 import 'utils/logger/logger.dart';
 import 'utils/services/audio_handler.dart';
 import 'utils/services/audio_service.dart';
@@ -57,19 +58,22 @@ void main() async {
     logger.e('❌ Error initializing ringtones: $e');
   }
 
+  // Audio focus: pause for calls / other players, duck for navigation
+  // prompts, pause when headphones are unplugged (just_audio reacts to the
+  // session's interruption and becoming-noisy events).
+  try {
+    final session = await AudioSession.instance;
+    await session.configure(const AudioSessionConfiguration.music());
+  } catch (e) {
+    logger.w('⚠️ Audio session configuration failed: $e');
+  }
+
   // Initialize audio_service for background playback and notifications
   try {
     final audioHandler = RhythmFlowAudioHandler();
     await audio_service_pkg.AudioService.init(
       builder: () => audioHandler,
-      config: audio_service_pkg.AudioServiceConfig(
-      androidNotificationChannelId: 'com.technexa.rhythmflow.channel.audio',
-      androidNotificationChannelName: 'RhythmFlow',
-      androidNotificationOngoing: true,
-        androidStopForegroundOnPause: true, // Must be true when androidNotificationOngoing is true
-        androidShowNotificationBadge: true,
-        androidNotificationClickStartsActivity: true,
-      ),
+      config: rhythmFlowAudioServiceConfig,
     );
     
     // Set the audio handler in AudioService after initialization
@@ -210,3 +214,23 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     );
   }
 }
+
+/// Notification / lock-screen configuration (public for tests).
+const rhythmFlowAudioServiceConfig = audio_service_pkg.AudioServiceConfig(
+  androidNotificationChannelId: 'com.technexa.rhythmflow.channel.audio',
+  androidNotificationChannelName: 'RhythmFlow',
+  androidNotificationChannelDescription: 'Playback controls',
+  // Monochrome status-bar icon (a coloured launcher icon shows as a blank
+  // square on Android 5+).
+  androidNotificationIcon: 'drawable/ic_stat_rhythmflow',
+  androidNotificationOngoing: true,
+  androidStopForegroundOnPause: true, // Must be true when androidNotificationOngoing is true
+  androidShowNotificationBadge: true,
+  androidNotificationClickStartsActivity: true,
+  // Embedded covers can be several MB; sent at full size the lock-screen
+  // metadata update can exceed Android's Binder limit and fail, leaving the
+  // notification missing or stale.
+  artDownscaleWidth: 512,
+  artDownscaleHeight: 512,
+  preloadArtwork: true,
+);

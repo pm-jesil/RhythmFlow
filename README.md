@@ -198,6 +198,8 @@ flutter test                 # whole suite
 flutter test test/library    # music library scanning / auto-update tests
 flutter test test/online     # Discover: Jamendo client, blocs, playback, UI
 flutter test test/ringtone   # ringtone maker
+flutter test test/playback   # lock screen / notification session
+flutter test test/platform   # Android manifest / resources / channel checks
 # Live tests against the real Jamendo API (one per endpoint / feature):
 flutter test test/live --dart-define-from-file=config/jamendo.json
 ```
@@ -232,6 +234,16 @@ API with `tool/survey_jamendo_*.py` + `tool/generate_jamendo_region_data.py`
 suites and the Jamendo API behaviour they guard against.
 The free Jamendo API is for non-commercial use; a commercial app needs a
 Jamendo licence.
+
+### Background playback, lock screen & notification
+Playback runs in audio_service's `mediaPlayback` foreground service with a
+MediaSession, so the notification, lock screen, headset, Bluetooth and
+Android Auto controls work on Android 5–15. The session stays alive when a
+single song fails (only an explicit stop ends it), lock-screen play/pause
+are idempotent, covers are downscaled for the lock screen, the
+notification icons are kept in release builds (`res/raw/keep.xml`) and
+audio focus is configured (calls / other apps pause or duck the music).
+See `docs/TESTING.md` for the per-version table.
 
 ### Ringtone maker
 Any song (My Music or Discover) can be cut into a ringtone: full player →
