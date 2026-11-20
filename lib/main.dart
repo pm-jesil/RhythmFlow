@@ -12,6 +12,9 @@ import 'utils/logger/logger.dart';
 import 'utils/services/audio_handler.dart';
 import 'utils/services/audio_service.dart';
 import 'utils/services/library_storage.dart';
+import 'utils/services/jamendo/online_dependencies.dart';
+import 'screens/online/bloc/discover_bloc.dart';
+import 'screens/online/bloc/online_library_bloc.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_bloc.dart';
@@ -36,6 +39,13 @@ void main() async {
     logger.i('✅ Dependencies initialized successfully');
   } catch (e) {
     logger.e('❌ Error initializing dependencies: $e');
+  }
+
+  // Discover (Jamendo) services: repository, online blocs, stream URLs.
+  try {
+    await OnlineDependencies.init();
+  } catch (e) {
+    logger.e('❌ Error initializing Discover services: $e');
   }
 
   // Initialize audio_service for background playback and notifications
@@ -150,6 +160,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ),
         BlocProvider(create: (ctx) => getIt<MusicBloc>()),
         BlocProvider(create: (ctx) => getIt<AppSettingsBloc>()),
+        if (getIt.isRegistered<DiscoverBloc>())
+          BlocProvider<DiscoverBloc>.value(value: getIt<DiscoverBloc>()),
+        if (getIt.isRegistered<OnlineLibraryBloc>())
+          BlocProvider<OnlineLibraryBloc>.value(
+            value: getIt<OnlineLibraryBloc>(),
+          ),
       ],
       child: BlocBuilder<AppSettingsBloc, AppSettingsState>(
         builder: (context, appSettingsState) {

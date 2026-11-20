@@ -5,6 +5,8 @@ class Sources {
   static const String album = 'album';
   static const String artist = 'artist';
   static const String myPlaylist = 'my_playlist';
+  /// A Discover (online) list; `playlistId` is an [OnlineQueues] key.
+  static const String online = 'online';
 }
 
 class TabLabels {

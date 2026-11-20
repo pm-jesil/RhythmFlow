@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:injectable/injectable.dart';
@@ -24,6 +25,8 @@ import '../../../utils/services/my_playlist_service.dart';
 import '../../../utils/services/app_lifecycle_handler.dart';
 import '../../../utils/services/ai_shuffle/ai_shuffle_service.dart';
 import '../../../utils/services/album_art_cleanup.dart';
+import '../../../utils/services/jamendo/jamendo_models.dart';
+import '../../../utils/services/jamendo/online_song_registry.dart';
 import '../../../utils/services/library_storage.dart';
 import '../../widgets/sync_app_settings_helper.dart';
 import '../../app_settings/bloc/app_settings_bloc.dart';
@@ -345,6 +348,9 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           'isPlaying': state.myPlayerState.isPlaying,
           'lastPosition': state.myPlayerState.lastPosition?.inMilliseconds,
         },
+        // Online (Discover) songs of the queue are not in the library, so
+        // they are saved here to keep the queue playable after a restart.
+        ...onlineQueueJson(state.myPlayerState),
       };
       if (LibraryStorage.isReady) {
         // The (large) library lives in LibraryStorage and is saved only when
@@ -403,6 +409,8 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         myPlaylists,
       );
 
+      restoreOnlineQueue(json);
+
       final mp = Map<String, dynamic>.from(
         (json['myPlayerState'] as Map?) ?? const {},
       );
@@ -450,6 +458,44 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         _logger.e('Failed to clear corrupted storage: $clearError');
       }
       return null; // Fall back to initial state
+    }
+  }
+
+  /// Max online songs persisted with the queue.
+  static const int maxPersistedOnlineSongs = 500;
+
+  static Map<String, dynamic> onlineQueueJson(MyPlayerStateModel player) {
+    final ids = <String>{
+      ...player.currentPlayList,
+      ...player.completedSongs,
+      if (player.currentSongId != null) player.currentSongId!,
+    }.where(JamendoMapper.isOnlineSongId);
+    if (ids.isEmpty) return const {};
+    final songs = OnlineSongRegistry.resolveAll(
+      ids.take(maxPersistedOnlineSongs),
+    );
+    final playlistId = player.playlistId;
+    final queue = playlistId != null && playlistId.startsWith('online_')
+        ? OnlineQueues.toJson(playlistId.substring(7))
+        : null;
+    return {
+      'onlineQueueSongs': songs.map((s) => s.toJson()).toList(),
+      if (queue != null) 'onlineQueue': queue,
+    };
+  }
+
+  static void restoreOnlineQueue(Map<String, dynamic> json) {
+    final raw = json['onlineQueueSongs'];
+    if (raw is List) {
+      OnlineSongRegistry.register(
+        raw.whereType<Map>().map(
+          (e) => Song.fromJson(Map<String, dynamic>.from(e)),
+        ),
+      );
+    }
+    final queue = json['onlineQueue'];
+    if (queue is Map) {
+      OnlineQueues.restore(Map<String, dynamic>.from(queue));
     }
   }
 
@@ -1106,10 +1152,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
       if (state.myPlayerState.currentSongId == null) {
         _logger.i('🎵 No current song - playing new song');
         // No current song - play the new song
-        final song = state.allSongs.firstWhere(
-          (s) => s.id == event.songId,
-          orElse: () => throw Exception('Song not found in allSongs'),
-        );
+        final song = _requireSong(event.songId);
 
         // Determine source and create appropriate playlist
         final source = event.playlistSource ?? PlaylistSource.allSongs();
@@ -1239,10 +1282,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
       } else {
         _logger.i('🆕 Different song - playing new song');
         // Different song - play the new song
-        final song = state.allSongs.firstWhere(
-          (s) => s.id == event.songId,
-          orElse: () => throw Exception('Song not found in allSongs'),
-        );
+        final song = _requireSong(event.songId);
 
         // Determine source and create appropriate playlist
         final source = event.playlistSource ?? PlaylistSource.allSongs();
@@ -1340,9 +1380,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
         if (updatedQueue.currentSongId != null &&
             updatedQueue.currentSongId != state.myPlayerState.currentSongId) {
-          final nextSong = state.allSongs.firstWhere(
-            (s) => s.id == updatedQueue.currentSongId,
-          );
+          final nextSong = _requireSong(updatedQueue.currentSongId);
           _logger.i('🎵 Playing next song in queue: "${nextSong.title}"');
           _logger.i(
             '📋 Queue updated: ${state.myPlayerState.remainingSongs} → ${updatedQueue.remainingSongs} songs',
@@ -1406,9 +1444,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
         if (updatedQueue.currentSongId != null &&
             updatedQueue.currentSongId != state.myPlayerState.currentSongId) {
-          final previousSong = state.allSongs.firstWhere(
-            (s) => s.id == updatedQueue.currentSongId,
-          );
+          final previousSong = _requireSong(updatedQueue.currentSongId);
           _logger.i(
             '🎵 Playing previous song from completed: "${previousSong.title}"',
           );
@@ -1645,6 +1681,12 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         );
         originalOrder = myPlaylist.songIds;
         _logger.i('📋 Reverting to my playlist "${myPlaylist.name}" order');
+      } else if (playlistId.startsWith('online_')) {
+        // Discover list: its original order is kept in OnlineQueues.
+        final ids = OnlineQueues.ids(playlistId.substring(7));
+        if (ids == null) throw Exception('Online queue not found: $playlistId');
+        originalOrder = ids;
+        _logger.i('📋 Reverting to Discover list order');
       } else {
         originalOrder = getSongIds(state.allSongs);
         _logger.i('📋 Reverting to all songs order (unknown playlist)');
@@ -1739,10 +1781,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
         final sortedSongs = _applySorting(
           event.sortingList
               .map(
-                (songId) => state.allSongs.firstWhere(
-                  (song) => song.id == songId,
-                  orElse: () => throw Exception('Song not found: $songId'),
-                ),
+                (songId) => _requireSong(songId),
               )
               .toList(),
           event.sortingIndex,
@@ -1888,12 +1927,18 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
       // Get current state
       final currentState = state;
 
-      // Reorder playlist using AI shuffle
-      final reorderedPlaylist = AiShuffleService.reorderPlaylistBySimilarity(
-        currentSongId: event.currentSongId,
-        playlistSongIds: event.currentPlayList,
-        allSongs: currentState.allSongs,
+      // AI shuffle needs audio features of local files. Discover songs have
+      // none, so queues containing them get a normal random order instead.
+      final hasOnlineSongs = event.currentPlayList.any(
+        JamendoMapper.isOnlineSongId,
       );
+      final reorderedPlaylist = hasOnlineSongs
+          ? randomOrderKeepingCurrent(event.currentSongId, event.currentPlayList)
+          : AiShuffleService.reorderPlaylistBySimilarity(
+              currentSongId: event.currentSongId,
+              playlistSongIds: event.currentPlayList,
+              allSongs: currentState.allSongs,
+            );
 
       _logger.d(
         '🎯 Original playlist: ${event.currentPlayList.take(5).join(', ')}...',
@@ -1924,6 +1969,20 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
       _logger.e('Stack trace: $stackTrace');
       // Don't fail silently - maintain current playlist
     }
+  }
+
+  /// Current song first, the rest in random order.
+  static List<String> randomOrderKeepingCurrent(
+    String currentSongId,
+    List<String> playlist, [
+    Random? random,
+  ]) {
+    final rest = playlist.where((id) => id != currentSongId).toList()
+      ..shuffle(random);
+    return [
+      if (playlist.contains(currentSongId)) currentSongId,
+      ...rest,
+    ];
   }
 
   /// Mark initialization as complete to allow position updates
@@ -2078,9 +2137,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
         if (updatedQueue.currentSongId != null) {
           // Found next song - play it
-          final nextSong = state.allSongs.firstWhere(
-            (s) => s.id == updatedQueue.currentSongId,
-          );
+          final nextSong = _requireSong(updatedQueue.currentSongId);
 
           _logger.i('🔄 Playing next song: "${nextSong.title}"');
 
@@ -2130,9 +2187,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
 
         if (updatedQueue.currentSongId != null) {
           // Found previous song - play it
-          final previousSong = state.allSongs.firstWhere(
-            (s) => s.id == updatedQueue.currentSongId,
-          );
+          final previousSong = _requireSong(updatedQueue.currentSongId);
 
           _logger.i('🔄 Playing previous song: "${previousSong.title}"');
 
@@ -2261,9 +2316,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
   void _updateNotificationForCurrentSong() {
     if (state.myPlayerState.currentSongId != null) {
       try {
-        final currentSong = state.allSongs.firstWhere(
-          (song) => song.id == state.myPlayerState.currentSongId,
-        );
+        final currentSong = _requireSong(state.myPlayerState.currentSongId);
 
         // Notification is automatically managed by audio_service
         _logger.i('📱 Notification updated for: "${currentSong.title}"');
@@ -2277,9 +2330,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
   void _showNotificationForCurrentSong() {
     if (state.myPlayerState.currentSongId != null) {
       try {
-        final currentSong = state.allSongs.firstWhere(
-          (song) => song.id == state.myPlayerState.currentSongId,
-        );
+        final currentSong = _requireSong(state.myPlayerState.currentSongId);
 
         // Notification is automatically managed by audio_service
         _logger.i('📱 Notification shown for: "${currentSong.title}"');
@@ -2340,9 +2391,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
           );
 
           // Play the next song
-          final nextSong = state.allSongs.firstWhere(
-            (s) => s.id == updatedQueue.currentSongId,
-          );
+          final nextSong = _requireSong(updatedQueue.currentSongId);
           
           // Sync shuffle/repeat state to notification BEFORE playing
           // This ensures notification shows correct icons from the start
@@ -2527,6 +2576,21 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
   }
 
   // ==================== HELPER METHODS ====================
+  /// Finds a song by id in the device library, then among online
+  /// (Discover) songs. Online songs are never part of `allSongs`.
+  Song? findSong(String? id) {
+    if (id == null) return null;
+    for (final song in state.allSongs) {
+      if (song.id == id) return song;
+    }
+    return OnlineSongRegistry.get(id);
+  }
+
+  /// Like [findSong] but throws when the song is unknown (callers already
+  /// handle the failure, as with the previous `firstWhere`).
+  Song _requireSong(String? id) =>
+      findSong(id) ?? (throw Exception('Song not found: $id'));
+
   /// Get current song from state using allSongs
   Song? get currentSong {
     if (state.myPlayerState.currentSongId == null) {
@@ -2534,9 +2598,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
     }
 
     try {
-      return state.allSongs.firstWhere(
-        (song) => song.id == state.myPlayerState.currentSongId,
-      );
+      return _requireSong(state.myPlayerState.currentSongId);
     } catch (e) {
       _logger.e('Error finding current song: $e');
       return null;
@@ -2547,10 +2609,7 @@ class MusicBloc extends HydratedBloc<MusicEvent, MusicState> {
   List<Song> get currentPlayListSongs {
     return state.myPlayerState.currentPlayList
         .map(
-          (songId) => state.allSongs.firstWhere(
-            (song) => song.id == songId,
-            orElse: () => throw Exception('Song not found: $songId'),
-          ),
+          (songId) => _requireSong(songId),
         )
         .toList();
   }

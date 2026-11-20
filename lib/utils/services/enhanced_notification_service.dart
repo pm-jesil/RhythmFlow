@@ -49,6 +49,11 @@ class EnhancedNotificationService {
   static Uri? _getAlbumArtUri(Song song) {
     try {
       if (song.albumArt != null && song.albumArt!.isNotEmpty) {
+        final art = song.albumArt!;
+        // Discover songs: audio_service downloads and caches http(s) art.
+        if (art.startsWith('http://') || art.startsWith('https://')) {
+          return Uri.parse(art);
+        }
         final file = File(song.albumArt!);
         if (file.existsSync()) {
           _logger.d('📸 Using album art: ${song.albumArt}');

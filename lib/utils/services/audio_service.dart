@@ -34,6 +34,11 @@ class AudioService {
   // Callback to notify when song changes
   Function(Song song)? onSongChanged;
 
+  /// Resolves a playable URL for an online (Discover) song. Set at startup to
+  /// `JamendoRepository.resolveStreamUrl`; when null the song's own
+  /// `streamUrl` is used.
+  static Future<String?> Function(Song song)? remoteUrlResolver;
+
   /// Called with the real duration reported by the player after a song is
   /// loaded (used to fill in songs whose tags had no readable duration).
   void Function(Song song, Duration duration)? onDurationResolved;
@@ -327,21 +332,33 @@ class AudioService {
       // Notify listeners that song has changed
       onSongChanged?.call(song);
 
-      // Validate file exists
-      final file = File(song.path);
-      if (!await file.exists()) {
-        _logger.e('❌ Song file not found: ${song.path}');
+      final AudioSource audioSource;
+      if (song.isOnline) {
+        // Discover song: stream it. Jamendo stream URLs are signed, so a
+        // fresh URL is resolved for songs restored from storage.
+        final resolver = remoteUrlResolver;
+        final url = resolver != null ? await resolver(song) : song.streamUrl;
+        if (url == null || url.isEmpty) {
+          _logger.e('❌ No stream URL for online song: ${song.title}');
+          _handleInvalidSong(song, playlistId, playlistSource);
+          return;
+        }
+        audioSource = AudioSource.uri(Uri.parse(url));
+      } else {
+        // Validate file exists
+        final file = File(song.path);
+        if (!await file.exists()) {
+          _logger.e('❌ Song file not found: ${song.path}');
 
-        // Instead of throwing exception, handle gracefully
-        _handleInvalidSong(song, playlistId, playlistSource);
-        return; // Exit gracefully
+          // Instead of throwing exception, handle gracefully
+          _handleInvalidSong(song, playlistId, playlistSource);
+          return; // Exit gracefully
+        }
+        audioSource = AudioSource.file(song.path);
       }
-
-      _logger.d('📁 File exists, size: ${await file.length()} bytes');
 
       // Create MediaItem and play directly
       final mediaItem = _createMediaItem(song);
-      final audioSource = AudioSource.file(song.path);
 
       await _audioPlayer.setAudioSource(audioSource);
       

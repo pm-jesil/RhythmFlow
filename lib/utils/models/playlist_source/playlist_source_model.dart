@@ -34,4 +34,10 @@ class PlaylistSource with _$PlaylistSource {
         source: 'my_playlist',
         playlistId: playlistId,
       );
+
+  /// A Discover list registered in `OnlineQueues` under [queueKey].
+  factory PlaylistSource.online(String queueKey) => PlaylistSource(
+        source: 'online',
+        playlistId: queueKey,
+      );
 }

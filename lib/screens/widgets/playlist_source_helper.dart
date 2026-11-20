@@ -1,6 +1,7 @@
 import '../../utils/models/playlist_source/playlist_source_model.dart';
 import '../../utils/models/song/song_model.dart';
 import '../../core/constants/app_constants.dart';
+import '../../utils/services/jamendo/online_song_registry.dart';
 
 /// Centralized helper for PlaylistSource operations and conversions
 class PlaylistSourceHelper {
@@ -22,6 +23,8 @@ class PlaylistSourceHelper {
     } else if (playlistId.startsWith('my_playlist_')) {
       final myPlaylistId = playlistId.substring(12);
       return PlaylistSource.myPlaylist(myPlaylistId);
+    } else if (playlistId.startsWith('online_')) {
+      return PlaylistSource.online(playlistId.substring(7));
     }
     
     return null;
@@ -38,6 +41,8 @@ class PlaylistSourceHelper {
         return 'artist_${playlistSource.artistId}';
       case Sources.myPlaylist:
         return 'my_playlist_${playlistSource.playlistId}';
+      case Sources.online:
+        return 'online_${playlistSource.playlistId}';
       default:
         return 'unknown';
     }
@@ -74,6 +79,10 @@ class PlaylistSourceHelper {
           orElse: () => throw Exception('MyPlaylist not found: ${playlistSource.playlistId}'),
         );
         return getSongsFromIds(myPlaylist.songIds, state.allSongs);
+      case Sources.online:
+        return OnlineSongRegistry.resolveAll(
+          OnlineQueues.ids(playlistSource.playlistId ?? '') ?? const [],
+        );
       default:
         return state.allSongs;
     }
@@ -85,13 +94,16 @@ class PlaylistSourceHelper {
   }
 
   /// Get songs from song IDs using allSongs list
+  /// Ids may also refer to online (Discover) songs, which are not part of
+  /// the device library.
   static List<Song> getSongsFromIds(List<String> songIds, List<Song> allSongs) {
+    final byId = {for (final s in allSongs) s.id: s};
     return songIds
         .map(
-          (songId) => allSongs.firstWhere(
-            (song) => song.id == songId,
-            orElse: () => throw Exception('Song not found: $songId'),
-          ),
+          (songId) =>
+              byId[songId] ??
+              OnlineSongRegistry.get(songId) ??
+              (throw Exception('Song not found: $songId')),
         )
         .toList();
   }
@@ -113,6 +125,8 @@ class PlaylistSourceHelper {
         case Sources.myPlaylist:
           if (playlistSource.playlistId == null) return false;
           return state.myPlaylist.any((playlist) => playlist.id == playlistSource.playlistId);
+        case Sources.online:
+          return OnlineQueues.ids(playlistSource.playlistId ?? '') != null;
         default:
           return false;
       }
@@ -132,6 +146,8 @@ class PlaylistSourceHelper {
         return 'Artist';
       case Sources.myPlaylist:
         return 'Playlist';
+      case Sources.online:
+        return 'Discover';
       default:
         return 'Unknown';
     }
@@ -164,6 +180,8 @@ class PlaylistSourceHelper {
             orElse: () => throw Exception('Playlist not found'),
           );
           return playlist.name;
+        case Sources.online:
+          return OnlineQueues.title(playlistSource.playlistId ?? '') ?? 'Discover';
         default:
           return null;
       }
@@ -225,6 +243,8 @@ class PlaylistSourceHelper {
             orElse: () => throw Exception('Playlist not found'),
           );
           return playlist.songIds.length;
+        case Sources.online:
+          return OnlineQueues.ids(playlistSource.playlistId ?? '')?.length ?? 0;
         default:
           return 0;
       }
