@@ -1,6 +1,6 @@
-import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'art_image.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../core/theme/theme_extension.dart';
@@ -279,11 +279,9 @@ class _CustomMusicFloatingButtonState extends State<CustomMusicFloatingButton>
                           child: ClipOval(
                             child: currentSong.albumArt != null && 
                                    currentSong.albumArt!.isNotEmpty
-                                ? Image.file(
-                                    File(currentSong.albumArt!),
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) =>
-                                        _buildDefaultBackground(context),
+                                ? ArtImage(
+                                    path: currentSong.albumArt!,
+                                    fallback: _buildDefaultBackground,
                                   )
                                 : _buildDefaultBackground(context),
                           ),

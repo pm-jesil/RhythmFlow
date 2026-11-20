@@ -1,0 +1,62 @@
+{
+ "headers": {
+  "status": "success",
+  "code": 0,
+  "error_message": "",
+  "warnings": "",
+  "results_count": 1
+ },
+ "results": [
+  {
+   "id": "551562",
+   "name": "StimiBeats",
+   "website": "",
+   "joindate": "2022-10-27",
+   "image": "https://usercontent.jamendo.com?type=artist&id=551562&width=300",
+   "tracks": [
+    {
+     "album_id": "501708",
+     "album_name": "Infinite Place",
+     "id": "1984098",
+     "name": "Lost Apology",
+     "duration": "211",
+     "releasedate": "2022-11-08",
+     "license_ccurl": "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+     "album_image": "https://usercontent.jamendo.com?type=album&id=501708&width=300&trackid=1984098",
+     "image": "https://usercontent.jamendo.com?type=album&id=501708&width=300&trackid=1984098",
+     "audio": "https://prod-1.storage.jamendo.com/?trackid=1984098&format=mp32&from=rWCqU1UN4XxEtQy4S7VRDw%3D%3D%7CXRjXV%2FQmbW%2Fk4cQOjFT4uw%3D%3D",
+     "audiodownload": "https://prod-1.storage.jamendo.com/download/track/1984098/mp32/",
+     "audiodownload_allowed": true
+    },
+    {
+     "album_id": "501708",
+     "album_name": "Infinite Place",
+     "id": "1984099",
+     "name": "It Is Tough To Make Skies",
+     "duration": "247",
+     "releasedate": "2022-11-08",
+     "license_ccurl": "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+     "album_image": "https://usercontent.jamendo.com?type=album&id=501708&width=300&trackid=1984099",
+     "image": "https://usercontent.jamendo.com?type=album&id=501708&width=300&trackid=1984099",
+     "audio": "https://prod-1.storage.jamendo.com/?trackid=1984099&format=mp32&from=6pZRK8Dl8D955DQ%2F0MkZog%3D%3D%7CB3zpy2jY8zzy550EpfHzSg%3D%3D",
+     "audiodownload": "https://prod-1.storage.jamendo.com/download/track/1984099/mp32/",
+     "audiodownload_allowed": true
+    },
+    {
+     "album_id": "501708",
+     "album_name": "Infinite Place",
+     "id": "1984100",
+     "name": "Mess of Nights",
+     "duration": "221",
+     "releasedate": "2022-11-08",
+     "license_ccurl": "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+     "album_image": "https://usercontent.jamendo.com?type=album&id=501708&width=300&trackid=1984100",
+     "image": "https://usercontent.jamendo.com?type=album&id=501708&width=300&trackid=1984100",
+     "audio": "https://prod-1.storage.jamendo.com/?trackid=1984100&format=mp32&from=t%2FLevWjgs0Q5a13LgpXuDQ%3D%3D%7Cp2Zgor0jahdoPNixbfBPdg%3D%3D",
+     "audiodownload": "https://prod-1.storage.jamendo.com/download/track/1984100/mp32/",
+     "audiodownload_allowed": true
+    }
+   ]
+  }
+ ]
+}

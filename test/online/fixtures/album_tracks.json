@@ -1,0 +1,57 @@
+{
+ "headers": {
+  "status": "success",
+  "code": 0,
+  "error_message": "",
+  "warnings": "",
+  "results_count": 1
+ },
+ "results": [
+  {
+   "id": "522038",
+   "name": "Impression - Meditation Music",
+   "releasedate": "2023-06-01",
+   "artist_id": "551562",
+   "artist_name": "StimiBeats",
+   "track_id": "2034077",
+   "image": "https://usercontent.jamendo.com?type=album&id=522038&width=300&trackid=2034077",
+   "zip": "https://storage.jamendo.com/download/a522038/mp32/",
+   "zip_allowed": true,
+   "tracks": [
+    {
+     "count": "1",
+     "id": "2034077",
+     "position": "6",
+     "name": "Golden Skies - Meditation Music",
+     "duration": "218",
+     "license_ccurl": "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+     "audio": "https://prod-1.storage.jamendo.com/?trackid=2034077&format=mp32&from=AN7c4V97ELq0JX32cFKD9A%3D%3D%7CZX28MBMYKbU31uLSoaIwQQ%3D%3D",
+     "audiodownload": "https://prod-1.storage.jamendo.com/download/track/2034077/mp32/",
+     "audiodownload_allowed": true
+    },
+    {
+     "count": "1",
+     "id": "2034078",
+     "position": "9",
+     "name": "Black Memories - Meditation Music",
+     "duration": "217",
+     "license_ccurl": "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+     "audio": "https://prod-1.storage.jamendo.com/?trackid=2034078&format=mp32&from=%2BHqQ5OF5J1ClA%2BZkN2ffLA%3D%3D%7CvT6ChxLC67Rhz%2F9eual6wg%3D%3D",
+     "audiodownload": "https://prod-1.storage.jamendo.com/download/track/2034078/mp32/",
+     "audiodownload_allowed": true
+    },
+    {
+     "count": "1",
+     "id": "2034079",
+     "position": "1",
+     "name": "Sunset Dreams - Meditation Music",
+     "duration": "233",
+     "license_ccurl": "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+     "audio": "https://prod-1.storage.jamendo.com/?trackid=2034079&format=mp32&from=3HbWTIaodoFSKrOtVtg1iw%3D%3D%7CmCiafnJDkzdj9ihQMRsHnw%3D%3D",
+     "audiodownload": "https://prod-1.storage.jamendo.com/download/track/2034079/mp32/",
+     "audiodownload_allowed": true
+    }
+   ]
+  }
+ ]
+}

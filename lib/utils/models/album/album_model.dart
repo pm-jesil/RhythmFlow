@@ -18,6 +18,11 @@ class Album with _$Album {
     String? genre,
     int? year,
     int? playCount,
+    // Online (Jamendo) albums; null for local albums.
+    String? source,
+    String? remoteId,
+    String? artistName,
+    String? shareUrl,
   }) = _Album;
 
   factory Album.fromJson(Map<String, dynamic> json) => _$AlbumFromJson(json);

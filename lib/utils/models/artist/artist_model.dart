@@ -15,6 +15,11 @@ class Artist with _$Artist {
     DateTime? updatedAt,
     DateTime? lastPlayed,
     int? playCount,
+    // Online (Jamendo) artists; null for local artists.
+    String? source,
+    String? remoteId,
+    String? shareUrl,
+    String? website,
   }) = _Artist;
 
   factory Artist.fromJson(Map<String, dynamic> json) => _$ArtistFromJson(json);

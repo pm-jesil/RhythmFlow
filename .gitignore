@@ -91,3 +91,5 @@ android/app/*.jks
 .vscode/settings.json
 .vscode/launch.json
 .vscode/tasks.json
+# Jamendo API client id (see config/jamendo.example.json)
+config/jamendo.json

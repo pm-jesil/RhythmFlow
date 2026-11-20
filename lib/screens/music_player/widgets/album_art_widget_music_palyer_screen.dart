@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../widgets/art_image.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'dart:io';
 import 'dart:math' as math;
 
 import '../../../utils/logger/logger.dart';
@@ -376,12 +376,9 @@ class _AlbumArtWidgetOnMusicPlayerScreenState extends State<AlbumArtWidgetOnMusi
       child: ClipRRect(
         borderRadius: BorderRadius.circular(18.r),
         child: song.albumArt != null
-            ? Image.file(
-                File(song.albumArt!),
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return _buildDefaultAlbumArt(context);
-                },
+            ? ArtImage(
+                path: song.albumArt!,
+                fallback: _buildDefaultAlbumArt,
               )
             : _buildDefaultAlbumArt(context),
       ),

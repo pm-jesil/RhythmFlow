@@ -1,0 +1,33 @@
+{
+ "headers": {
+  "status": "success",
+  "code": 0,
+  "error_message": "",
+  "warnings": "",
+  "results_count": 3,
+  "next": "https://api.jamendo.com/v3.0/radios?limit=3&client_id=TEST&format=json&offset=3"
+ },
+ "results": [
+  {
+   "id": 1,
+   "name": "bestof",
+   "dispname": "Best Of Jamendo Radio",
+   "type": "www",
+   "image": "https://images.jamendo.com/new_jamendo_radios/bestof150.jpg"
+  },
+  {
+   "id": 2,
+   "name": "electro",
+   "dispname": "Electronic Radio",
+   "type": "www",
+   "image": "https://images.jamendo.com/new_jamendo_radios/electro150.jpg"
+  },
+  {
+   "id": 3,
+   "name": "rock",
+   "dispname": "Rock Radio",
+   "type": "www",
+   "image": "https://images.jamendo.com/new_jamendo_radios/rock150.jpg"
+  }
+ ]
+}

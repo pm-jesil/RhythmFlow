@@ -23,6 +23,8 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
     on<_UpdateUserProfile>(_onUpdateUserProfile);
     on<_UpdateAiShuffle>(_onUpdateAiShuffle);
     on<_TrackShuffleUsage>(_onTrackShuffleUsage);
+    on<_UpdateMusicSource>(_onUpdateMusicSource);
+    on<_UpdateMusicRegion>(_onUpdateMusicRegion);
 
     // Initialize theme sync
     _initializeThemeSync();
@@ -135,6 +137,9 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
     final currentNickName = state.nickName;
     final currentIsDarkMode = state.isDarkMode;
     final currentFollowSystemTheme = state.followSystemTheme;
+    final currentMusicSource = state.musicSource;
+    final currentMusicCountry = state.musicCountry;
+    final currentMusicLanguages = state.musicLanguages;
 
     // Create new state with preserved values
     final resetState = AppSettingsState(
@@ -180,6 +185,9 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
       isDarkMode: currentIsDarkMode,
       followSystemTheme: currentFollowSystemTheme,
       shuffleHistory: [],
+      musicSource: currentMusicSource,
+      musicCountry: currentMusicCountry,
+      musicLanguages: currentMusicLanguages,
     );
 
     emit(resetState);
@@ -284,6 +292,32 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
     emit(state.copyWith(shuffleHistory: currentHistory));
   }
 
+  void _onUpdateMusicSource(
+    _UpdateMusicSource event,
+    Emitter<AppSettingsState> emit,
+  ) {
+    final source = event.source == MusicSourceKeys.local
+        ? MusicSourceKeys.local
+        : MusicSourceKeys.online;
+    emit(state.copyWith(musicSource: source));
+  }
+
+  void _onUpdateMusicRegion(
+    _UpdateMusicRegion event,
+    Emitter<AppSettingsState> emit,
+  ) {
+    final languages = <String>[];
+    for (final code in event.languages) {
+      if (code.isNotEmpty && !languages.contains(code)) languages.add(code);
+    }
+    emit(
+      state.copyWith(
+        musicCountry: event.country.isEmpty ? null : event.country.toUpperCase(),
+        musicLanguages: languages,
+      ),
+    );
+  }
+
   @override
   Map<String, dynamic>? toJson(AppSettingsState state) {
     try {
@@ -303,6 +337,10 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
         'userName': state.userName,
         'nickName': state.nickName,
         'shuffleHistory': state.shuffleHistory,
+        'isAiShuffleEnabled': state.isAiShuffleEnabled,
+        'musicSource': state.musicSource,
+        'musicCountry': state.musicCountry,
+        'musicLanguages': state.musicLanguages,
       };
     } catch (_) {
       return null; // skip persisting on serialization errors
@@ -360,6 +398,11 @@ class AppSettingsBloc extends HydratedBloc<AppSettingsEvent, AppSettingsState> {
         nickName: json['nickName'],
         isAiShuffleEnabled: json['isAiShuffleEnabled'] ?? true,
         shuffleHistory: List<String>.from(json['shuffleHistory'] ?? []),
+        musicSource: json['musicSource'] == MusicSourceKeys.local
+            ? MusicSourceKeys.local
+            : MusicSourceKeys.online,
+        musicCountry: json['musicCountry'] as String?,
+        musicLanguages: List<String>.from(json['musicLanguages'] ?? const []),
       );
     } catch (e) {
       return null;

@@ -1,0 +1,48 @@
+{
+ "headers": {
+  "status": "success",
+  "code": 0,
+  "error_message": "",
+  "warnings": "",
+  "results_count": 3,
+  "next": "https://api.jamendo.com/v3.0/albums?limit=3&order=popularity_month&imagesize=300&client_id=TEST&format=json&offset=3"
+ },
+ "results": [
+  {
+   "id": "641166",
+   "name": "Broken Heart",
+   "releasedate": "2026-07-09",
+   "artist_id": "561522",
+   "artist_name": "Kirill Kharchenko",
+   "image": "https://usercontent.jamendo.com?type=album&id=641166&width=300&trackid=2330946",
+   "zip": "https://storage.jamendo.com/download/a641166/mp32/",
+   "shorturl": "https://jamen.do/l/a641166",
+   "shareurl": "https://www.jamendo.com/list/a641166",
+   "zip_allowed": true
+  },
+  {
+   "id": "641163",
+   "name": "Feelings",
+   "releasedate": "2026-07-09",
+   "artist_id": "561522",
+   "artist_name": "Kirill Kharchenko",
+   "image": "https://usercontent.jamendo.com?type=album&id=641163&width=300&trackid=2330945",
+   "zip": "https://storage.jamendo.com/download/a641163/mp32/",
+   "shorturl": "https://jamen.do/l/a641163",
+   "shareurl": "https://www.jamendo.com/list/a641163",
+   "zip_allowed": true
+  },
+  {
+   "id": "618368",
+   "name": "Perfect for Each Other (35XAlive Mix)",
+   "releasedate": "2025-11-21",
+   "artist_id": "602325",
+   "artist_name": "DJ35X",
+   "image": "https://usercontent.jamendo.com?type=album&id=618368&width=300&trackid=2286580",
+   "zip": "",
+   "shorturl": "https://jamen.do/l/a618368",
+   "shareurl": "https://www.jamendo.com/list/a618368",
+   "zip_allowed": false
+  }
+ ]
+}

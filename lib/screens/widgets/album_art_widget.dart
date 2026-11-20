@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'art_image.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:rhythmflow/core/theme/theme_extension.dart';
 
@@ -48,6 +49,12 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
     }
   }
 
+  /// URLs (Discover / Jamendo art) are network images even when the caller
+  /// did not set [AlbumArtWidget.isNetworkImage].
+  bool get _isRemote =>
+      widget.isNetworkImage ||
+      (widget.albumArt != null && ArtImage.isRemote(widget.albumArt!));
+
   Future<void> _checkImageExists() async {
     if (widget.albumArt == null) {
       setState(() {
@@ -57,7 +64,7 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
       return;
     }
 
-    if (widget.isNetworkImage) {
+    if (_isRemote) {
       // For network images, we don't need to check existence
       // The loading and error states will be handled by the Image.network widget
       setState(() {
@@ -197,24 +204,16 @@ class _AlbumArtWidgetState extends State<AlbumArtWidget> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(widget.borderRadius),
-        child: widget.isNetworkImage
-            ? Image.network(
-                widget.albumArt!,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return _buildLoadingWidget();
-                },
-                errorBuilder: (context, error, stackTrace) {
-                  return _buildErrorWidget();
-                },
+        child: _isRemote
+            ? ArtImage(
+                path: widget.albumArt!,
+                placeholder: (_) => _buildLoadingWidget(),
+                fallback: (_) => _buildErrorWidget(),
               )
-            : Image.file(
-                File(widget.albumArt!),
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return _buildErrorWidget();
-                },
+            : ArtImage(
+                path: widget.albumArt!,
+                placeholder: (_) => _buildLoadingWidget(),
+                fallback: (_) => _buildErrorWidget(),
               ),
       ),
     );

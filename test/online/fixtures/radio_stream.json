@@ -1,0 +1,29 @@
+{
+ "headers": {
+  "status": "success",
+  "code": 0,
+  "error_message": "",
+  "warnings": "",
+  "results_count": 1
+ },
+ "results": [
+  {
+   "id": 1,
+   "name": "bestof",
+   "dispname": "Best Of Jamendo Radio",
+   "type": "www",
+   "image": "https://images.jamendo.com/new_jamendo_radios/bestof150.jpg",
+   "stream": "https://streaming.jamendo.com/JamBestOf",
+   "playingnow": {
+    "track_id": 0,
+    "artist_id": 0,
+    "album_id": 0,
+    "album_name": "",
+    "track_name": "",
+    "track_image": "",
+    "artist_name": ""
+   },
+   "callmeback": ""
+  }
+ ]
+}

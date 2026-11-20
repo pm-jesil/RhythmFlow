@@ -45,6 +45,17 @@ class Song with _$Song {
     String? albumArtist,
     List<double>? audioEmbedding,
     SongFeatures ? features,
+
+    // ---- Online (Discover / Jamendo) songs. All null for local songs. ----
+    /// `jamendo` for Jamendo tracks, `jamendo_radio` for radio streams,
+    /// null for on-device songs.
+    String? source,
+    String? remoteId,
+    String? streamUrl,
+    String? downloadUrl,
+    bool? downloadAllowed,
+    String? licenseUrl,
+    String? shareUrl,
   }) = _Song;
 
   factory Song.fromJson(Map<String, dynamic> json) => _$SongFromJson(json);
@@ -83,6 +94,18 @@ extension SongExtension on Song {
 
   bool get hasAlbumArt => albumArt != null && albumArt!.isNotEmpty;
 
+  /// True for songs streamed from the internet (Discover).
+  bool get isOnline => source != null;
+
+  /// True for live radio streams (no fixed duration, no next/previous).
+  bool get isRadio => source == SongSources.jamendoRadio;
+
+  /// Only Jamendo tracks whose artist allows it may be downloaded.
+  bool get canDownload =>
+      source == SongSources.jamendo &&
+      downloadAllowed == true &&
+      (downloadUrl?.isNotEmpty ?? false);
+
   String get searchableText =>
       '${title.toLowerCase()} ${allArtists.toLowerCase()} ${allAlbums.toLowerCase()} ${genre?.toLowerCase() ?? ''}'
           .trim();
@@ -97,4 +120,11 @@ extension SongExtension on Song {
       return '${(fileSize! / kb).toStringAsFixed(2)} KB';
     }
   }
+}
+
+/// Values of [Song.source].
+class SongSources {
+  SongSources._();
+  static const String jamendo = 'jamendo';
+  static const String jamendoRadio = 'jamendo_radio';
 }

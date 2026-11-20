@@ -52,6 +52,15 @@ class AppSettingsEvent with _$AppSettingsEvent {
     required String nickName,
   }) = _UpdateUserProfile;
 
+  const factory AppSettingsEvent.updateMusicSource({
+    required String source,
+  }) = _UpdateMusicSource;
+
+  const factory AppSettingsEvent.updateMusicRegion({
+    required String country,
+    required List<String> languages,
+  }) = _UpdateMusicRegion;
+
   const factory AppSettingsEvent.trackShuffleUsage({
     required String shuffleType,
   }) = _TrackShuffleUsage;

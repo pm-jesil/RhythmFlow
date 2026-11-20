@@ -1,0 +1,39 @@
+{
+ "headers": {
+  "status": "success",
+  "code": 0,
+  "error_message": "",
+  "warnings": "",
+  "results_count": 3,
+  "next": "https://api.jamendo.com/v3.0/artists?limit=3&order=popularity_month&hasimage=true&client_id=TEST&format=json&offset=3"
+ },
+ "results": [
+  {
+   "id": "606964",
+   "name": "Serjilio",
+   "website": "",
+   "joindate": "2026-09-25",
+   "image": "https://usercontent.jamendo.com?type=artist&id=606964&width=300",
+   "shorturl": "https://jamen.do/a/606964",
+   "shareurl": "https://www.jamendo.com/artist/606964"
+  },
+  {
+   "id": "606708",
+   "name": "Airbox",
+   "website": "",
+   "joindate": "2026-08-29",
+   "image": "",
+   "shorturl": "https://jamen.do/a/606708",
+   "shareurl": "https://www.jamendo.com/artist/606708"
+  },
+  {
+   "id": "603966",
+   "name": "Sweet Orange Music",
+   "website": "",
+   "joindate": "2026-01-13",
+   "image": "",
+   "shorturl": "https://jamen.do/a/603966",
+   "shareurl": "https://www.jamendo.com/artist/603966"
+  }
+ ]
+}

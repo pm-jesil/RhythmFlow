@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
+import '../widgets/art_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -187,7 +187,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                               child: Container(
                                 decoration: BoxDecoration(
                                   image: DecorationImage(
-                                    image: FileImage(File(coverImage)),
+                                    image: ArtImage.provider(coverImage),
                                     fit: BoxFit.cover,
                                   ),
                                 ),
@@ -620,11 +620,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       child: song.albumArt != null
                           ? ClipRRect(
                               borderRadius: BorderRadius.circular(8.r),
-                              child: Image.file(
-                                File(song.albumArt!),
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    _buildTrackNumber(index),
+                              child: ArtImage(
+                                path: song.albumArt!,
+                                fallback: (_) => _buildTrackNumber(index),
                               ),
                             )
                           : _buildTrackNumber(index),

@@ -18,6 +18,16 @@ class AppSettingsState with _$AppSettingsState {
     String? userName,
     String? nickName,
     required List<String> shuffleHistory,
+
+    // Music source shown in all tabs: 'online' (Discover / Jamendo) or
+    // 'local' (My Music). Discover is the default.
+    @Default(MusicSourceKeys.online) String musicSource,
+
+    // Discover personalisation: ISO 3166-1 alpha-2 country code and
+    // ISO 639-1 language codes (first = primary). Null/empty until the user
+    // picks them (Welcome screen, Discover setup sheet or Profile).
+    String? musicCountry,
+    @Default(<String>[]) List<String> musicLanguages,
   }) = _Initial;
 
   factory AppSettingsState.initial() => AppSettingsState(
@@ -62,4 +72,19 @@ class AppSettingsState with _$AppSettingsState {
     nickName: null,
     shuffleHistory: [],
   );
+}
+
+/// Persisted values of [AppSettingsState.musicSource].
+class MusicSourceKeys {
+  MusicSourceKeys._();
+  static const String online = 'online';
+  static const String local = 'local';
+}
+
+extension AppSettingsRegionX on AppSettingsState {
+  bool get isOnlineSource => musicSource != MusicSourceKeys.local;
+
+  /// Discover needs a country and at least one language.
+  bool get hasMusicRegion =>
+      (musicCountry?.isNotEmpty ?? false) && musicLanguages.isNotEmpty;
 }
