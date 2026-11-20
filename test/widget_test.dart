@@ -28,7 +28,11 @@ class MockAppSettingsBloc extends Mock implements AppSettingsBloc {
 /// ForYouScreen reads AppSettingsBloc, so the tests must provide one.
 AppSettingsBloc _mockAppSettingsBloc() {
   final bloc = MockAppSettingsBloc();
-  when(() => bloc.state).thenReturn(AppSettingsState.initial());
+  // These tests cover the My Music (local) For You screen; Discover has its
+  // own widget tests in test/online/.
+  when(() => bloc.state).thenReturn(
+    AppSettingsState.initial().copyWith(musicSource: MusicSourceKeys.local),
+  );
   when(() => bloc.stream).thenAnswer((_) => const Stream.empty());
   return bloc;
 }

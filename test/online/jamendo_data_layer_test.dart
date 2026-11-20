@@ -344,9 +344,11 @@ void main() {
     test('language picks: tagged tracks first, then artists from its countries', () async {
       t.handler = (uri) {
         final p = uri.queryParameters;
-        if (p['fuzzytags'] == 'hindi') return envelope([
-          {'id': '1', 'name': 'Tagged', 'artist_name': 'X'},
-        ]);
+        if (p['fuzzytags'] == 'hindi') {
+          return envelope([
+            {'id': '1', 'name': 'Tagged', 'artist_name': 'X'},
+          ]);
+        }
         if (uri.path.contains('artists/locations')) return envelope([{'id': '10'}]);
         return envelope([
           {'id': '2', 'name': 'From India', 'artist_name': 'Y'},

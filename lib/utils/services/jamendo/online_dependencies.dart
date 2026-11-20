@@ -7,6 +7,7 @@ import '../../../screens/online/bloc/discover_bloc.dart';
 import '../../../screens/online/bloc/online_library_bloc.dart';
 import '../../logger/logger.dart';
 import '../audio_service.dart';
+import 'download_service.dart';
 import 'jamendo_cache.dart';
 import 'jamendo_repository.dart';
 import 'online_song_registry.dart';
@@ -33,10 +34,19 @@ class OnlineDependencies {
     final discover = DiscoverBloc(repository: repository);
     getIt.registerSingleton<DiscoverBloc>(discover);
 
+    final musicBloc = getIt<MusicBloc>();
+    getIt.registerSingleton<DownloadService>(
+      DownloadService(
+        library: library,
+        // New file in Music/RhythmFlow -> refresh "My Music".
+        onSaved: () => musicBloc.requestAutoRefresh(reason: 'song downloaded'),
+      ),
+    );
+
     final settings = getIt<AppSettingsBloc>();
     connect(
       settings: settings,
-      musicBloc: getIt<MusicBloc>(),
+      musicBloc: musicBloc,
       discover: discover,
       library: library,
     );

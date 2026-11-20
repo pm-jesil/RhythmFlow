@@ -26,6 +26,10 @@ class PlaylistDetailScreen extends StatefulWidget {
   final List<Song> songs;
   final String? coverImage;
 
+  /// Overrides the queue source (Discover albums/artists/mixes use an
+  /// online source so the queue and shuffle-revert work).
+  final PlaylistSource? playlistSource;
+
   const PlaylistDetailScreen({
     super.key,
     required this.type,
@@ -37,6 +41,7 @@ class PlaylistDetailScreen extends StatefulWidget {
     required this.songCount,
     required this.songs,
     this.coverImage,
+    this.playlistSource,
   });
 
   @override
@@ -76,6 +81,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   }
 
   PlaylistSource _getPlaylistSource() {
+    final override = widget.playlistSource;
+    if (override != null) return override;
     switch (widget.type) {
       case PlaylistDetailType.album:
         return PlaylistSource.album(widget.id);

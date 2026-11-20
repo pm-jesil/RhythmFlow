@@ -3,7 +3,10 @@ package com.technexa.rhythmflow
 import android.app.Activity
 import android.app.RecoverableSecurityException
 import android.content.ContentUris
+import android.content.ContentValues
 import android.content.Intent
+import android.media.MediaScannerConnection
+import android.os.Environment
 import android.database.ContentObserver
 import android.net.Uri
 import android.os.Build
@@ -24,6 +27,9 @@ import java.io.File
  *    java.io.File, so a system consent dialog (MediaStore.createDeleteRequest)
  *    is shown. Android 10 uses RecoverableSecurityException, older versions a
  *    plain delete.
+ *  - `saveAudioToMusic(tempPath, fileName, title, artist, album)`: copies a
+ *    downloaded Discover song into Music/RhythmFlow (MediaStore insert on
+ *    Android 10+, direct write + media scan before) and returns its path.
  *  - `startObserving` / `stopObserving`: a ContentObserver on the audio
  *    collection; Dart is notified (`onMediaStoreChanged`) whenever audio files
  *    are added, changed or removed so the library refreshes while the app is
@@ -57,6 +63,22 @@ class MainActivity : AudioServiceActivity() {
                             result.error("bad_args", "path is required", null)
                         } else {
                             deleteAudioFile(path, result)
+                        }
+                    }
+                    "saveAudioToMusic" -> {
+                        val tempPath = call.argument<String>("tempPath")
+                        val fileName = call.argument<String>("fileName")
+                        if (tempPath.isNullOrEmpty() || fileName.isNullOrEmpty()) {
+                            result.error("bad_args", "tempPath and fileName are required", null)
+                        } else {
+                            saveAudioToMusic(
+                                tempPath,
+                                fileName,
+                                call.argument<String>("title"),
+                                call.argument<String>("artist"),
+                                call.argument<String>("album"),
+                                result,
+                            )
                         }
                     }
                     "startObserving" -> {
@@ -109,6 +131,85 @@ class MainActivity : AudioServiceActivity() {
             }
         }
         audioObserver = null
+    }
+
+    // ==================== SAVE DOWNLOAD ====================
+
+    private fun saveAudioToMusic(
+        tempPath: String,
+        fileName: String,
+        title: String?,
+        artist: String?,
+        album: String?,
+        result: MethodChannel.Result,
+    ) {
+        Thread {
+            try {
+                val path = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    insertIntoMediaStore(tempPath, fileName, title, artist, album)
+                } else {
+                    writeLegacy(tempPath, fileName)
+                }
+                runOnUiThread { result.success(path) }
+            } catch (e: Exception) {
+                runOnUiThread { result.error("save_failed", e.message, null) }
+            }
+        }.start()
+    }
+
+    @Suppress("DEPRECATION")
+    private fun insertIntoMediaStore(
+        tempPath: String,
+        fileName: String,
+        title: String?,
+        artist: String?,
+        album: String?,
+    ): String {
+        val collection = MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val values = ContentValues().apply {
+            put(MediaStore.Audio.Media.DISPLAY_NAME, fileName)
+            put(MediaStore.Audio.Media.MIME_TYPE, "audio/mpeg")
+            put(MediaStore.Audio.Media.RELATIVE_PATH, Environment.DIRECTORY_MUSIC + "/RhythmFlow")
+            put(MediaStore.Audio.Media.IS_PENDING, 1)
+            if (!title.isNullOrEmpty()) put(MediaStore.Audio.Media.TITLE, title)
+            if (!artist.isNullOrEmpty()) put(MediaStore.Audio.Media.ARTIST, artist)
+            if (!album.isNullOrEmpty()) put(MediaStore.Audio.Media.ALBUM, album)
+        }
+        val uri = contentResolver.insert(collection, values)
+            ?: throw IllegalStateException("MediaStore insert failed")
+        try {
+            contentResolver.openOutputStream(uri)?.use { out ->
+                File(tempPath).inputStream().use { input -> input.copyTo(out) }
+            } ?: throw IllegalStateException("Cannot open output stream")
+            values.clear()
+            values.put(MediaStore.Audio.Media.IS_PENDING, 0)
+            contentResolver.update(uri, values, null, null)
+        } catch (e: Exception) {
+            contentResolver.delete(uri, null, null)
+            throw e
+        }
+        contentResolver.query(uri, arrayOf(MediaStore.Audio.Media.DATA), null, null, null)
+            ?.use { c -> if (c.moveToFirst()) return c.getString(0) }
+        return Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
+            .absolutePath + "/RhythmFlow/" + fileName
+    }
+
+    @Suppress("DEPRECATION")
+    private fun writeLegacy(tempPath: String, fileName: String): String {
+        val dir = File(
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC),
+            "RhythmFlow",
+        )
+        if (!dir.exists() && !dir.mkdirs()) throw IllegalStateException("Cannot create $dir")
+        var target = File(dir, fileName)
+        var n = 1
+        while (target.exists()) {
+            target = File(dir, fileName.removeSuffix(".mp3") + " ($n).mp3")
+            n++
+        }
+        File(tempPath).copyTo(target)
+        MediaScannerConnection.scanFile(this, arrayOf(target.absolutePath), arrayOf("audio/mpeg"), null)
+        return target.absolutePath
     }
 
     // ==================== DELETE ====================

@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 import '../../core/theme/theme_extension.dart';
 import '../../core/constants/app_constants.dart';
 import '../../utils/logger/logger.dart';
 import '../../utils/services/app_initialization_service.dart';
+import '../online/bloc/online_browse_bloc.dart';
+import '../online/online_browse_screen.dart';
+import '../online/online_playlists_screen.dart';
+import '../app_settings/bloc/app_settings_bloc.dart';
 import 'screens/song_list_screen.dart';
 import 'screens/for_you_screen.dart';
 import 'screens/albums_screen.dart';
@@ -134,8 +139,22 @@ class BottomTabState extends State<BottomTab> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  // Lazy loading screens for better performance
-  Widget _getScreen(int index) {
+  // Lazy loading screens for better performance.
+  // For You is shared (it switches its own content); the other tabs show
+  // the device library (My Music) or Jamendo (Discover).
+  Widget _getScreen(int index, {required bool online}) {
+    if (online && index != 0) {
+      switch (index) {
+        case 1:
+          return const OnlineBrowseScreen(kind: OnlineBrowseKind.tracks);
+        case 2:
+          return const OnlineBrowseScreen(kind: OnlineBrowseKind.albums);
+        case 3:
+          return const OnlineBrowseScreen(kind: OnlineBrowseKind.artists);
+        case 4:
+          return const OnlinePlaylistsScreen();
+      }
+    }
     switch (index) {
       case 0:
         return const ForYouScreen();
@@ -186,8 +205,20 @@ class BottomTabState extends State<BottomTab> with TickerProviderStateMixin {
     return Scaffold(
       body: Stack(
         children: [
-          // Main content with lazy loading
-          _getScreen(_selectedIndex),
+          // Main content with lazy loading (cross-fades when the music
+          // source changes).
+          BlocSelector<AppSettingsBloc, AppSettingsState, bool>(
+            selector: (state) => state.isOnlineSource,
+            builder: (context, online) => AnimatedSwitcher(
+              duration: const Duration(milliseconds: 280),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              child: KeyedSubtree(
+                key: ValueKey('tab_${_selectedIndex}_${online && _selectedIndex != 0}'),
+                child: _getScreen(_selectedIndex, online: online),
+              ),
+            ),
+          ),
 
           // Pop-up Music Player Widget (appears on all screens)
           const PopUpMusicPlayerWidget(),

@@ -3,7 +3,7 @@
 /// The client id is passed at build time so it is not committed:
 ///   flutter run --dart-define-from-file=config/jamendo.json
 /// where `config/jamendo.json` (git-ignored) contains
-///   {"JAMENDO_CLIENT_ID": "<your client id>"}
+///   `{"JAMENDO_CLIENT_ID": "your-client-id"}`
 /// Only the client id is needed for the read-only API; never put the client
 /// secret into the app.
 class JamendoConfig {

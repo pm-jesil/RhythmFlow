@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../utils/services/jamendo/region_models.dart';
+import 'online/widgets/region_pickers.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../core/theme/theme_extension.dart';
@@ -16,6 +18,11 @@ class WelcomeScreen extends StatefulWidget {
 class _WelcomeScreenState extends State<WelcomeScreen>
     with TickerProviderStateMixin {
   final _nicknameController = TextEditingController();
+
+  // Discover personalisation (optional). Pre-selected from the device
+  // locale; no network call.
+  String? _musicCountry;
+  List<String> _musicLanguages = const [];
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -46,6 +53,16 @@ class _WelcomeScreenState extends State<WelcomeScreen>
         );
 
     _animationController.forward();
+
+    final locale = WidgetsBinding.instance.platformDispatcher.locale;
+    final suggestion = MusicRegions.suggestFromLocale(
+      locale.languageCode,
+      locale.countryCode,
+    );
+    _musicCountry = suggestion.country?.alpha2;
+    _musicLanguages = suggestion.language == null
+        ? const []
+        : [suggestion.language!.code];
   }
 
   @override
@@ -251,6 +268,28 @@ class _WelcomeScreenState extends State<WelcomeScreen>
         // Nickname Field
         _buildNicknameField(),
         SizedBox(height: 24.h),
+
+        // Country & music language (optional, used by Discover)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Personalise Discover (optional)',
+            style: TextStyle(
+              color: context.onSurfaceVariantColor,
+              fontSize: 12.sp,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'Poppins',
+            ),
+          ),
+        ),
+        SizedBox(height: 10.h),
+        RegionFields(
+          country: _musicCountry,
+          languages: _musicLanguages,
+          onCountryChanged: (c) => setState(() => _musicCountry = c),
+          onLanguagesChanged: (l) => setState(() => _musicLanguages = l),
+        ),
+        SizedBox(height: 24.h),
       ],
     );
   }
@@ -365,7 +404,16 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   void _completeSetup() {
     // Save user profile (using nickname for both fields)
     final nickname = _nicknameController.text.trim();
-    context.read<AppSettingsBloc>().add(
+    final settings = context.read<AppSettingsBloc>();
+    if ((_musicCountry?.isNotEmpty ?? false) && _musicLanguages.isNotEmpty) {
+      settings.add(
+        AppSettingsEvent.updateMusicRegion(
+          country: _musicCountry!,
+          languages: _musicLanguages,
+        ),
+      );
+    }
+    settings.add(
       AppSettingsEvent.updateUserProfile(
         userName: nickname, // Use nickname as userName too
         nickName: nickname,

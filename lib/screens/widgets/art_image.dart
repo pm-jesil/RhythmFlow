@@ -36,7 +36,7 @@ class ArtImage extends StatelessWidget {
         fadeInDuration: const Duration(milliseconds: 250),
         placeholder: (context, _) =>
             placeholder?.call(context) ?? fallback(context),
-        errorWidget: (context, _, __) => fallback(context),
+        errorWidget: (context, _, _) => fallback(context),
       );
     }
     return Image.file(

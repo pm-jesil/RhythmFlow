@@ -263,7 +263,7 @@ void main() {
         return null;
       };
       Song? invalid;
-      service.setInvalidSongCallback((song, _, __) => invalid = song);
+      service.setInvalidSongCallback((song, _, _) => invalid = song);
       final song = onlineSong(5);
       await service.playSong(song);
       expect(resolved, [song.id]);

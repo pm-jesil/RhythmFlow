@@ -78,6 +78,28 @@ class MediaStoreBridge {
     changeDebounce = const Duration(seconds: 3);
   }
 
+  /// Saves a downloaded song into `Music/RhythmFlow` and returns its final
+  /// path (Android). Throws [PlatformException] on failure.
+  static Future<String> saveAudioToMusic({
+    required String tempPath,
+    required String fileName,
+    String? title,
+    String? artist,
+    String? album,
+  }) async {
+    final path = await channel.invokeMethod<String>('saveAudioToMusic', {
+      'tempPath': tempPath,
+      'fileName': fileName,
+      'title': title,
+      'artist': artist,
+      'album': album,
+    });
+    if (path == null || path.isEmpty) {
+      throw PlatformException(code: 'save_failed', message: 'No path returned');
+    }
+    return path;
+  }
+
   /// Deletes an audio file. Returns `true` when the file is gone, `false`
   /// when the user cancelled the system confirmation. Throws on errors.
   ///

@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../online/bloc/discover_bloc.dart';
+import '../../online/discover_home_content.dart';
+import '../../online/widgets/discover_setup_dialog.dart';
+import '../../widgets/music_source_switch.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -244,7 +248,10 @@ class _ForYouScreenState extends State<ForYouScreen> {
           builder: (context, musicState) {
             return BlocBuilder<AppSettingsBloc, AppSettingsState>(
               builder: (context, appSettingsState) {
-                return CustomScrollView(
+                final online = appSettingsState.isOnlineSource;
+                if (online) _maybeAskForRegion(appSettingsState);
+                final scrollView = CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
                     // Content
                     SliverPadding(
@@ -253,8 +260,16 @@ class _ForYouScreenState extends State<ForYouScreen> {
                         delegate: SliverChildListDelegate([
                           // Welcome Section
                           _buildAnimatedWelcomeSection(),
+                          SizedBox(height: _itemSpacing.h * 1.5),
+
+                          // My Music | Discover
+                          const MusicSourceSwitch(),
                           SizedBox(height: _largeSpacing.h),
 
+                          if (online) ...[
+                            const DiscoverHomeContent(),
+                            SizedBox(height: 150.h),
+                          ] else ...[
                           // Quick Stats
                           _buildAnimatedQuickStats(musicState),
                           SizedBox(height: _largeSpacing.h),
@@ -274,10 +289,23 @@ class _ForYouScreenState extends State<ForYouScreen> {
                           // Top Artists (by play count)
                           _buildTopArtistsByPlayCount(musicState),
                           SizedBox(height: 150.h),
+                          ],
                         ]),
                       ),
                     ),
                   ],
+                );
+                if (!online) return scrollView;
+                return RefreshIndicator(
+                  color: context.primaryStart,
+                  onRefresh: () async {
+                    final discover = context.read<DiscoverBloc>();
+                    discover.add(const DiscoverEvent.loadHome(force: true));
+                    await discover.stream.firstWhere(
+                      (d) => d.sections.values.every((x) => !x.isLoading),
+                    );
+                  },
+                  child: scrollView,
                 );
               },
             );
@@ -285,6 +313,18 @@ class _ForYouScreenState extends State<ForYouScreen> {
         ),
       ),
     );
+  }
+
+  /// The Discover setup popup is offered once per app session when Discover
+  /// is shown without a country / language.
+  static bool _regionPromptShown = false;
+
+  void _maybeAskForRegion(AppSettingsState settings) {
+    if (settings.hasMusicRegion || _regionPromptShown) return;
+    _regionPromptShown = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) showDiscoverSetupDialog(context);
+    });
   }
 
   Widget _buildAnimatedWelcomeSection() {

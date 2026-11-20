@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../online/widgets/region_pickers.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../core/theme/theme_extension.dart';
@@ -21,6 +22,13 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   String _originalUserName = '';
   String _originalNickName = '';
 
+  // Discover personalisation
+  String? _musicCountry;
+  List<String> _musicLanguages = const [];
+  String _originalRegion = '';
+
+  String get _regionKey => '${_musicCountry ?? ''}|${_musicLanguages.join(',')}';
+
   @override
   void initState() {
     super.initState();
@@ -33,6 +41,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     _originalNickName = state.nickName ?? '';
     _userNameController.text = _originalUserName;
     _nicknameController.text = _originalNickName;
+    _musicCountry = state.musicCountry;
+    _musicLanguages = state.musicLanguages;
+    _originalRegion = _regionKey;
     
     // Add listeners to detect changes
     _userNameController.addListener(_onTextChanged);
@@ -48,7 +59,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     final currentNickName = _nicknameController.text.trim();
     
     return currentUserName != _originalUserName || 
-           currentNickName != _originalNickName;
+           currentNickName != _originalNickName ||
+           _regionKey != _originalRegion;
   }
 
   bool _isFormValid() {
@@ -196,6 +208,15 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             }
             return null;
           },
+        ),
+        SizedBox(height: 20.h),
+
+        // Discover personalisation
+        RegionFields(
+          country: _musicCountry,
+          languages: _musicLanguages,
+          onCountryChanged: (c) => setState(() => _musicCountry = c),
+          onLanguagesChanged: (l) => setState(() => _musicLanguages = l),
         ),
       ],
     );
@@ -368,6 +389,18 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     });
 
     try {
+      // Update Discover country / languages
+      if (_regionKey != _originalRegion &&
+          (_musicCountry?.isNotEmpty ?? false) &&
+          _musicLanguages.isNotEmpty) {
+        context.read<AppSettingsBloc>().add(
+          AppSettingsEvent.updateMusicRegion(
+            country: _musicCountry!,
+            languages: _musicLanguages,
+          ),
+        );
+      }
+
       // Update profile
       context.read<AppSettingsBloc>().add(
         AppSettingsEvent.updateUserProfile(
